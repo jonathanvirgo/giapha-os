@@ -38,6 +38,7 @@ export default function LoginPage() {
   const supabase = useMemo(() => createClient(), []);
 
   const [isLogin, setIsLogin] = useState(true);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [confirmPassword, setConfirmPassword] = useState("");
 
@@ -105,7 +106,7 @@ export default function LoginPage() {
               router.refresh();
             } else {
               setSuccessMessage(
-                "Đăng ký thành công! Vui lòng chờ admin kích hoạt tài khoản để xem nội dung.",
+                "Đăng ký thành công! Vui lòng xác thực email để đăng nhập.",
               );
               setIsLogin(true); // Switch back to login view
               setConfirmPassword(""); // clear confirm password
@@ -117,6 +118,33 @@ export default function LoginPage() {
     } catch (err) {
       setError("An unexpected error occurred");
       console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      const redirectTo = `${window.location.origin}/auth/callback?type=recovery`;
+
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo,
+      });
+
+      if (error) {
+        setError(error.message);
+      } else {
+        setSuccessMessage(
+          "Đã gửi email khôi phục mật khẩu! Vui lòng kiểm tra hộp thư (bao gồm cả thư mục Spam).",
+        );
+      }
+    } catch {
+      setError("Đã xảy ra lỗi không mong muốn.");
     } finally {
       setLoading(false);
     }
@@ -150,12 +178,18 @@ export default function LoginPage() {
               <Shield className="size-8 text-amber-600" />
             </Link>
             <h2 className="text-3xl sm:text-4xl font-serif font-bold text-stone-900 tracking-tight">
-              {isLogin ? "Đăng nhập" : "Đăng ký"}
+              {isForgotPassword
+                ? "Quên mật khẩu"
+                : isLogin
+                  ? "Đăng nhập"
+                  : "Đăng ký"}
             </h2>
             <p className="mt-3 text-sm text-stone-500 font-medium tracking-wide">
-              {isLogin
-                ? "Đăng nhập để truy cập gia phả."
-                : "Tạo tài khoản thành viên mới."}
+              {isForgotPassword
+                ? "Nhập email để nhận link khôi phục mật khẩu."
+                : isLogin
+                  ? "Đăng nhập để truy cập gia phả."
+                  : "Tạo tài khoản thành viên mới."}
             </p>
             {isDemo && (
               <motion.div
@@ -170,178 +204,311 @@ export default function LoginPage() {
             )}
           </div>
 
-          <form className="space-y-5 relative z-10" onSubmit={handleSubmit}>
-            <div className="space-y-4">
-              <div className="relative">
-                <label
-                  htmlFor="email-address"
-                  className="block text-[13px] font-semibold text-stone-600 mb-1.5 ml-1"
-                >
-                  Email
-                </label>
-                <div className="relative flex items-center group">
-                  <Mail className="absolute left-3.5 size-5 text-stone-400 group-focus-within:text-amber-500 transition-colors" />
-                  <input
-                    id="email-address"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    required
-                    className="bg-white/50 text-stone-900 placeholder-stone-400 block w-full rounded-xl border border-stone-200/80 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.05)] focus:border-amber-400 focus:ring-amber-400 focus:bg-white pl-11 pr-4 py-3.5 transition-all duration-200 outline-none"
-                    placeholder="name@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="relative">
-                <label
-                  htmlFor="password"
-                  className="block text-[13px] font-semibold text-stone-600 mb-1.5 ml-1"
-                >
-                  Mật khẩu
-                </label>
-                <div className="relative flex items-center group">
-                  <KeyRound className="absolute left-3.5 size-5 text-stone-400 group-focus-within:text-amber-500 transition-colors" />
-                  <input
-                    id="password"
-                    name="password"
-                    type="password"
-                    autoComplete={isLogin ? "current-password" : "new-password"}
-                    required
-                    className="bg-white/50 text-stone-900 placeholder-stone-400 block w-full rounded-xl border border-stone-200/80 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.05)] focus:border-amber-400 focus:ring-amber-400 focus:bg-white pl-11 pr-4 py-3.5 transition-all duration-200 outline-none"
-                    placeholder="Nhập mật khẩu"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
+          {/* Forgot Password Form */}
+          {isForgotPassword ? (
+            <form
+              className="space-y-5 relative z-10"
+              onSubmit={handleForgotPassword}
+            >
+              <div className="space-y-4">
+                <div className="relative">
+                  <label
+                    htmlFor="forgot-email"
+                    className="block text-[13px] font-semibold text-stone-600 mb-1.5 ml-1"
+                  >
+                    Email
+                  </label>
+                  <div className="relative flex items-center group">
+                    <Mail className="absolute left-3.5 size-5 text-stone-400 group-focus-within:text-amber-500 transition-colors" />
+                    <input
+                      id="forgot-email"
+                      name="email"
+                      type="email"
+                      autoComplete="email"
+                      required
+                      className="bg-white/50 text-stone-900 placeholder-stone-400 block w-full rounded-xl border border-stone-200/80 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.05)] focus:border-amber-400 focus:ring-amber-400 focus:bg-white pl-11 pr-4 py-3.5 transition-all duration-200 outline-none"
+                      placeholder="name@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
 
               <AnimatePresence>
-                {!isLogin && (
+                {error && (
                   <motion.div
-                    initial={{ opacity: 0, height: 0, marginTop: 0 }}
-                    animate={{ opacity: 1, height: "auto", marginTop: 16 }}
-                    exit={{ opacity: 0, height: 0, marginTop: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="relative overflow-hidden"
+                    initial={{ opacity: 0, y: -10, height: 0 }}
+                    animate={{ opacity: 1, y: 0, height: "auto" }}
+                    exit={{ opacity: 0, y: -10, height: 0 }}
+                    className="text-red-700 text-[13px] text-center bg-red-50 p-3 rounded-xl border border-red-100/50 font-medium"
                   >
-                    <label
-                      htmlFor="confirmPassword"
-                      className="block text-[13px] font-semibold text-stone-600 mb-1.5 ml-1"
-                    >
-                      Xác nhận mật khẩu
-                    </label>
-                    <div className="relative flex items-center group">
-                      <KeyRound className="absolute left-3.5 size-5 text-stone-400 group-focus-within:text-amber-500 transition-colors" />
-                      <input
-                        id="confirmPassword"
-                        name="confirmPassword"
-                        type="password"
-                        autoComplete="new-password"
-                        required={!isLogin}
-                        className="bg-white/50 text-stone-900 placeholder-stone-400 block w-full rounded-xl border border-stone-200/80 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.05)] focus:border-amber-400 focus:ring-amber-400 focus:bg-white pl-11 pr-4 py-3.5 transition-all duration-200 outline-none"
-                        placeholder="Nhập lại mật khẩu"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                      />
-                    </div>
+                    {error}
+                  </motion.div>
+                )}
+
+                {successMessage && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10, height: 0 }}
+                    animate={{ opacity: 1, y: 0, height: "auto" }}
+                    exit={{ opacity: 0, y: -10, height: 0 }}
+                    className="text-teal-700 text-[13px] text-center bg-teal-50 p-3 rounded-xl border border-teal-100/50 font-medium"
+                  >
+                    {successMessage}
                   </motion.div>
                 )}
               </AnimatePresence>
-            </div>
 
-            <AnimatePresence>
-              {error && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10, height: 0 }}
-                  animate={{ opacity: 1, y: 0, height: "auto" }}
-                  exit={{ opacity: 0, y: -10, height: 0 }}
-                  className="text-red-700 text-[13px] text-center bg-red-50 p-3 rounded-xl border border-red-100/50 font-medium"
+              <div className="flex flex-col gap-4 pt-4">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="group relative w-full flex justify-center items-center gap-2 py-4 px-4 text-[15px] font-bold rounded-xl text-white bg-stone-900 hover:bg-stone-800 border border-stone-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-stone-900 disabled:opacity-70 disabled:cursor-wait transition-all duration-300 shadow-xl shadow-stone-900/10 hover:shadow-2xl hover:shadow-stone-900/20 hover:-translate-y-0.5"
                 >
-                  {error}
-                </motion.div>
-              )}
+                  {loading ? (
+                    <span className="flex items-center gap-2.5">
+                      <svg
+                        className="animate-spin -ml-1 h-4 w-4 text-white"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Đang gửi...
+                    </span>
+                  ) : (
+                    <>
+                      <Mail className="size-4 mr-1" />
+                      Gửi email khôi phục
+                    </>
+                  )}
+                </button>
 
-              {successMessage && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10, height: 0 }}
-                  animate={{ opacity: 1, y: 0, height: "auto" }}
-                  exit={{ opacity: 0, y: -10, height: 0 }}
-                  className="text-teal-700 text-[13px] text-center bg-teal-50 p-3 rounded-xl border border-teal-100/50 font-medium"
-                >
-                  {successMessage}
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <div className="flex flex-col gap-4 pt-4">
-              <button
-                type="submit"
-                disabled={loading}
-                className="group relative w-full flex justify-center items-center gap-2 py-4 px-4 text-[15px] font-bold rounded-xl text-white bg-stone-900 hover:bg-stone-800 border border-stone-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-stone-900 disabled:opacity-70 disabled:cursor-wait transition-all duration-300 shadow-xl shadow-stone-900/10 hover:shadow-2xl hover:shadow-stone-900/20 hover:-translate-y-0.5"
-              >
-                {loading ? (
-                  <span className="flex items-center gap-2.5">
-                    <svg
-                      className="animate-spin -ml-1 h-4 w-4 text-white"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      ></circle>
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
-                    </svg>
-                    Đang xử lý...
+                <div className="relative flex items-center py-2 opacity-60">
+                  <div className="grow border-t border-stone-200"></div>
+                  <span className="shrink-0 mx-4 text-stone-400 text-[11px] uppercase tracking-wider font-bold">
+                    Hoặc
                   </span>
-                ) : (
-                  <>
-                    {isLogin ? "Đăng nhập" : "Tạo tài khoản"}
-                    {!isLogin && <UserPlus className="size-4 ml-1" />}
-                  </>
-                )}
-              </button>
+                  <div className="grow border-t border-stone-200"></div>
+                </div>
 
-              <div className="relative flex items-center py-2 opacity-60">
-                <div className="grow border-t border-stone-200"></div>
-                <span className="shrink-0 mx-4 text-stone-400 text-[11px] uppercase tracking-wider font-bold">
-                  Hoặc
-                </span>
-                <div className="grow border-t border-stone-200"></div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsForgotPassword(false);
+                    setError(null);
+                    setSuccessMessage(null);
+                  }}
+                  className="w-full text-sm font-semibold text-stone-600 hover:text-stone-900 bg-white hover:bg-stone-50 border border-stone-200/80 py-3.5 rounded-xl shadow-[0_2px_8px_-3px_rgba(0,0,0,0.05)] focus:outline-none transition-all duration-200"
+                >
+                  ← Quay lại đăng nhập
+                </button>
+              </div>
+            </form>
+          ) : (
+            /* Login / Signup Form */
+            <form className="space-y-5 relative z-10" onSubmit={handleSubmit}>
+              <div className="space-y-4">
+                <div className="relative">
+                  <label
+                    htmlFor="email-address"
+                    className="block text-[13px] font-semibold text-stone-600 mb-1.5 ml-1"
+                  >
+                    Email
+                  </label>
+                  <div className="relative flex items-center group">
+                    <Mail className="absolute left-3.5 size-5 text-stone-400 group-focus-within:text-amber-500 transition-colors" />
+                    <input
+                      id="email-address"
+                      name="email"
+                      type="email"
+                      autoComplete="email"
+                      required
+                      className="bg-white/50 text-stone-900 placeholder-stone-400 block w-full rounded-xl border border-stone-200/80 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.05)] focus:border-amber-400 focus:ring-amber-400 focus:bg-white pl-11 pr-4 py-3.5 transition-all duration-200 outline-none"
+                      placeholder="name@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="relative">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label
+                      htmlFor="password"
+                      className="block text-[13px] font-semibold text-stone-600 ml-1"
+                    >
+                      Mật khẩu
+                    </label>
+                    {isLogin && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsForgotPassword(true);
+                          setError(null);
+                          setSuccessMessage(null);
+                        }}
+                        className="text-[12px] font-semibold text-amber-600 hover:text-amber-800 transition-colors"
+                      >
+                        Quên mật khẩu?
+                      </button>
+                    )}
+                  </div>
+                  <div className="relative flex items-center group">
+                    <KeyRound className="absolute left-3.5 size-5 text-stone-400 group-focus-within:text-amber-500 transition-colors" />
+                    <input
+                      id="password"
+                      name="password"
+                      type="password"
+                      autoComplete={
+                        isLogin ? "current-password" : "new-password"
+                      }
+                      required
+                      className="bg-white/50 text-stone-900 placeholder-stone-400 block w-full rounded-xl border border-stone-200/80 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.05)] focus:border-amber-400 focus:ring-amber-400 focus:bg-white pl-11 pr-4 py-3.5 transition-all duration-200 outline-none"
+                      placeholder="Nhập mật khẩu"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <AnimatePresence>
+                  {!isLogin && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                      animate={{ opacity: 1, height: "auto", marginTop: 16 }}
+                      exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="relative overflow-hidden"
+                    >
+                      <label
+                        htmlFor="confirmPassword"
+                        className="block text-[13px] font-semibold text-stone-600 mb-1.5 ml-1"
+                      >
+                        Xác nhận mật khẩu
+                      </label>
+                      <div className="relative flex items-center group">
+                        <KeyRound className="absolute left-3.5 size-5 text-stone-400 group-focus-within:text-amber-500 transition-colors" />
+                        <input
+                          id="confirmPassword"
+                          name="confirmPassword"
+                          type="password"
+                          autoComplete="new-password"
+                          required={!isLogin}
+                          className="bg-white/50 text-stone-900 placeholder-stone-400 block w-full rounded-xl border border-stone-200/80 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.05)] focus:border-amber-400 focus:ring-amber-400 focus:bg-white pl-11 pr-4 py-3.5 transition-all duration-200 outline-none"
+                          placeholder="Nhập lại mật khẩu"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                        />
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  if (isLogin && isDemo) {
-                    setError(
-                      "Đây là trang demo, bạn không cần phải tạo tài khoản. Hãy sử dụng tài khoản demo để truy cập với toàn bộ quyền.",
-                    );
-                    return;
-                  }
-                  setIsLogin(!isLogin);
-                  setError(null);
-                  setSuccessMessage(null);
-                }}
-                className="w-full text-sm font-semibold text-stone-600 hover:text-stone-900 bg-white hover:bg-stone-50 border border-stone-200/80 py-3.5 rounded-xl shadow-[0_2px_8px_-3px_rgba(0,0,0,0.05)] focus:outline-none transition-all duration-200"
-              >
-                {isLogin
-                  ? "Chưa có tài khoản? Đăng ký ngay"
-                  : "Đã có tài khoản? Đăng nhập"}
-              </button>
-            </div>
-          </form>
+              <AnimatePresence>
+                {error && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10, height: 0 }}
+                    animate={{ opacity: 1, y: 0, height: "auto" }}
+                    exit={{ opacity: 0, y: -10, height: 0 }}
+                    className="text-red-700 text-[13px] text-center bg-red-50 p-3 rounded-xl border border-red-100/50 font-medium"
+                  >
+                    {error}
+                  </motion.div>
+                )}
+
+                {successMessage && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10, height: 0 }}
+                    animate={{ opacity: 1, y: 0, height: "auto" }}
+                    exit={{ opacity: 0, y: -10, height: 0 }}
+                    className="text-teal-700 text-[13px] text-center bg-teal-50 p-3 rounded-xl border border-teal-100/50 font-medium"
+                  >
+                    {successMessage}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <div className="flex flex-col gap-4 pt-4">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="group relative w-full flex justify-center items-center gap-2 py-4 px-4 text-[15px] font-bold rounded-xl text-white bg-stone-900 hover:bg-stone-800 border border-stone-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-stone-900 disabled:opacity-70 disabled:cursor-wait transition-all duration-300 shadow-xl shadow-stone-900/10 hover:shadow-2xl hover:shadow-stone-900/20 hover:-translate-y-0.5"
+                >
+                  {loading ? (
+                    <span className="flex items-center gap-2.5">
+                      <svg
+                        className="animate-spin -ml-1 h-4 w-4 text-white"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Đang xử lý...
+                    </span>
+                  ) : (
+                    <>
+                      {isLogin ? "Đăng nhập" : "Tạo tài khoản"}
+                      {!isLogin && <UserPlus className="size-4 ml-1" />}
+                    </>
+                  )}
+                </button>
+
+                <div className="relative flex items-center py-2 opacity-60">
+                  <div className="grow border-t border-stone-200"></div>
+                  <span className="shrink-0 mx-4 text-stone-400 text-[11px] uppercase tracking-wider font-bold">
+                    Hoặc
+                  </span>
+                  <div className="grow border-t border-stone-200"></div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isLogin && isDemo) {
+                      setError(
+                        "Đây là trang demo, bạn không cần phải tạo tài khoản. Hãy sử dụng tài khoản demo để truy cập với toàn bộ quyền.",
+                      );
+                      return;
+                    }
+                    setIsLogin(!isLogin);
+                    setError(null);
+                    setSuccessMessage(null);
+                  }}
+                  className="w-full text-sm font-semibold text-stone-600 hover:text-stone-900 bg-white hover:bg-stone-50 border border-stone-200/80 py-3.5 rounded-xl shadow-[0_2px_8px_-3px_rgba(0,0,0,0.05)] focus:outline-none transition-all duration-200"
+                >
+                  {isLogin
+                    ? "Chưa có tài khoản? Đăng ký ngay"
+                    : "Đã có tài khoản? Đăng nhập"}
+                </button>
+              </div>
+            </form>
+          )}
         </motion.div>
       </div>
 

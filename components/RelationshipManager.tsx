@@ -709,57 +709,56 @@ export default function RelationshipManager({
                 (searchTerm.length === 0 &&
                   !selectedTargetId &&
                   recentMembers.length > 0)) && (
-                <div className="mt-2 bg-white border border-stone-200 rounded-md shadow-lg max-h-[250px] overflow-y-auto">
-                  <div className="px-3 py-1.5 bg-stone-100 text-[10px] font-bold text-stone-500 uppercase tracking-wide border-b border-stone-200 sticky top-0 z-10">
-                    {searchResults.length > 0
-                      ? "Kết quả tìm kiếm"
-                      : "Thành viên vừa thêm gần đây"}
+                  <div className="mt-2 bg-white border border-stone-200 rounded-md shadow-lg max-h-[250px] overflow-y-auto">
+                    <div className="px-3 py-1.5 bg-stone-100 text-[10px] font-bold text-stone-500 uppercase tracking-wide border-b border-stone-200 sticky top-0 z-10">
+                      {searchResults.length > 0
+                        ? "Kết quả tìm kiếm"
+                        : "Thành viên vừa thêm gần đây"}
+                    </div>
+                    {(searchResults.length > 0
+                      ? searchResults
+                      : recentMembers
+                    ).map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => {
+                          setSelectedTargetId(p.id);
+                          setSearchTerm(p.full_name);
+                          setSearchResults([]);
+                        }}
+                        className="px-3 py-2 hover:bg-amber-50 text-sm flex items-center justify-between border-b border-stone-100 last:border-0"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`flex items-center justify-center text-[8px] font-bold size-3 rounded-full text-white shrink-0
+                               ${p.gender === "male"
+                                ? "bg-sky-500"
+                                : p.gender === "female"
+                                  ? "bg-rose-500"
+                                  : "bg-stone-400"
+                              }`}
+                          >
+                            {p.gender === "male"
+                              ? "♂"
+                              : p.gender === "female"
+                                ? "♀"
+                                : "?"}
+                          </span>
+                          <span className="font-medium text-stone-800">
+                            {p.full_name}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-stone-400">
+                          {formatDisplayDate(
+                            p.birth_year,
+                            p.birth_month,
+                            p.birth_day,
+                          )}
+                        </span>
+                      </button>
+                    ))}
                   </div>
-                  {(searchResults.length > 0
-                    ? searchResults
-                    : recentMembers
-                  ).map((p) => (
-                    <button
-                      key={p.id}
-                      onClick={() => {
-                        setSelectedTargetId(p.id);
-                        setSearchTerm(p.full_name);
-                        setSearchResults([]);
-                      }}
-                      className="px-3 py-2 hover:bg-amber-50 text-sm flex items-center justify-between border-b border-stone-100 last:border-0"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`flex items-center justify-center text-[8px] font-bold size-3 rounded-full text-white shrink-0
-                               ${
-                                 p.gender === "male"
-                                   ? "bg-sky-500"
-                                   : p.gender === "female"
-                                     ? "bg-rose-500"
-                                     : "bg-stone-400"
-                               }`}
-                        >
-                          {p.gender === "male"
-                            ? "♂"
-                            : p.gender === "female"
-                              ? "♀"
-                              : "?"}
-                        </span>
-                        <span className="font-medium text-stone-800">
-                          {p.full_name}
-                        </span>
-                      </div>
-                      <span className="text-[10px] text-stone-400">
-                        {formatDisplayDate(
-                          p.birth_year,
-                          p.birth_month,
-                          p.birth_day,
-                        )}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
+                )}
               {selectedTargetId && (
                 <p className="text-xs text-green-600 mt-1">
                   Đã chọn: {searchTerm}
@@ -806,7 +805,7 @@ export default function RelationshipManager({
               <select
                 value={selectedSpouseId}
                 onChange={(e) => setSelectedSpouseId(e.target.value)}
-                className="flex-1 bg-white text-stone-900 placeholder-stone-400 text-sm rounded-md sm:rounded-lg border-stone-300 shadow-sm focus:border-sky-500 focus:ring-sky-500 p-2 sm:p-2.5 border transition-colors"
+                className="w-full bg-white text-stone-900 placeholder-stone-400 text-sm rounded-md sm:rounded-lg border-stone-300 shadow-sm focus:border-sky-500 focus:ring-sky-500 p-2 sm:p-2.5 border transition-colors"
               >
                 <option value="unknown">
                   Không rõ (hoặc Vợ/Chồng khác chưa thêm)
@@ -825,68 +824,98 @@ export default function RelationshipManager({
                 Danh sách các con
               </label>
               {bulkChildren.map((child, index) => (
-                <div key={index} className="flex gap-2 items-center">
-                  <span className="text-stone-400 text-xs w-4">
-                    {index + 1}.
-                  </span>
-                  <input
-                    type="text"
-                    placeholder="Họ và tên..."
-                    value={child.name}
-                    onChange={(e) => {
-                      const newBulk = [...bulkChildren];
-                      newBulk[index].name = e.target.value;
-                      setBulkChildren(newBulk);
-                    }}
-                    className="flex-2 bg-white text-stone-900 placeholder-stone-400 text-sm rounded-md border-stone-300 shadow-sm focus:border-sky-500 focus:ring-sky-500 p-2 border"
-                  />
-                  <select
-                    value={child.gender}
-                    onChange={(e) => {
-                      const newBulk = [...bulkChildren];
-                      newBulk[index].gender = e.target.value as
-                        | "male"
-                        | "female"
-                        | "other";
-                      setBulkChildren(newBulk);
-                    }}
-                    className="flex-1 bg-white text-stone-900 text-sm rounded-md border-stone-300 shadow-sm focus:border-sky-500 focus:ring-sky-500 p-2 border"
-                  >
-                    <option value="male">Nam</option>
-                    <option value="female">Nữ</option>
-                    <option value="other">Khác</option>
-                  </select>
-                  <input
-                    type="number"
-                    placeholder="Năm sinh"
-                    value={child.birthYear}
-                    onChange={(e) => {
-                      const newBulk = [...bulkChildren];
-                      newBulk[index].birthYear = e.target.value;
-                      setBulkChildren(newBulk);
-                    }}
-                    className="flex-1 bg-white text-stone-900 placeholder-stone-400 text-sm rounded-md border-stone-300 shadow-sm focus:border-sky-500 focus:ring-sky-500 p-2 border w-24"
-                  />
-                  <button
-                    onClick={() => {
-                      const newBulk = bulkChildren.filter(
-                        (_, i) => i !== index,
-                      );
-                      // Always keep at least one row
-                      if (newBulk.length === 0) {
-                        newBulk.push({
-                          name: "",
-                          gender: "male",
-                          birthYear: "",
-                          isProcessing: false,
-                        });
-                      }
-                      setBulkChildren(newBulk);
-                    }}
-                    className="text-stone-400 hover:text-red-500 p-2"
-                  >
-                    ✕
-                  </button>
+                <div
+                  key={index}
+                  className="relative bg-white rounded-lg border border-stone-200 p-3 sm:p-2 sm:bg-transparent sm:border-0 sm:rounded-none"
+                >
+                  <div className="flex items-center gap-2 mb-2 sm:hidden">
+                    <span className="text-sky-600 text-xs font-bold">
+                      Con thứ {index + 1}
+                    </span>
+                    <button
+                      onClick={() => {
+                        const newBulk = bulkChildren.filter(
+                          (_, i) => i !== index,
+                        );
+                        if (newBulk.length === 0) {
+                          newBulk.push({
+                            name: "",
+                            gender: "male",
+                            birthYear: "",
+                            isProcessing: false,
+                          });
+                        }
+                        setBulkChildren(newBulk);
+                      }}
+                      className="ml-auto text-stone-400 hover:text-red-500 p-1 text-xs"
+                    >
+                      ✕ Xóa
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-[1rem_1fr_6rem_6rem_2rem] gap-2 items-center">
+                    <span className="hidden sm:block text-stone-400 text-xs">
+                      {index + 1}.
+                    </span>
+                    <input
+                      type="text"
+                      placeholder="Họ và tên..."
+                      value={child.name}
+                      onChange={(e) => {
+                        const newBulk = [...bulkChildren];
+                        newBulk[index].name = e.target.value;
+                        setBulkChildren(newBulk);
+                      }}
+                      className="w-full bg-white text-stone-900 placeholder-stone-400 text-sm rounded-md border-stone-300 shadow-sm focus:border-sky-500 focus:ring-sky-500 p-2 border"
+                    />
+                    <div className="grid grid-cols-2 sm:contents gap-2">
+                      <select
+                        value={child.gender}
+                        onChange={(e) => {
+                          const newBulk = [...bulkChildren];
+                          newBulk[index].gender = e.target.value as
+                            | "male"
+                            | "female"
+                            | "other";
+                          setBulkChildren(newBulk);
+                        }}
+                        className="w-full bg-white text-stone-900 text-sm rounded-md border-stone-300 shadow-sm focus:border-sky-500 focus:ring-sky-500 p-2 border"
+                      >
+                        <option value="male">Nam</option>
+                        <option value="female">Nữ</option>
+                        <option value="other">Khác</option>
+                      </select>
+                      <input
+                        type="number"
+                        placeholder="Năm sinh"
+                        value={child.birthYear}
+                        onChange={(e) => {
+                          const newBulk = [...bulkChildren];
+                          newBulk[index].birthYear = e.target.value;
+                          setBulkChildren(newBulk);
+                        }}
+                        className="w-full bg-white text-stone-900 placeholder-stone-400 text-sm rounded-md border-stone-300 shadow-sm focus:border-sky-500 focus:ring-sky-500 p-2 border"
+                      />
+                    </div>
+                    <button
+                      onClick={() => {
+                        const newBulk = bulkChildren.filter(
+                          (_, i) => i !== index,
+                        );
+                        if (newBulk.length === 0) {
+                          newBulk.push({
+                            name: "",
+                            gender: "male",
+                            birthYear: "",
+                            isProcessing: false,
+                          });
+                        }
+                        setBulkChildren(newBulk);
+                      }}
+                      className="hidden sm:block text-stone-400 hover:text-red-500 p-2 text-center"
+                    >
+                      ✕
+                    </button>
+                  </div>
                 </div>
               ))}
 

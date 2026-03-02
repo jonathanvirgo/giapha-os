@@ -13,10 +13,6 @@ interface PageProps {
 export default async function FamilyTreePage({ searchParams }: PageProps) {
   const { rootId } = await searchParams;
 
-  // If view is list, we only need persons, not relationships.
-  // We fetch persons for all views to pass down as a prop if we want, or let components fetch.
-  // Actually, to make transitions fast and avoid duplicate fetching across components,
-  // we will fetch data here and pass it down as props.
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
@@ -36,39 +32,23 @@ export default async function FamilyTreePage({ searchParams }: PageProps) {
 
   const canEdit = profile?.role === "admin" || profile?.role === "editor";
 
-  const { data: personsData } = await supabase
-    .from("persons")
-    .select("*")
-    .order("birth_year", { ascending: true, nullsFirst: false });
-
-  const { data: relsData } = await supabase.from("relationships").select("*");
+  const [{ data: personsData }, { data: relsData }, { data: settingsData }] =
+    await Promise.all([
+      supabase
+        .from("persons")
+        .select("*")
+        .order("birth_year", { ascending: true, nullsFirst: false }),
+      supabase.from("relationships").select("*"),
+      supabase
+        .from("family_settings")
+        .select("default_root_id")
+        .limit(1)
+        .single(),
+    ]);
 
   const persons = personsData || [];
   const relationships = relsData || [];
-
-  // Prepare map and roots for tree views
-  const personsMap = new Map();
-  persons.forEach((p) => personsMap.set(p.id, p));
-
-  const childIds = new Set(
-    relationships
-      .filter(
-        (r) => r.type === "biological_child" || r.type === "adopted_child",
-      )
-      .map((r) => r.person_b),
-  );
-
-  let finalRootId = rootId;
-
-  // If no rootId is provided, fallback to the earliest created person
-  if (!finalRootId || !personsMap.has(finalRootId)) {
-    const rootsFallback = persons.filter((p) => !childIds.has(p.id));
-    if (rootsFallback.length > 0) {
-      finalRootId = rootsFallback[0].id;
-    } else if (persons.length > 0) {
-      finalRootId = persons[0].id; // ultimate fallback
-    }
-  }
+  const savedDefaultRootId = settingsData?.default_root_id ?? null;
 
   return (
     <DashboardProvider>
@@ -77,6 +57,7 @@ export default async function FamilyTreePage({ searchParams }: PageProps) {
         persons={persons}
         relationships={relationships}
         canEdit={canEdit}
+        savedDefaultRootId={savedDefaultRootId}
       />
 
       <MemberDetailModal />

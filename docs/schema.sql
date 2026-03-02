@@ -119,6 +119,13 @@ CREATE TABLE IF NOT EXISTS public.custom_events (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- FAMILY_SETTINGS (Single-row global settings for the family tree)
+CREATE TABLE IF NOT EXISTS public.family_settings (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  default_root_id UUID REFERENCES public.persons(id) ON DELETE SET NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- ==========================================
 -- INDEXES
 -- ==========================================
