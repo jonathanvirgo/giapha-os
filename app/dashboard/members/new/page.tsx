@@ -23,6 +23,23 @@ export default async function NewMemberPage() {
     .single();
 
   const isAdmin = profile?.role === "admin";
+  const canEdit = profile?.role === "admin" || profile?.role === "editor";
+
+  // If user cannot edit, reject access
+  if (!canEdit) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-stone-50">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-stone-800">
+            Truy cập bị từ chối
+          </h1>
+          <p className="text-stone-600 mt-2">
+            Bạn không có quyền thêm thành viên.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 w-full relative flex flex-col pb-8">

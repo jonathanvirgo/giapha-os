@@ -3,12 +3,20 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { toJpeg, toPng } from "html-to-image";
 import jsPDF from "jspdf";
-import { Download, FileImage, FileText, Loader2 } from "lucide-react";
+import {
+  AlertCircle,
+  Download,
+  FileImage,
+  FileText,
+  Loader2,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 export default function ExportButton() {
   const [isExporting, setIsExporting] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -25,12 +33,15 @@ export default function ExportButton() {
     try {
       setIsExporting(true);
       setShowMenu(false);
+      setError(null);
 
       // Add a small delay to allow UI to update (close menu) before capturing
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       const element = document.getElementById("export-container");
       if (!element) throw new Error("Không tìm thấy vùng dữ liệu để xuất.");
+
+      element.classList.add("exporting");
 
       const exportOptions = {
         cacheBust: true,
@@ -72,10 +83,15 @@ export default function ExportButton() {
         pdf.addImage(imgData, "JPEG", 0, 0, width, height);
         pdf.save(`giapha-sodo-${new Date().toISOString().split("T")[0]}.pdf`);
       }
-    } catch (error) {
-      console.error("Export error:", error);
-      alert("Đã xảy ra lỗi khi xuất file. Vui lòng thử lại.");
+    } catch (err) {
+      console.error("Export error:", err);
+      setError("Đã xảy ra lỗi khi xuất file. Vui lòng thử lại.");
+      setTimeout(() => setError(null), 5000);
     } finally {
+      const element = document.getElementById("export-container");
+      if (element) {
+        element.classList.remove("exporting");
+      }
       setIsExporting(false);
     }
   };
@@ -120,6 +136,32 @@ export default function ExportButton() {
               <FileText className="size-4" />
               Lưu thành PDF
             </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: -10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: -10 }}
+            className="absolute top-full right-0 mt-2 w-64 p-3 bg-red-50 border border-red-200 rounded-lg shadow-lg z-50 flex flex-col gap-1"
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                <span className="text-sm font-medium text-red-800 leading-snug">
+                  {error}
+                </span>
+              </div>
+              <button
+                onClick={() => setError(null)}
+                className="text-red-400 hover:text-red-600 transition-colors shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

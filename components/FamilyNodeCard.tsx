@@ -10,7 +10,6 @@ interface FamilyNodeCardProps {
   person: Person;
   role?: string; // e.g., "Chồng", "Vợ"
   note?: string | null;
-  isMainNode?: boolean; // Determines specific border/shadow styling
   onClickCard?: () => void;
   onClickName?: (e: React.MouseEvent) => void;
   isExpandable?: boolean;
@@ -21,7 +20,6 @@ interface FamilyNodeCardProps {
 
 export default function FamilyNodeCard({
   person,
-  isMainNode = false,
   onClickCard,
   onClickName,
   isExpandable = false,
@@ -36,18 +34,18 @@ export default function FamilyNodeCard({
   const content = (
     <div
       onClick={onClickCard}
-      className={`group py-2 px-1 w-20 sm:w-24 md:w-28 flex flex-col items-center justify-start transition-all duration-300 hover:-translate-y-1 hover:shadow-xl relative bg-white/70 backdrop-blur-md rounded-2xl
-        ${isMainNode && isDeceased ? "grayscale-[0.4] opacity-80" : ""}
+      className={`group py-2 px-1 w-20 sm:w-24 md:w-28 flex flex-col items-center justify-start transition-all duration-300 hover:-translate-y-1 hover:shadow-xl relative bg-white/70 rounded-2xl
+        ${isDeceased ? "grayscale-[0.4] opacity-80" : ""}
       `}
     >
       {isRingVisible && (
-        <div className="absolute top-3/12 -left-2.5 sm:-left-4 size-5 sm:size-6 rounded-full shadow-sm bg-white z-20 flex items-center justify-center text-[10px] sm:text-sm">
-          💍
+        <div className="absolute top-[15%] -left-2.5 sm:-left-4 size-5 sm:size-6 rounded-full shadow-sm bg-white z-100 flex items-center justify-center text-[10px] sm:text-sm">
+          <span className="leading-none pt-px pl-0.5">💍</span>
         </div>
       )}
       {isPlusVisible && (
-        <div className="absolute top-3/12 -left-2.5 sm:-left-4 size-5 sm:size-6 rounded-full shadow-sm bg-white z-20 flex items-center justify-center text-[10px] sm:text-sm">
-          +
+        <div className="absolute top-[15%] -left-2.5 sm:-left-4 size-5 sm:size-6 rounded-full shadow-sm bg-white z-100 flex items-center justify-center text-[10px] sm:text-sm font-medium text-stone-500">
+          <span className="leading-none mb-px pl-0.5">+</span>
         </div>
       )}
       {/* Decorative gradient blob for the card background hover */}
@@ -57,7 +55,7 @@ export default function FamilyNodeCard({
 
       {/* Expand/Collapse Indicator */}
       {isExpandable && (
-        <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-white border border-stone-200/80 rounded-full size-6 flex items-center justify-center shadow-md z-20 text-stone-500 hover:text-amber-600 transition-colors">
+        <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-white border border-stone-200/80 rounded-full size-6 flex items-center justify-center shadow-md z-100 text-stone-500 hover:text-amber-600 transition-colors">
           {isExpanded ? (
             <Minus className="w-3.5 h-3.5" />
           ) : (

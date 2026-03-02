@@ -11,9 +11,10 @@ Phù hợp với người Việt Nam.
 - **Sơ đồ trực quan**: Xem gia phả dạng Cây (Tree) và Sơ đồ tư duy (Mindmap).
 - **Tìm danh xưng**: Tự động xác định cách gọi tên (Bác, Chú, Cô, Dì...) chính xác.
 - **Quản lý thành viên**: Lưu trữ thông tin, avatar và sắp xếp thứ tự nhánh dòng họ.
+- **Quản lý quan hệ**: Quản lý các mối quan hệ trong gia phả (hỗ trợ các trường hợp đặc biệt như đa thê, đa phu,...).
 - **Thống kê & Sự kiện**: Theo dõi ngày giỗ và các chỉ số nhân khẩu học của dòng họ.
-- **Sao lưu dữ liệu**: Xuất/nhập file JSON để lưu trữ hoặc di chuyển dễ dàng.
-- **Bảo mật**: Phân quyền Admin và bảo vệ dữ liệu bằng Supabase.
+- **Sao lưu dữ liệu**: Xuất/nhập file JSON, CSV, GEDCOM để lưu trữ hoặc di chuyển dễ dàng.
+- **Bảo mật**: Phân quyền (Admin, Editor, Member) và bảo vệ dữ liệu bằng Supabase.
 - **Đa thiết bị**: Giao diện hiện đại, tối ưu cho cả máy tính và điện thoại.
 
 ## Demo
@@ -102,6 +103,14 @@ Mở trình duyệt và truy cập: `http://localhost:3000`
 - Đăng ký tài khoản mới khi vào web lần đầu.
 - Người đăng ký đầu tiên sẽ tự động có quyền **admin**.
 - Các tài khoản đăng ký sau sẽ mặc định là **member**.
+
+## Phân quyền người dùng (User Roles)
+
+Hệ thống có 3 cấp độ phân quyền để dễ dàng quản lý ai được phép cập nhật gia phả:
+
+1. **Admin (Quản trị viên):** Có toàn quyền đối với hệ thống.
+2. **Editor (Biên soạn):** Cho phép thêm, sửa, xóa thông tin hồ sơ và các mối quan hệ.
+3. **Member (Thành viên):** Chỉ có thể xem sơ đồ gia phả và các thống kê trực quan.
 
 ## Đóng góp (Contributing)
 

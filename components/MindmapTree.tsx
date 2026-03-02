@@ -3,77 +3,113 @@
 import { Person, Relationship } from "@/types";
 import { formatDisplayDate } from "@/utils/dateHelpers";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, ChevronRight, Share2 } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
+  Filter,
+  Image as ImageIcon,
+  Share2,
+} from "lucide-react";
 import Image from "next/image";
-import { useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useDashboard } from "./DashboardContext";
 import DefaultAvatar from "./DefaultAvatar";
+import ExportButton from "./ExportButton";
 
 interface MindmapTreeProps {
   personsMap: Map<string, Person>;
   relationships: Relationship[];
   roots: Person[];
+  canEdit?: boolean;
 }
 
-export default function MindmapTree({
-  personsMap,
-  relationships,
-  roots,
-}: MindmapTreeProps) {
-  const { showAvatar, setMemberModalId } = useDashboard();
+interface MindmapContextData {
+  personsMap: Map<string, Person>;
+  relationships: Relationship[];
+  hideSpouses: boolean;
+  hideMales: boolean;
+  hideFemales: boolean;
+  showAvatar: boolean;
+  expandSignal: { type: "expand" | "collapse"; ts: number } | null;
+  setMemberModalId: (id: string | null) => void;
+}
 
-  // Helper function to resolve tree connections for a person
-  const getTreeData = (personId: string) => {
-    const spousesList = relationships
-      .filter(
-        (r) =>
-          r.type === "marriage" &&
-          (r.person_a === personId || r.person_b === personId),
-      )
-      .map((r) => {
-        const spouseId = r.person_a === personId ? r.person_b : r.person_a;
-        return {
-          person: personsMap.get(spouseId)!,
-          note: r.note,
-        };
-      })
-      .filter((s) => s.person);
-
-    const childRels = relationships.filter(
+// Helper function to resolve tree connections for a person
+const getTreeData = (personId: string, ctx: MindmapContextData) => {
+  const { relationships, personsMap, hideSpouses, hideMales, hideFemales } =
+    ctx;
+  const spousesList = relationships
+    .filter(
       (r) =>
-        (r.type === "biological_child" || r.type === "adopted_child") &&
-        r.person_a === personId,
-    );
+        r.type === "marriage" &&
+        (r.person_a === personId || r.person_b === personId),
+    )
+    .map((r) => {
+      const spouseId = r.person_a === personId ? r.person_b : r.person_a;
+      return {
+        person: personsMap.get(spouseId)!,
+        note: r.note,
+      };
+    })
+    .filter((s) => s.person)
+    .filter((s) => {
+      if (hideSpouses) return false;
+      if (hideMales && s.person.gender === "male") return false;
+      if (hideFemales && s.person.gender === "female") return false;
+      return true;
+    });
 
-    const childrenList = childRels
-      .map((r) => personsMap.get(r.person_b))
-      .filter(Boolean) as Person[];
+  const childRels = relationships.filter(
+    (r) =>
+      (r.type === "biological_child" || r.type === "adopted_child") &&
+      r.person_a === personId,
+  );
 
-    return {
-      person: personsMap.get(personId)!,
-      spouses: spousesList,
-      children: childrenList,
-    };
+  const childrenList = (
+    childRels.map((r) => personsMap.get(r.person_b)).filter(Boolean) as Person[]
+  ).filter((c) => {
+    if (hideMales && c.gender === "male") return false;
+    if (hideFemales && c.gender === "female") return false;
+    return true;
+  });
+
+  return {
+    person: personsMap.get(personId)!,
+    spouses: spousesList,
+    children: childrenList,
   };
+};
 
-  const MindmapNode = ({
+const MindmapNode = memo(
+  ({
     personId,
     level = 0,
     isLast = false,
+    ctx,
   }: {
     personId: string;
     level?: number;
     isLast?: boolean;
+    ctx: MindmapContextData;
   }) => {
-    const data = getTreeData(personId);
+    const data = getTreeData(personId, ctx);
     const [isExpanded, setIsExpanded] = useState(level < 2);
+    const [lastSignalTs, setLastSignalTs] = useState(0);
+
+    if (ctx.expandSignal && ctx.expandSignal.ts !== lastSignalTs) {
+      setIsExpanded(ctx.expandSignal.type === "expand");
+      setLastSignalTs(ctx.expandSignal.ts);
+    }
 
     if (!data.person) return null;
 
     const hasChildren = data.children.length > 0;
 
     return (
-      <div className="relative pl-6 py-1.5">
+      <div className={`relative py-1.5 ${level > 0 ? "pl-6" : "pl-0"}`}>
         {/* Draw the connecting L-shape line from the parent to this node */}
         {level > 0 && (
           <>
@@ -124,28 +160,23 @@ export default function MindmapTree({
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.3 }}
-                className={`group/card relative flex flex-wrap items-center gap-2 bg-white/60 backdrop-blur-md rounded-2xl border border-stone-200/60 p-2 sm:p-2.5 shadow-sm hover:border-amber-300 hover:shadow-md hover:bg-white/90 transition-all duration-300 overflow-hidden cursor-pointer
-                  ${data.person.is_deceased ? "opacity-80 grayscale-[0.3]" : ""}`}
-                onClick={() => setMemberModalId(data.person.id)}
+                className={`group/card relative flex flex-wrap items-center gap-2 bg-white/60 rounded-2xl border border-stone-200/60 p-2 sm:p-2.5 shadow-sm hover:border-amber-300 hover:shadow-md hover:bg-white/90 transition-all duration-300 overflow-hidden cursor-pointer
+                ${data.person.is_deceased ? "opacity-80 grayscale-[0.3]" : ""}`}
+                onClick={() => ctx.setMemberModalId(data.person.id)}
               >
-                {/* Decorative gradient blob */}
-                {/* <div
-                  className={`absolute -right-6 -top-6 w-20 h-20 rounded-full blur-[30px] opacity-20 transition-all duration-500 group-hover/card:opacity-40 group-hover/card:scale-125 ${data.person.gender === "male" ? "bg-sky-400" : data.person.gender === "female" ? "bg-rose-400" : "bg-stone-400"}`}
-                /> */}
-
                 <div className="flex items-center gap-2.5 relative z-10 w-full">
                   <div className="flex flex-1 items-center gap-2.5 min-w-0">
-                    {showAvatar && (
+                    {ctx.showAvatar && (
                       <div className="relative shrink-0">
                         <div
                           className={`size-10 rounded-full overflow-hidden flex items-center justify-center text-white text-xs font-bold shadow-md ring-2 ring-white transition-transform duration-300 group-hover/card:scale-105
-                      ${
-                        data.person.gender === "male"
-                          ? "bg-linear-to-br from-sky-400 to-sky-700"
-                          : data.person.gender === "female"
-                            ? "bg-linear-to-br from-rose-400 to-rose-700"
-                            : "bg-linear-to-br from-stone-400 to-stone-600"
-                      }`}
+                    ${
+                      data.person.gender === "male"
+                        ? "bg-linear-to-br from-sky-400 to-sky-700"
+                        : data.person.gender === "female"
+                          ? "bg-linear-to-br from-rose-400 to-rose-700"
+                          : "bg-linear-to-br from-stone-400 to-stone-600"
+                    }`}
                         >
                           {data.person.avatar_url ? (
                             <Image
@@ -192,11 +223,6 @@ export default function MindmapTree({
                       </span>
                       {(data.person.is_deceased || data.person.is_in_law) && (
                         <div className="flex flex-wrap items-center gap-1 mt-1.5 shrink-0">
-                          {/* {data.person.is_deceased && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-stone-100 text-stone-500 uppercase tracking-widest border border-stone-200/60 shadow-xs">
-                              Đã mất
-                            </span>
-                          )} */}
                           {data.person.is_in_law && (
                             <span
                               className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest shadow-xs border ${
@@ -228,10 +254,10 @@ export default function MindmapTree({
                             key={spouseData.person.id}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setMemberModalId(spouseData.person.id);
+                              ctx.setMemberModalId(spouseData.person.id);
                             }}
                             className={`flex flex-col items-center gap-1 bg-stone-50/50 hover:bg-white rounded-xl p-1.5 border border-stone-200/60 hover:border-amber-300 transition-all shadow-sm hover:shadow-md group/spouse cursor-pointer
-                              ${spouseData.person.is_deceased ? "opacity-80 grayscale-[0.3]" : ""}`}
+                            ${spouseData.person.is_deceased ? "opacity-80 grayscale-[0.3]" : ""}`}
                             title={
                               spouseData.note ||
                               (spouseData.person.gender === "male"
@@ -239,16 +265,16 @@ export default function MindmapTree({
                                 : "Vợ")
                             }
                           >
-                            {showAvatar && (
+                            {ctx.showAvatar && (
                               <div
                                 className={`size-8 rounded-full overflow-hidden flex items-center justify-center text-white text-[10px] font-bold shadow-sm ring-2 ring-white transition-transform duration-300 group-hover/spouse:scale-105
-                          ${
-                            spouseData.person.gender === "male"
-                              ? "bg-linear-to-br from-sky-400 to-sky-700"
-                              : spouseData.person.gender === "female"
-                                ? "bg-linear-to-br from-rose-400 to-rose-700"
-                                : "bg-linear-to-br from-stone-400 to-stone-600"
-                          }`}
+                        ${
+                          spouseData.person.gender === "male"
+                            ? "bg-linear-to-br from-sky-400 to-sky-700"
+                            : spouseData.person.gender === "female"
+                              ? "bg-linear-to-br from-rose-400 to-rose-700"
+                              : "bg-linear-to-br from-stone-400 to-stone-600"
+                        }`}
                               >
                                 {spouseData.person.avatar_url ? (
                                   <Image
@@ -297,6 +323,7 @@ export default function MindmapTree({
                     personId={child.id}
                     level={level + 1}
                     isLast={index === data.children.length - 1}
+                    ctx={ctx}
                   />
                 ))}
               </div>
@@ -305,7 +332,73 @@ export default function MindmapTree({
         </AnimatePresence>
       </div>
     );
-  };
+  },
+);
+MindmapNode.displayName = "MindmapNode";
+
+export default function MindmapTree({
+  personsMap,
+  relationships,
+  roots,
+  canEdit,
+}: MindmapTreeProps) {
+  const { showAvatar, setShowAvatar, setMemberModalId } = useDashboard();
+  const [portalNode, setPortalNode] = useState<HTMLElement | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [hideSpouses, setHideSpouses] = useState(false);
+  const [hideMales, setHideMales] = useState(false);
+  const [hideFemales, setHideFemales] = useState(false);
+  const [expandSignal, setExpandSignal] = useState<{
+    type: "expand" | "collapse";
+    ts: number;
+  } | null>(null);
+  const filtersRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const node = document.getElementById("tree-toolbar-portal");
+      if (node) {
+        setPortalNode(node);
+      }
+    }, 0);
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        filtersRef.current &&
+        !filtersRef.current.contains(event.target as Node)
+      ) {
+        setShowFilters(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  const ctx: MindmapContextData = useMemo(
+    () => ({
+      personsMap,
+      relationships,
+      hideSpouses,
+      hideMales,
+      hideFemales,
+      showAvatar,
+      expandSignal,
+      setMemberModalId,
+    }),
+    [
+      personsMap,
+      relationships,
+      hideSpouses,
+      hideMales,
+      hideFemales,
+      showAvatar,
+      expandSignal,
+      setMemberModalId,
+    ],
+  );
 
   if (roots.length === 0) {
     return (
@@ -322,14 +415,132 @@ export default function MindmapTree({
 
   return (
     <div className="w-full h-full relative p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-140px)] flex justify-start lg:justify-center overflow-x-auto">
+      {/* Grouped Toolbar (Expand/Collapse, Filters, Export) Portaled to Header */}
+      {portalNode &&
+        createPortal(
+          <div
+            className="flex flex-wrap justify-center items-center gap-2 w-max"
+            ref={filtersRef}
+          >
+            {/* Expand/Collapse Controls */}
+            <div className="flex items-center bg-white/80 backdrop-blur-md shadow-sm border border-stone-200/60 rounded-full overflow-hidden transition-opacity h-10">
+              <button
+                onClick={() =>
+                  setExpandSignal({ type: "collapse", ts: Date.now() })
+                }
+                className="px-3 md:px-4 h-full flex items-center gap-1.5 hover:bg-stone-100/50 text-stone-600 transition-colors font-medium"
+                title="Thu gọn tất cả"
+              >
+                <ChevronsDownUp className="size-4" />
+                <span className="hidden sm:inline text-xs sm:text-sm">
+                  Thu gọn
+                </span>
+              </button>
+              <button
+                onClick={() =>
+                  setExpandSignal({ type: "expand", ts: Date.now() })
+                }
+                className="px-3 md:px-4 h-full flex items-center gap-1.5 hover:bg-stone-100/50 text-stone-600 transition-colors font-medium border-r border-stone-200/50"
+                title="Mở rộng tất cả"
+              >
+                <ChevronsUpDown className="size-4" />
+                <span className="hidden sm:inline text-xs sm:text-sm">
+                  Mở rộng
+                </span>
+              </button>
+            </div>
+
+            {/* Filters */}
+            <div className="relative">
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className={`flex items-center gap-2 px-4 h-10 rounded-full font-semibold text-sm shadow-sm border transition-all duration-300 ${
+                  showFilters
+                    ? "bg-amber-100/90 text-amber-800 border-amber-200"
+                    : "bg-white/80 text-stone-600 border-stone-200/60 hover:bg-white hover:text-stone-900 hover:shadow-md backdrop-blur-md"
+                }`}
+              >
+                <Filter className="size-4" />
+                <span className="hidden sm:inline">Lọc hiển thị</span>
+              </button>
+
+              <AnimatePresence>
+                {showFilters && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    transition={{ duration: 0.15, ease: "easeOut" }}
+                    className="absolute top-full right-0 mt-2 w-48 bg-white/95 backdrop-blur-xl shadow-xl border border-stone-200/60 rounded-2xl p-4 flex flex-col gap-3 z-50"
+                  >
+                    <div className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-1">
+                      HIỂN THỊ
+                    </div>
+                    <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer hover:text-stone-900 transition-colors select-none">
+                      <input
+                        type="checkbox"
+                        checked={!showAvatar}
+                        onChange={(e) => setShowAvatar(!e.target.checked)}
+                        className="rounded text-amber-600 focus:ring-amber-500 cursor-pointer size-4"
+                      />
+                      <ImageIcon className="size-4 text-stone-400" /> Ẩn ảnh đại
+                      diện
+                    </label>
+
+                    <div className="h-px w-full bg-stone-100 my-1 font-bold text-stone-400 uppercase tracking-wider flex items-center gap-2"></div>
+                    <div className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-1">
+                      LỌC DỮ LIỆU
+                    </div>
+                    <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer hover:text-stone-900 transition-colors select-none">
+                      <input
+                        type="checkbox"
+                        checked={hideSpouses}
+                        onChange={(e) => setHideSpouses(e.target.checked)}
+                        className="rounded text-amber-600 focus:ring-amber-500 cursor-pointer size-4"
+                      />
+                      Ẩn dâu/rể
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer hover:text-stone-900 transition-colors select-none">
+                      <input
+                        type="checkbox"
+                        checked={hideMales}
+                        onChange={(e) => setHideMales(e.target.checked)}
+                        className="rounded text-amber-600 focus:ring-amber-500 cursor-pointer size-4"
+                      />
+                      Ẩn nam
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer hover:text-stone-900 transition-colors select-none">
+                      <input
+                        type="checkbox"
+                        checked={hideFemales}
+                        onChange={(e) => setHideFemales(e.target.checked)}
+                        className="rounded text-amber-600 focus:ring-amber-500 cursor-pointer size-4"
+                      />
+                      Ẩn nữ
+                    </label>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Export Button */}
+            {canEdit && <ExportButton />}
+          </div>,
+          portalNode,
+        )}
+
       {/* Root Container */}
-      <div id="export-container" className="font-sans min-w-max pb-20 p-8">
+      <div
+        id="export-container"
+        className="font-sans min-w-max pb-20 p-10 px-0 sm:px-8"
+      >
         {roots.map((root, index) => (
           <MindmapNode
             key={root.id}
             personId={root.id}
             level={0}
             isLast={index === roots.length - 1}
+            ctx={ctx}
           />
         ))}
       </div>

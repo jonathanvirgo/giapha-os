@@ -7,24 +7,41 @@ import {
   calculateAge,
   formatDisplayDate,
   getLunarDateString,
+  getZodiacSign,
+  getZodiacAnimal,
 } from "@/utils/dateHelpers";
 import { motion, Variants } from "framer-motion";
-import { Briefcase, Info, Leaf, MapPin, Phone, Users } from "lucide-react";
+import {
+  Briefcase,
+  ChevronDown,
+  Info,
+  Leaf,
+  MapPin,
+  Phone,
+  Users,
+} from "lucide-react";
 import Image from "next/image";
+import { useState } from "react";
 import { FemaleIcon, MaleIcon } from "./GenderIcons";
 
 interface MemberDetailContentProps {
   person: Person;
   privateData: Record<string, unknown> | null;
   isAdmin: boolean;
+  canEdit?: boolean;
 }
 
 export default function MemberDetailContent({
   person,
   privateData,
   isAdmin,
+  canEdit = false,
 }: MemberDetailContentProps) {
+  const [isNoteExpanded, setIsNoteExpanded] = useState(false);
   const fullPerson = { ...person, ...privateData };
+  const note = (fullPerson.note as string) || "";
+  const isNoteLong = note.length > 300;
+
   const isDeceased =
     !!person.death_year || !!person.death_month || !!person.death_day;
 
@@ -149,6 +166,14 @@ export default function MemberDetailContent({
                 </span>
               )}
             </h1>
+            {person.other_names && (
+              <p className="mt-1.5 text-sm sm:text-base text-stone-600 font-medium italic">
+                Tên khác:{" "}
+                <span className="font-semibold not-italic text-stone-700">
+                  {person.other_names}
+                </span>
+              </p>
+            )}
 
             <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
               {/* Birth Card */}
@@ -156,11 +181,25 @@ export default function MemberDetailContent({
                 variants={itemVariants}
                 className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 border border-stone-200/60 shadow-sm transition-all hover:shadow-md hover:border-amber-200/60"
               >
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="size-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]"></span>
-                  <h3 className="text-[11px] font-bold text-stone-400 uppercase tracking-widest">
-                    Sinh
-                  </h3>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="size-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]"></span>
+                    <h3 className="text-[11px] font-bold text-stone-400 uppercase tracking-widest">
+                      Sinh
+                    </h3>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {person.birth_year && getZodiacAnimal(person.birth_year, person.birth_month, person.birth_day) && (
+                      <span className="text-[10px] font-sans font-bold text-rose-700 bg-rose-50 border border-rose-200/60 rounded-md px-1.5 py-0.5 whitespace-nowrap shadow-xs tracking-wider">
+                        Tuổi {getZodiacAnimal(person.birth_year, person.birth_month, person.birth_day)}
+                      </span>
+                    )}
+                    {person.birth_day && person.birth_month && getZodiacSign(person.birth_day, person.birth_month) && (
+                      <span className="text-[10px] font-sans font-bold text-indigo-700 bg-indigo-50 border border-indigo-200/60 rounded-md px-1.5 py-0.5 whitespace-nowrap shadow-xs tracking-wider">
+                        {getZodiacSign(person.birth_day, person.birth_month)}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="space-y-1.5 pl-4 border-l-2 border-stone-100">
                   <p className="text-stone-800 font-semibold text-sm sm:text-base">
@@ -273,14 +312,54 @@ export default function MemberDetailContent({
                 <Info className="size-5 text-amber-600" />
                 Ghi chú
               </h2>
-              <div className="bg-white/80 backdrop-blur-sm p-5 sm:p-6 rounded-2xl border border-stone-200/60 shadow-sm">
-                <p className="text-stone-600 whitespace-pre-wrap text-sm sm:text-base leading-relaxed">
-                  {(fullPerson.note as string) || (
-                    <span className="text-stone-400 italic">
-                      Chưa có ghi chú.
-                    </span>
-                  )}
-                </p>
+              <div className="bg-white/80 backdrop-blur-sm p-5 sm:p-6 rounded-2xl border border-stone-200/60 shadow-sm relative overflow-hidden">
+                {note ? (
+                  <div className="flex flex-col">
+                    <motion.div
+                      initial={false}
+                      animate={{
+                        height:
+                          !isNoteExpanded && isNoteLong ? "120px" : "auto",
+                      }}
+                      className="relative overflow-hidden"
+                      transition={{
+                        type: "spring",
+                        stiffness: 100,
+                        damping: 20,
+                        duration: 0.4,
+                      }}
+                    >
+                      <p className="text-stone-600 whitespace-pre-wrap text-sm sm:text-base leading-relaxed">
+                        {note}
+                      </p>
+                      {/* Gradient fade overlay when collapsed */}
+                      {!isNoteExpanded && isNoteLong && (
+                        <div className="absolute bottom-0 left-0 right-0 h-16 bg-linear-to-t from-white/95 via-white/40 to-transparent pointer-events-none" />
+                      )}
+                    </motion.div>
+
+                    {isNoteLong && (
+                      <button
+                        onClick={() => setIsNoteExpanded(!isNoteExpanded)}
+                        className="mt-4 text-amber-600 hover:text-amber-700 text-[13px] font-bold flex items-center gap-1.5 transition-colors w-fit group relative z-10"
+                      >
+                        <span className="underline underline-offset-4 decoration-amber-600/30 group-hover:decoration-amber-700">
+                          {isNoteExpanded ? "Thu gọn" : "Xem thêm"}
+                        </span>
+                        <motion.div
+                          animate={{ rotate: isNoteExpanded ? 180 : 0 }}
+                          transition={{ duration: 0.3 }}
+                        >
+                          <ChevronDown className="size-3.5" />
+                        </motion.div>
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-stone-400 italic text-sm sm:text-base">
+                    Chưa có ghi chú.
+                  </p>
+                )}
               </div>
             </motion.section>
 
@@ -293,6 +372,7 @@ export default function MemberDetailContent({
                 <RelationshipManager
                   personId={person.id}
                   isAdmin={isAdmin}
+                  canEdit={canEdit}
                   personGender={person.gender}
                 />
               </div>

@@ -15,7 +15,7 @@ export async function deleteMemberProfile(memberId: string) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    throw new Error("Vui lòng đăng nhập.");
+    return { error: "Vui lòng đăng nhập." };
   }
 
   const { data: profile } = await supabase
@@ -24,8 +24,10 @@ export async function deleteMemberProfile(memberId: string) {
     .eq("id", user.id)
     .single();
 
-  if (profile?.role !== "admin") {
-    throw new Error("Từ chối truy cập. Chỉ admin mới có quyền xoá hồ sơ.");
+  if (profile?.role !== "admin" && profile?.role !== "editor") {
+    return {
+      error: "Từ chối truy cập. Chỉ Admin hoặc Editor mới có quyền xoá hồ sơ.",
+    };
   }
 
   // 2. Check for existing relationships
@@ -37,13 +39,14 @@ export async function deleteMemberProfile(memberId: string) {
 
   if (relationshipError) {
     console.error("Error checking relationships:", relationshipError);
-    throw new Error("Lỗi kiểm tra mối quan hệ gia đình.");
+    return { error: "Lỗi kiểm tra mối quan hệ gia đình." };
   }
 
   if (relationships && relationships.length > 0) {
-    throw new Error(
-      "Không thể xoá. Vui lòng xoá hết các mối quan hệ gia đình của người này trước.",
-    );
+    return {
+      error:
+        "Không thể xoá. Vui lòng xoá hết các mối quan hệ gia đình của người này trước.",
+    };
   }
 
   // 3. Delete the member
@@ -54,7 +57,7 @@ export async function deleteMemberProfile(memberId: string) {
 
   if (deleteError) {
     console.error("Error deleting person:", deleteError);
-    throw new Error("Đã xảy ra lỗi khi xoá hồ sơ.");
+    return { error: "Đã xảy ra lỗi khi xoá hồ sơ." };
   }
 
   // 4. Revalidate and redirect

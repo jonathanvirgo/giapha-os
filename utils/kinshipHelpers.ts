@@ -30,7 +30,7 @@ interface RelEdge {
 // ── Helpers ──────────────────────────────────────────────────────────
 
 /**
- * So sánh thứ bậc giữa hai người (cùng cha mẹ hoặc cùng thế hệ)
+ * So sánh thứ bậc giữa hai người (cùng bố mẹ hoặc cùng thế hệ)
  * Ưu tiên: Thứ tự sinh (birth_order) -> Năm sinh (birth_year)
  */
 function compareSeniority(
@@ -56,7 +56,7 @@ function compareSeniority(
 
 const ANCESTORS = [
   "",
-  "Cha/Mẹ",
+  "Bố/Mẹ",
   "Ông/Bà",
   "Cụ",
   "Kỵ",
@@ -86,7 +86,7 @@ function getDirectAncestorTerm(
   gender: "male" | "female" | "other",
   isPaternal: boolean,
 ): string {
-  if (depth === 1) return gender === "female" ? "Mẹ" : "Cha";
+  if (depth === 1) return gender === "female" ? "Mẹ" : "Bố";
   if (depth === 2) {
     const base = gender === "female" ? "Bà" : "Ông";
     return `${base} ${isPaternal ? "nội" : "ngoại"}`;
@@ -165,7 +165,7 @@ function resolveBloodTerms(
   // Xác định vế Nội/Ngoại: Dựa vào giới tính của người ở nhánh A (người đang gọi)
   const isPaternalA = branchA.gender === "male";
 
-  // Anh chị em ruột (Cùng cha mẹ)
+  // Anh chị em ruột (Cùng bố mẹ)
   if (depthA === 1 && depthB === 1) {
     const aSenior = compareSeniority(personA, personB);
     if (aSenior === "senior") {
@@ -430,11 +430,18 @@ export function computeKinship(
     if (res) {
       let aCallsB = res.aCallsB;
       let bCallsA = res.bCallsA;
-      // ... giữ nguyên logic cũ ...
 
       // Chuyển đổi danh xưng cho dâu/rể/thím/mợ...
       if (res.bCallsA === "Con") {
         bCallsA = personA.gender === "male" ? "Con rể" : "Con dâu";
+      } else if (res.bCallsA === "Con gái") {
+        // personA là bố/mẹ của spouseB, spouseB là vợ của personB
+        bCallsA = "Con rể";
+        aCallsB = personB.gender === "male" ? "Bố vợ" : "Mẹ vợ";
+      } else if (res.bCallsA === "Con trai") {
+        // personA là bố/mẹ của spouseB, spouseB là chồng của personB
+        bCallsA = "Con dâu";
+        aCallsB = personB.gender === "male" ? "Bố chồng" : "Mẹ chồng";
       } else if (res.bCallsA === "Cháu") {
         bCallsA = personA.gender === "male" ? "Cháu rể" : "Cháu dâu";
       } else if (res.bCallsA.includes("Anh trai")) {
@@ -490,10 +497,18 @@ export function computeKinship(
     const res = findBloodKinship(personA, spouseB, personsMap, parentMap);
     if (res) {
       let aCallsB = res.aCallsB;
-      const bCallsA = res.bCallsA;
+      let bCallsA = res.bCallsA;
 
       if (res.aCallsB === "Con") {
         aCallsB = personB.gender === "male" ? "Con rể" : "Con dâu";
+      } else if (res.aCallsB === "Con gái") {
+        // personA là bố/mẹ của spouseB, spouseB là chồng của personB
+        aCallsB = "Con rể";
+        bCallsA = personA.gender === "male" ? "Bố vợ" : "Mẹ vợ";
+      } else if (res.aCallsB === "Con trai") {
+        // personA là bố/mẹ của spouseB, spouseB là vợ của personB
+        aCallsB = "Con dâu";
+        bCallsA = personA.gender === "male" ? "Bố chồng" : "Mẹ chồng";
       } else if (res.aCallsB === "Cháu") {
         aCallsB = personB.gender === "male" ? "Cháu rể" : "Cháu dâu";
       } else if (res.aCallsB.includes("Anh trai")) {

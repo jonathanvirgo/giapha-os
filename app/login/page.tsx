@@ -114,7 +114,7 @@ export default function LoginPage() {
           }
         }
       }
-    } catch (err: any) {
+    } catch (err) {
       setError("An unexpected error occurred");
       console.error(err);
     } finally {
@@ -324,6 +324,12 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => {
+                  if (isLogin && isDemo) {
+                    setError(
+                      "Đây là trang demo, bạn không cần phải tạo tài khoản. Hãy sử dụng tài khoản demo để truy cập với toàn bộ quyền.",
+                    );
+                    return;
+                  }
                   setIsLogin(!isLogin);
                   setError(null);
                   setSuccessMessage(null);
@@ -341,7 +347,7 @@ export default function LoginPage() {
 
       <Link
         href="/"
-        className="absolute top-6 left-6 z-20 flex items-center gap-2 text-stone-500 hover:text-stone-900 font-semibold text-sm transition-all duration-300 group bg-white/60 px-5 py-2.5 rounded-full backdrop-blur-md shadow-sm border border-stone-200 hover:border-stone-300 hover:shadow-md"
+        className="absolute top-6 left-6 z-20 flex items-center gap-2 text-stone-500 hover:text-stone-900 font-semibold text-sm transition-all duration-300 group bg-white/60 px-5 py-2.5 rounded-full shadow-sm border border-stone-200 hover:border-stone-300 hover:shadow-md"
       >
         <ArrowLeft className="size-4 group-hover:-translate-x-1 transition-transform" />
         Trang chủ
@@ -349,7 +355,7 @@ export default function LoginPage() {
 
       <Link
         href="/about"
-        className="absolute top-6 right-6 z-20 flex items-center gap-2 text-stone-500 hover:text-stone-900 font-semibold text-sm transition-all duration-300 group bg-white/60 px-5 py-2.5 rounded-full backdrop-blur-md shadow-sm border border-stone-200 hover:border-stone-300 hover:shadow-md"
+        className="absolute top-6 right-6 z-20 flex items-center gap-2 text-stone-500 hover:text-stone-900 font-semibold text-sm transition-all duration-300 group bg-white/60 px-5 py-2.5 rounded-full shadow-sm border border-stone-200 hover:border-stone-300 hover:shadow-md"
       >
         <Info className="size-4 group-hover:scale-110 transition-transform" />
         Giới thiệu

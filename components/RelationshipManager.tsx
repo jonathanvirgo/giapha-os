@@ -12,6 +12,7 @@ import DefaultAvatar from "./DefaultAvatar";
 interface RelationshipManagerProps {
   personId: string;
   isAdmin: boolean;
+  canEdit?: boolean;
   personGender: string; // Passed down to calculate default spouse gender
 }
 
@@ -26,6 +27,7 @@ interface EnrichedRelationship {
 export default function RelationshipManager({
   personId,
   isAdmin,
+  canEdit = false,
   personGender,
 }: RelationshipManagerProps) {
   const supabase = createClient();
@@ -60,6 +62,7 @@ export default function RelationshipManager({
   const [recentMembers, setRecentMembers] = useState<Person[]>([]);
   const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Bulk Add State
   const [isAddingBulk, setIsAddingBulk] = useState(false);
@@ -228,6 +231,7 @@ export default function RelationshipManager({
   const handleAddRelationship = async () => {
     if (!selectedTargetId) return;
     setProcessing(true);
+    setError(null);
 
     try {
       let personA = personId;
@@ -272,7 +276,8 @@ export default function RelationshipManager({
       fetchRelationships();
     } catch (err: unknown) {
       const e = err as Error;
-      alert("Failed to add relationship: " + e.message);
+      setError("Không thể thêm mối quan hệ: " + e.message);
+      setTimeout(() => setError(null), 5000);
     } finally {
       setProcessing(false);
     }
@@ -282,11 +287,13 @@ export default function RelationshipManager({
     // Filter out rows without a name
     const validChildren = bulkChildren.filter((c) => c.name.trim() !== "");
     if (validChildren.length === 0) {
-      alert("Vui lòng nhập ít nhất tên của 1 người con.");
+      setError("Vui lòng nhập ít nhất tên của 1 người con.");
+      setTimeout(() => setError(null), 5000);
       return;
     }
 
     setProcessing(true);
+    setError(null);
     let successCount = 0;
 
     try {
@@ -348,14 +355,16 @@ export default function RelationshipManager({
         setSelectedSpouseId("");
         fetchRelationships();
       } else {
-        alert(
+        setError(
           `Đã xảy ra lỗi. Chỉ lưu thành công ${successCount}/${validChildren.length} người.`,
         );
+        setTimeout(() => setError(null), 5000);
         fetchRelationships();
       }
     } catch (err: unknown) {
       const e = err as Error;
-      alert("Failed to add bulk children: " + e.message);
+      setError("Không thể thêm danh sách con: " + e.message);
+      setTimeout(() => setError(null), 5000);
     } finally {
       setProcessing(false);
     }
@@ -363,11 +372,13 @@ export default function RelationshipManager({
 
   const handleQuickAddSpouse = async () => {
     if (!newSpouseName.trim()) {
-      alert("Vui lòng nhập tên Vợ/Chồng.");
+      setError("Vui lòng nhập tên Vợ/Chồng.");
+      setTimeout(() => setError(null), 5000);
       return;
     }
 
     setProcessing(true);
+    setError(null);
     try {
       // Determine default gender based on current person defined in personGender prop
       // Default to opposite. If original is other, default to female (arbitrary choice, or let user pick, but standard says opposite)
@@ -420,7 +431,8 @@ export default function RelationshipManager({
       fetchRelationships();
     } catch (err: unknown) {
       const e = err as Error;
-      alert("Failed to quick add spouse: " + e.message);
+      setError("Không thể thêm vợ/chồng: " + e.message);
+      setTimeout(() => setError(null), 5000);
     } finally {
       setProcessing(false);
     }
@@ -437,7 +449,8 @@ export default function RelationshipManager({
       fetchRelationships();
     } catch (err: unknown) {
       const e = err as Error;
-      alert("Failed to delete: " + e.message);
+      setError("Không thể xóa: " + e.message);
+      setTimeout(() => setError(null), 5000);
     }
   };
 
@@ -516,7 +529,7 @@ export default function RelationshipManager({
                         )}
                       </div>
                     </button>
-                    {isAdmin && rel.direction !== "child_in_law" && (
+                    {canEdit && rel.direction !== "child_in_law" && (
                       <button
                         onClick={() => handleDelete(rel.id)}
                         className="text-stone-300 hover:text-red-500 hover:bg-red-50 p-2 sm:p-2.5 rounded-lg transition-colors flex items-center justify-center ml-2"
@@ -555,8 +568,15 @@ export default function RelationshipManager({
       })}
 
       {/* Add Button (Admin) */}
-      {isAdmin && !isAdding && !isAddingBulk && !isAddingSpouse && (
+      {canEdit && !isAdding && !isAddingBulk && !isAddingSpouse && (
         <div className="flex flex-col sm:flex-row gap-3 mt-4">
+          <button
+            onClick={() => setIsAdding(true)}
+            className="flex-1 py-3 border-2 border-dashed border-stone-200 bg-stone-50/50 hover:bg-stone-50 rounded-xl sm:rounded-2xl text-stone-500 font-medium text-sm hover:border-amber-400 hover:text-amber-700 transition-all duration-200"
+          >
+            + Thêm Quan Hệ
+          </button>
+
           <button
             onClick={() => setIsAddingBulk(true)}
             className="flex-1 py-3 border-2 border-dashed border-stone-200 bg-stone-50/50 hover:bg-stone-50 rounded-xl sm:rounded-2xl text-stone-500 font-medium text-sm hover:border-sky-400 hover:text-sky-700 transition-all duration-200"
@@ -570,18 +590,50 @@ export default function RelationshipManager({
           >
             + Thêm Vợ/Chồng
           </button>
+        </div>
+      )}
 
+      {error && !isAdding && !isAddingBulk && !isAddingSpouse && (
+        <div className="mt-4 text-sm text-red-600 bg-red-50 p-3 rounded-xl border border-red-100 flex items-center justify-between gap-2 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-2">
+            <svg
+              className="w-5 h-5 shrink-0 text-red-500"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
+            </svg>
+            <span>{error}</span>
+          </div>
           <button
-            onClick={() => setIsAdding(true)}
-            className="flex-1 py-3 border-2 border-dashed border-stone-200 bg-stone-50/50 hover:bg-stone-50 rounded-xl sm:rounded-2xl text-stone-500 font-medium text-sm hover:border-amber-400 hover:text-amber-700 transition-all duration-200"
+            onClick={() => setError(null)}
+            className="text-red-400 hover:text-red-600 transition-colors p-1"
           >
-            + Thêm Mối Quan Hệ
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
           </button>
         </div>
       )}
 
       {/* Add Form (Admin) */}
-      {isAdmin && isAdding && (
+      {canEdit && isAdding && (
         <div className="mt-4 bg-stone-50/50 p-4 sm:p-5 rounded-xl border border-stone-200 shadow-sm">
           <h4 className="font-bold text-stone-800 mb-3 text-sm">
             Thêm Quan Hệ Mới
@@ -740,7 +792,7 @@ export default function RelationshipManager({
       )}
 
       {/* Bulk Add Children Form (Admin) */}
-      {isAdmin && isAddingBulk && (
+      {canEdit && isAddingBulk && (
         <div className="mt-4 bg-sky-50/50 p-4 sm:p-5 rounded-xl border border-sky-200 shadow-sm">
           <h4 className="font-bold text-sky-800 mb-3 text-sm">
             Thêm Nhanh Nhiều Con
@@ -889,7 +941,7 @@ export default function RelationshipManager({
       )}
 
       {/* Quick Add Spouse Form (Admin) */}
-      {isAdmin && isAddingSpouse && (
+      {canEdit && isAddingSpouse && (
         <div className="mt-4 bg-rose-50/50 p-4 sm:p-5 rounded-xl border border-rose-200 shadow-sm">
           <h4 className="font-bold text-rose-800 mb-3 text-sm">
             Thêm Nhanh Vợ/Chồng
@@ -965,6 +1017,24 @@ export default function RelationshipManager({
                 Hủy
               </button>
             </div>
+            {error && (
+              <div className="mt-2 text-sm text-red-600 bg-red-50 p-3 rounded-lg border border-red-100 flex items-center gap-2 animate-in fade-in slide-in-from-top-1">
+                <svg
+                  className="w-4 h-4 shrink-0"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                {error}
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -8,8 +8,10 @@ import { useState } from "react";
 
 export default function DashboardMemberList({
   initialPersons,
+  canEdit = false,
 }: {
   initialPersons: Person[];
+  canEdit?: boolean;
 }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortOption, setSortOption] = useState("updated_desc");
@@ -167,10 +169,12 @@ export default function DashboardMemberList({
               </div>
             </div>
           </div>
-          <Link href="/dashboard/members/new" className="btn-primary">
-            <Plus className="size-4" strokeWidth={2.5} />
-            Thêm thành viên
-          </Link>
+          {canEdit && (
+            <Link href="/dashboard/members/new" className="btn-primary">
+              <Plus className="size-4" strokeWidth={2.5} />
+              Thêm thành viên
+            </Link>
+          )}
         </div>
       </div>
 

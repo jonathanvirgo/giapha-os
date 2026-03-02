@@ -11,7 +11,7 @@ export default function AboutPage() {
 
       <Link
         href="/"
-        className="absolute top-6 left-6 flex items-center gap-2 text-stone-500 hover:text-stone-900 font-semibold text-sm transition-all duration-300 group bg-white/60 px-5 py-2.5 rounded-full backdrop-blur-md shadow-sm border border-stone-200 hover:border-stone-300 hover:shadow-md z-20"
+        className="absolute top-6 left-6 flex items-center gap-2 text-stone-500 hover:text-stone-900 font-semibold text-sm transition-all duration-300 group bg-white/60 px-5 py-2.5 rounded-full shadow-sm border border-stone-200 hover:border-stone-300 hover:shadow-md z-20"
       >
         <ArrowLeft className="size-4 group-hover:-translate-x-1 transition-transform" />
         Trang chủ
@@ -111,10 +111,10 @@ export default function AboutPage() {
                 dụng phần mềm, hoặc muốn thảo luận thì xin vui lòng gửi email về
                 địa chỉ:{` `}
                 <a
-                  href="mailto:contact@homielab.com"
+                  href="mailto:giaphaos@homielab.com"
                   className="font-semibold text-amber-700 hover:text-amber-600 transition-colors inline-flex items-center gap-1.5 mt-2"
                 >
-                  contact@homielab.com
+                  giaphaos@homielab.com
                 </a>
               </p>
             </div>

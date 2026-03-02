@@ -67,7 +67,7 @@ VALUES
 );
 
 -- ============================================================
--- ĐỜI 3 — CHA MẸ / CÔ CHÚ (Sinh ~1955-1975)
+-- ĐỜI 3 — BỐ MẸ / CÔ CHÚ (Sinh ~1955-1975)
 -- ============================================================
 INSERT INTO persons (id, full_name, gender, birth_year, birth_month, birth_day, death_year, death_month, death_day, is_deceased, is_in_law, generation, birth_order, note)
 VALUES
@@ -223,7 +223,7 @@ VALUES
 
 -- ============================================================
 -- QUAN HỆ GIA ĐÌNH
--- biological_child: person_a = Cha/Mẹ, person_b = Con
+-- biological_child: person_a = Bố/Mẹ, person_b = Con
 -- marriage: person_a & person_b = Vợ chồng
 -- ============================================================
 

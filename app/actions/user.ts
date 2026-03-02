@@ -15,7 +15,7 @@ export async function changeUserRole(userId: string, newRole: UserRole) {
 
   if (error) {
     console.error("Failed to change user role:", error);
-    throw new Error(error.message);
+    return { error: error.message };
   }
 
   revalidatePath("/dashboard/users");
@@ -31,7 +31,7 @@ export async function deleteUser(userId: string) {
 
   if (error) {
     console.error("Failed to delete user:", error);
-    throw new Error(error.message);
+    return { error: error.message };
   }
 
   revalidatePath("/dashboard/users");
@@ -42,11 +42,16 @@ export async function adminCreateUser(formData: FormData) {
   const email = formData.get("email")?.toString();
   const password = formData.get("password")?.toString();
   const role = formData.get("role")?.toString() || "member";
+
+  if (role !== "admin" && role !== "editor" && role !== "member") {
+    return { error: "Vai trò không hợp lệ." };
+  }
+
   const isActiveStr = formData.get("is_active")?.toString();
   const isActive = isActiveStr === "false" ? false : true;
 
   if (!email || !password) {
-    throw new Error("Email và mật khẩu là bắt buộc.");
+    return { error: "Email và mật khẩu là bắt buộc." };
   }
 
   const cookieStore = await cookies();
@@ -61,7 +66,7 @@ export async function adminCreateUser(formData: FormData) {
 
   if (error) {
     console.error("Failed to create user:", error);
-    throw new Error(error.message);
+    return { error: error.message };
   }
 
   revalidatePath("/dashboard/users");
@@ -78,7 +83,7 @@ export async function toggleUserStatus(userId: string, newStatus: boolean) {
 
   if (error) {
     console.error("Failed to change user status:", error);
-    throw new Error(error.message);
+    return { error: error.message };
   }
 
   revalidatePath("/dashboard/users");
