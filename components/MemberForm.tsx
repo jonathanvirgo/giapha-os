@@ -15,6 +15,7 @@ import {
   Trash2,
   User,
 } from "lucide-react";
+import { Lunar } from "lunar-javascript";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -63,6 +64,7 @@ export default function MemberForm({
   const [deathDay, setDeathDay] = useState<number | "">(
     initialData?.death_day || "",
   );
+  const [isDeathDateLunar, setIsDeathDateLunar] = useState(false);
 
   const [isDeceased, setIsDeceased] = useState<boolean>(
     initialData?.is_deceased || false,
@@ -73,6 +75,9 @@ export default function MemberForm({
 
   const [birthOrder, setBirthOrder] = useState<number | "">(
     initialData?.birth_order || "",
+  );
+  const [generation, setGeneration] = useState<number | "">(
+    initialData?.generation || "",
   );
 
   const [avatarUrl, setAvatarUrl] = useState(initialData?.avatar_url || "");
@@ -121,7 +126,34 @@ export default function MemberForm({
       return;
     }
 
-    if (isDeceased && !isValidDate(deathDay, deathMonth, deathYear)) {
+    let finalDeathDay = deathDay;
+    let finalDeathMonth = deathMonth;
+    let finalDeathYear = deathYear;
+
+    if (
+      isDeceased &&
+      isDeathDateLunar &&
+      deathDay !== "" &&
+      deathMonth !== "" &&
+      deathYear !== ""
+    ) {
+      try {
+        const lunarDate = Lunar.fromYmd(deathYear, deathMonth, deathDay);
+        const solarDate = lunarDate.getSolar();
+        finalDeathDay = solarDate.getDay();
+        finalDeathMonth = solarDate.getMonth();
+        finalDeathYear = solarDate.getYear();
+      } catch {
+        setError("Ngày âm lịch không hợp lệ. Vui lòng kiểm tra lại.");
+        setLoading(false);
+        return;
+      }
+    }
+
+    if (
+      isDeceased &&
+      !isValidDate(finalDeathDay, finalDeathMonth, finalDeathYear)
+    ) {
       setError("Ngày mất không hợp lệ. Vui lòng kiểm tra lại.");
       setLoading(false);
       return;
@@ -130,8 +162,8 @@ export default function MemberForm({
     if (
       isDeceased &&
       birthYear !== "" &&
-      deathYear !== "" &&
-      deathYear < birthYear
+      finalDeathYear !== "" &&
+      finalDeathYear < birthYear
     ) {
       setError("Năm mất phải lớn hơn hoặc bằng năm sinh.");
       setLoading(false);
@@ -167,13 +199,16 @@ export default function MemberForm({
         birth_year: birthYear === "" ? null : Number(birthYear),
         birth_month: birthMonth === "" ? null : Number(birthMonth),
         birth_day: birthDay === "" ? null : Number(birthDay),
-        death_year: isDeceased && deathYear !== "" ? Number(deathYear) : null,
+        death_year:
+          isDeceased && finalDeathYear !== "" ? Number(finalDeathYear) : null,
         death_month:
-          isDeceased && deathMonth !== "" ? Number(deathMonth) : null,
-        death_day: isDeceased && deathDay !== "" ? Number(deathDay) : null,
+          isDeceased && finalDeathMonth !== "" ? Number(finalDeathMonth) : null,
+        death_day:
+          isDeceased && finalDeathDay !== "" ? Number(finalDeathDay) : null,
         is_deceased: isDeceased,
         is_in_law: isInLaw,
         birth_order: birthOrder === "" ? null : Number(birthOrder),
+        generation: generation === "" ? null : Number(generation),
         other_names: otherNames || null,
         avatar_url: finalAvatarUrl || null,
         note: note || null,
@@ -353,7 +388,26 @@ export default function MemberForm({
               className={inputClasses}
             />
             <p className="mt-1.5 text-xs text-stone-400 flex items-center gap-1">
-              <span>💡</span> Để trống nếu không rõ hoặc không có anh/chị/em
+              <span>💡</span> Để trống nếu không rõ
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-stone-700 mb-1.5">
+              Thuộc đời thứ
+            </label>
+            <input
+              type="number"
+              min="1"
+              placeholder="Ví dụ: 1, 2, 3..."
+              value={generation}
+              onChange={(e) =>
+                setGeneration(e.target.value ? Number(e.target.value) : "")
+              }
+              className={inputClasses}
+            />
+            <p className="mt-1.5 text-xs text-stone-400 flex items-center gap-1">
+              <span>💡</span> Để trống nếu không rõ
             </p>
           </div>
 
@@ -507,6 +561,7 @@ export default function MemberForm({
                         setDeathYear("");
                         setDeathMonth("");
                         setDeathDay("");
+                        setIsDeathDateLunar(false);
                       }
                     }}
                     className="peer sr-only"
@@ -533,7 +588,7 @@ export default function MemberForm({
                   </div>
                 </div>
                 <span className="text-sm font-semibold text-stone-700 group-hover:text-stone-900 transition-colors">
-                  Đã qua đời
+                  Đã mất
                 </span>
               </label>
             </div>
@@ -546,9 +601,52 @@ export default function MemberForm({
                   exit={{ opacity: 0, height: 0, marginTop: 0 }}
                   className="overflow-hidden"
                 >
-                  <label className="block text-sm font-semibold text-stone-700 mb-1.5">
-                    Ngày mất
-                  </label>
+                  <div className="flex items-center gap-4 mb-1.5">
+                    <label className="block text-sm font-semibold text-stone-700">
+                      Ngày mất
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                      <div className="relative flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={isDeathDateLunar}
+                          onChange={(e) =>
+                            setIsDeathDateLunar(e.target.checked)
+                          }
+                          className="peer sr-only"
+                        />
+                        <div className="size-4 border-2 border-stone-300 rounded peer-checked:bg-stone-600 peer-checked:border-stone-600 transition-colors flex items-center justify-center">
+                          <motion.svg
+                            initial={false}
+                            animate={{
+                              opacity: isDeathDateLunar ? 1 : 0,
+                              scale: isDeathDateLunar ? 1 : 0.5,
+                            }}
+                            className="size-2.5 text-white pointer-events-none"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={4}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M5 13l4 4L19 7"
+                            />
+                          </motion.svg>
+                        </div>
+                      </div>
+                      <span className="text-sm text-stone-600 group-hover:text-stone-900 transition-colors">
+                        Nhập theo Âm lịch
+                      </span>
+                    </label>
+                  </div>
+                  {isDeathDateLunar && (
+                    <p className="text-[13px] text-stone-500 mb-2 italic">
+                      * Ngày âm lịch đầy đủ (ngày, tháng, năm) sẽ tự động được
+                      chuyển sang dương lịch khi lưu.
+                    </p>
+                  )}
                   <div className="grid grid-cols-3 gap-3 pt-1">
                     <input
                       type="number"

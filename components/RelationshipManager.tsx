@@ -274,6 +274,7 @@ export default function RelationshipManager({
       setSelectedTargetId(null);
       setNewRelNote("");
       fetchRelationships();
+      router.refresh();
     } catch (err: unknown) {
       const e = err as Error;
       setError("Không thể thêm mối quan hệ: " + e.message);
@@ -354,12 +355,14 @@ export default function RelationshipManager({
         ]);
         setSelectedSpouseId("");
         fetchRelationships();
+        router.refresh();
       } else {
         setError(
           `Đã xảy ra lỗi. Chỉ lưu thành công ${successCount}/${validChildren.length} người.`,
         );
         setTimeout(() => setError(null), 5000);
         fetchRelationships();
+        router.refresh();
       }
     } catch (err: unknown) {
       const e = err as Error;
@@ -429,6 +432,7 @@ export default function RelationshipManager({
       setNewSpouseBirthYear("");
       setNewSpouseNote("");
       fetchRelationships();
+      router.refresh();
     } catch (err: unknown) {
       const e = err as Error;
       setError("Không thể thêm vợ/chồng: " + e.message);
@@ -447,6 +451,7 @@ export default function RelationshipManager({
         .eq("id", relId);
       if (error) throw error;
       fetchRelationships();
+      router.refresh();
     } catch (err: unknown) {
       const e = err as Error;
       setError("Không thể xóa: " + e.message);
@@ -455,7 +460,16 @@ export default function RelationshipManager({
   };
 
   const groupByType = (type: string) =>
-    relationships.filter((r) => r.direction === type);
+    relationships
+      .filter((r) => r.direction === type)
+      .sort((a, b) => {
+        const yearA = a.targetPerson.birth_year;
+        const yearB = b.targetPerson.birth_year;
+        if (yearA == null && yearB == null) return 0;
+        if (yearA == null) return 1;
+        if (yearB == null) return -1;
+        return yearA - yearB;
+      });
 
   if (loading)
     return (

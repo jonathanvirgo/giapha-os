@@ -6,6 +6,21 @@ Dự án ra đời từ nhu cầu thực tế: cần một hệ thống Cloud đ
 
 Phù hợp với người Việt Nam.
 
+## Mục lục
+
+- [Các tính năng chính](#các-tính-năng-chính)
+- [Demo](#demo)
+- [Hình ảnh Giao diện](#hình-ảnh-giao-diện)
+- [Cài đặt và Chạy dự án](#cài-đặt-và-chạy-dự-án)
+  - [Cách 1: Deploy nhanh lên Vercel](#cách-1-deploy-nhanh-lên-vercel)
+  - [Cách 2: Chạy trên máy cá nhân](#cách-2-chạy-trên-máy-cá-nhân)
+- [Tài khoản đầu tiên](#tài-khoản-đầu-tiên)
+- [Xử lý lỗi khi đăng ký](#xử-lý-lỗi-khi-đăng-ký)
+- [Phân quyền người dùng (User Roles)](#phân-quyền-người-dùng-user-roles)
+- [Đóng góp (Contributing)](#đóng-góp-contributing)
+- [Tuyên bố từ chối trách nhiệm & Quyền riêng tư](#tuyên-bố-từ-chối-trách-nhiệm--quyền-riêng-tư)
+- [Giấy phép (License)](#giấy-phép-license)
+
 ## Các tính năng chính
 
 - **Sơ đồ trực quan**: Xem gia phả dạng Cây (Tree) và Sơ đồ tư duy (Mindmap).
@@ -25,6 +40,8 @@ Phù hợp với người Việt Nam.
 
 ## Hình ảnh Giao diện
 
+![Dashboard](docs/screenshots/dashboard.png)
+
 ![Danh sách](docs/screenshots/list.png)
 
 ![Sơ đồ cây](docs/screenshots/tree.png)
@@ -36,6 +53,8 @@ Phù hợp với người Việt Nam.
 ![Mindmap](docs/screenshots/kinship.png)
 
 ![Mindmap](docs/screenshots/events.png)
+
+More screenshots: [docs/screenshots/](docs/screenshots/)
 
 ## Cài đặt và Chạy dự án
 
@@ -103,6 +122,28 @@ Mở trình duyệt và truy cập: `http://localhost:3000`
 - Đăng ký tài khoản mới khi vào web lần đầu.
 - Người đăng ký đầu tiên sẽ tự động có quyền **admin**.
 - Các tài khoản đăng ký sau sẽ mặc định là **member**.
+
+## Xử lý lỗi khi đăng ký
+
+Sau khi cài đặt xong, nếu bạn gặp lỗi `Failed to fetch` khi đăng ký:
+
+**Nguyên nhân:** Supabase chặn các request từ domain chưa được thêm vào danh sách cho phép.
+
+**Cách khắc phục:**
+
+1. Vào [Supabase Dashboard](https://supabase.com/dashboard) → chọn Project của bạn.
+2. Vào **Authentication → URL Configuration**.
+3. Ở mục **Site URL**, điền URL chính của ứng dụng, ví dụ:
+   - Vercel: `https://giapha-os.vercel.app`
+   - Máy cá nhân: `http://localhost:3000`
+4. Ở mục **Redirect URLs**, nhấn **Add URL** và thêm:
+   - `https://giapha-os.vercel.app/**`
+   - `http://localhost:3000/**` (nếu chạy local)
+5. Nhấn **Save** và thử lại.
+
+> **Lưu ý:** Thay `giapha-os.vercel.app` bằng domain thực tế của bạn. Nếu dùng domain tùy chỉnh, hãy thêm cả domain đó vào danh sách.
+
+---
 
 ## Phân quyền người dùng (User Roles)
 
