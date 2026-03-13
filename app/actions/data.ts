@@ -1,16 +1,12 @@
 "use server";
 
+import { prisma } from "@/lib/prisma";
 import { Relationship } from "@/types";
-import { getIsAdmin, getSupabase } from "@/utils/supabase/queries";
+import { getIsAdmin } from "@/utils/supabase/queries";
 import { revalidatePath } from "next/cache";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-/**
- * Payload shape cho file backup JSON.
- * Các field DB-managed (created_at, updated_at) được giữ để tham khảo
- * nhưng sẽ bị loại bỏ khi import lại.
- */
 interface PersonExport {
   id: string;
   full_name: string;
@@ -28,7 +24,6 @@ interface PersonExport {
   other_names: string | null;
   avatar_url: string | null;
   note: string | null;
-  // DB-managed fields (kept in export for traceability, stripped on import)
   created_at?: string;
   updated_at?: string;
 }
@@ -49,42 +44,6 @@ interface BackupPayload {
   relationships: RelationshipExport[];
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-// Các field được phép insert vào bảng persons (loại bỏ created_at/updated_at)
-function sanitizePerson(
-  p: PersonExport,
-): Omit<PersonExport, "created_at" | "updated_at"> {
-  return {
-    id: p.id,
-    full_name: p.full_name,
-    gender: p.gender,
-    birth_year: p.birth_year ?? null,
-    birth_month: p.birth_month ?? null,
-    birth_day: p.birth_day ?? null,
-    death_year: p.death_year ?? null,
-    death_month: p.death_month ?? null,
-    death_day: p.death_day ?? null,
-    is_deceased: p.is_deceased ?? false,
-    is_in_law: p.is_in_law ?? false,
-    birth_order: p.birth_order ?? null,
-    generation: p.generation ?? null,
-    other_names: p.other_names ?? null,
-    avatar_url: p.avatar_url ?? null,
-    note: p.note ?? null,
-  };
-}
-
-function sanitizeRelationship(
-  r: RelationshipExport,
-): Omit<RelationshipExport, "id" | "created_at" | "updated_at"> {
-  return {
-    type: r.type,
-    person_a: r.person_a,
-    person_b: r.person_b,
-  };
-}
-
 // ─── Export ───────────────────────────────────────────────────────────────────
 
 export async function exportData(
@@ -95,38 +54,49 @@ export async function exportData(
     return { error: "Từ chối truy cập. Chỉ admin mới có quyền này." };
   }
 
-  const supabase = await getSupabase();
+  const allPersonsRaw = await prisma.persons.findMany({
+    orderBy: { created_at: "asc" },
+  });
 
-  // Fetch ALL persons and relationships first to perform traversal in memory.
-  // This is safe since typical family trees are < 10,000 nodes, easily fitting in memory.
-  const { data: allPersons, error: personsError } = await supabase
-    .from("persons")
-    .select(
-      "id, full_name, gender, birth_year, birth_month, birth_day, death_year, death_month, death_day, is_deceased, is_in_law, birth_order, generation, other_names, avatar_url, note, created_at, updated_at",
-    )
-    .order("created_at", { ascending: true });
+  const allRelsRaw = await prisma.relationships.findMany({
+    orderBy: { created_at: "asc" },
+  });
 
-  if (personsError)
-    return { error: "Lỗi tải dữ liệu persons: " + personsError.message };
+  // Convert to export format
+  let exportPersons: PersonExport[] = allPersonsRaw.map((p: typeof allPersonsRaw[number]) => ({
+    id: p.id,
+    full_name: p.full_name,
+    gender: p.gender,
+    birth_year: p.birth_year,
+    birth_month: p.birth_month,
+    birth_day: p.birth_day,
+    death_year: p.death_year,
+    death_month: p.death_month,
+    death_day: p.death_day,
+    is_deceased: p.is_deceased,
+    is_in_law: p.is_in_law,
+    birth_order: p.birth_order,
+    generation: p.generation,
+    other_names: p.other_names,
+    avatar_url: p.avatar_url,
+    note: p.note,
+    created_at: p.created_at?.toISOString(),
+    updated_at: p.updated_at?.toISOString(),
+  }));
 
-  const { data: allRels, error: relationshipsError } = await supabase
-    .from("relationships")
-    .select("id, type, person_a, person_b, created_at, updated_at")
-    .order("created_at", { ascending: true });
-
-  if (relationshipsError)
-    return {
-      error: "Lỗi tải dữ liệu relationships: " + relationshipsError.message,
-    };
-
-  let exportPersons = (allPersons ?? []) as PersonExport[];
-  let exportRels = (allRels ?? []) as RelationshipExport[];
+  let exportRels: RelationshipExport[] = allRelsRaw.map((r: typeof allRelsRaw[number]) => ({
+    id: r.id,
+    type: r.type,
+    person_a: r.person_a,
+    person_b: r.person_b,
+    created_at: r.created_at?.toISOString(),
+    updated_at: r.updated_at?.toISOString(),
+  }));
 
   // If a root person is selected, filter the export to only their subtree
   if (exportRootId && exportPersons.some((p) => p.id === exportRootId)) {
     const includedPersonIds = new Set<string>([exportRootId]);
 
-    // 1. Traverse biological and adopted children recursively
     const findDescendants = (parentId: string) => {
       exportRels
         .filter(
@@ -143,8 +113,7 @@ export async function exportData(
     };
     findDescendants(exportRootId);
 
-    // 2. Add spouses for everyone in the tree so far
-    const descendantsArray = Array.from(includedPersonIds); // snapshot current members
+    const descendantsArray = Array.from(includedPersonIds);
     descendantsArray.forEach((personId) => {
       exportRels
         .filter(
@@ -158,7 +127,6 @@ export async function exportData(
         });
     });
 
-    // 3. Filter the payload
     exportPersons = exportPersons.filter((p) => includedPersonIds.has(p.id));
     exportRels = exportRels.filter(
       (r) =>
@@ -167,7 +135,7 @@ export async function exportData(
   }
 
   return {
-    version: 2, // bumped for schema with birth_order + generation
+    version: 2,
     timestamp: new Date().toISOString(),
     persons: exportPersons,
     relationships: exportRels,
@@ -189,8 +157,6 @@ export async function importData(
     return { error: "Từ chối truy cập. Chỉ admin mới có quyền này." };
   }
 
-  const supabase = await getSupabase();
-
   if (!importPayload?.persons || !importPayload?.relationships) {
     return { error: "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại file JSON." };
   }
@@ -201,47 +167,48 @@ export async function importData(
     };
   }
 
-  // 1. Xoá relationships trước (FK constraint)
-  const { error: delRelError } = await supabase
-    .from("relationships")
-    .delete()
-    .neq("id", "00000000-0000-0000-0000-000000000000");
+  try {
+    await prisma.$transaction(async (tx: any) => {
+      // 1. Delete relationships first (FK constraint)
+      await tx.relationships.deleteMany();
 
-  if (delRelError)
-    return { error: "Lỗi khi xoá relationships cũ: " + delRelError.message };
+      // 2. Delete persons
+      await tx.persons.deleteMany();
 
-  // 2. Xoá persons
-  const { error: delPersonsError } = await supabase
-    .from("persons")
-    .delete()
-    .neq("id", "00000000-0000-0000-0000-000000000000");
+      // 3. Insert persons
+      const personsData = importPayload.persons.map((p) => ({
+        id: p.id,
+        full_name: p.full_name,
+        gender: p.gender as "male" | "female" | "other",
+        birth_year: p.birth_year ?? null,
+        birth_month: p.birth_month ?? null,
+        birth_day: p.birth_day ?? null,
+        death_year: p.death_year ?? null,
+        death_month: p.death_month ?? null,
+        death_day: p.death_day ?? null,
+        is_deceased: p.is_deceased ?? false,
+        is_in_law: p.is_in_law ?? false,
+        birth_order: p.birth_order ?? null,
+        generation: p.generation ?? null,
+        other_names: p.other_names ?? null,
+        avatar_url: p.avatar_url ?? null,
+        note: p.note ?? null,
+      }));
 
-  if (delPersonsError)
-    return { error: "Lỗi khi xoá persons cũ: " + delPersonsError.message };
+      await tx.persons.createMany({ data: personsData });
 
-  // 3. Insert persons (sanitized — chỉ giữ các field schema hiện tại)
-  const CHUNK = 200;
-  const persons = importPayload.persons.map(sanitizePerson);
+      // 4. Insert relationships
+      const relsData = importPayload.relationships.map((r) => ({
+        type: r.type as "marriage" | "biological_child" | "adopted_child",
+        person_a: r.person_a,
+        person_b: r.person_b,
+      }));
 
-  for (let i = 0; i < persons.length; i += CHUNK) {
-    const chunk = persons.slice(i, i + CHUNK);
-    const { error } = await supabase.from("persons").insert(chunk);
-    if (error)
-      return {
-        error: `Lỗi khi import persons (chunk ${i / CHUNK + 1}): ${error.message}`,
-      };
-  }
-
-  // 4. Insert relationships (stripped of id/created_at to avoid conflicts)
-  const relationships = importPayload.relationships.map(sanitizeRelationship);
-
-  for (let i = 0; i < relationships.length; i += CHUNK) {
-    const chunk = relationships.slice(i, i + CHUNK);
-    const { error } = await supabase.from("relationships").insert(chunk);
-    if (error)
-      return {
-        error: `Lỗi khi import relationships (chunk ${i / CHUNK + 1}): ${error.message}`,
-      };
+      await tx.relationships.createMany({ data: relsData });
+    });
+  } catch (err) {
+    console.error("Import error:", err);
+    return { error: `Lỗi khi import: ${(err as Error).message}` };
   }
 
   revalidatePath("/dashboard");
@@ -251,8 +218,8 @@ export async function importData(
   return {
     success: true,
     imported: {
-      persons: persons.length,
-      relationships: relationships.length,
+      persons: importPayload.persons.length,
+      relationships: importPayload.relationships.length,
     },
   };
 }

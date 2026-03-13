@@ -3,7 +3,7 @@
 import { setDefaultRootId } from "@/app/actions/settings";
 import { Person } from "@/types";
 import { Pin, PinOff } from "lucide-react";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useDashboard } from "./DashboardContext";
 import PersonSelector from "./PersonSelector";
 
@@ -21,13 +21,20 @@ export default function RootSelector({
   const { setRootId } = useDashboard();
   const [isPending, startTransition] = useTransition();
   const [toast, setToast] = useState<string | null>(null);
+  const [localDefaultId, setLocalDefaultId] = useState(savedDefaultRootId);
 
-  const isCurrentDefault = currentRootId === savedDefaultRootId;
+  // Sync local state when prop changes (e.g. after server component re-render)
+  useEffect(() => {
+    setLocalDefaultId(savedDefaultRootId ?? null);
+  }, [savedDefaultRootId]);
+
+  const isCurrentDefault = currentRootId === localDefaultId;
 
   const handleSetDefault = () => {
     startTransition(async () => {
       const result = await setDefaultRootId(currentRootId);
       if (result.success) {
+        setLocalDefaultId(currentRootId);
         setToast("Đã đặt làm gốc mặc định!");
       } else {
         setToast(result.error || "Lỗi khi lưu");
@@ -40,6 +47,7 @@ export default function RootSelector({
     startTransition(async () => {
       const result = await setDefaultRootId(null);
       if (result.success) {
+        setLocalDefaultId(null);
         setToast("Đã bỏ gốc mặc định");
       } else {
         setToast(result.error || "Lỗi khi lưu");

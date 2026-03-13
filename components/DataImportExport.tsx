@@ -1,6 +1,7 @@
 "use client";
 
 import { exportData, importData } from "@/app/actions/data";
+import { fetchAllPersons } from "@/app/actions/person";
 import { Person } from "@/types";
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertTriangle, CheckCircle2, Download, Upload } from "lucide-react";
@@ -23,20 +24,15 @@ export default function DataImportExport() {
   const [exportRootId, setExportRootId] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchPersons() {
+    async function loadPersons() {
       try {
-        const { createClient } = await import("@/utils/supabase/client");
-        const supabase = createClient();
-        const { data } = await supabase
-          .from("persons")
-          .select("id, full_name, birth_year, gender, avatar_url, generation")
-          .order("birth_year", { ascending: true, nullsFirst: false });
-        if (data) setPersons(data as Person[]);
+        const data = await fetchAllPersons();
+        setPersons(data);
       } catch (err) {
         console.error("Error fetching persons:", err);
       }
     }
-    fetchPersons();
+    loadPersons();
   }, []);
 
   const handleExport = async (format: "json" | "gedcom" | "csv") => {

@@ -1,28 +1,18 @@
 import { DashboardProvider } from "@/components/DashboardContext";
 import EventsList from "@/components/EventsList";
 import MemberDetailModal from "@/components/MemberDetailModal";
-import { getSupabase } from "@/utils/supabase/queries";
+import { getAllPersons } from "@/lib/db/persons";
+import { getAllEvents } from "@/lib/db/events";
 
 export const metadata = {
   title: "Sự kiện gia phả",
 };
 
 export default async function EventsPage() {
-  const supabase = await getSupabase();
-
-  const [personsRes, customEventsRes] = await Promise.all([
-    supabase
-      .from("persons")
-      .select(
-        "id, full_name, birth_year, birth_month, birth_day, death_year, death_month, death_day, is_deceased, avatar_url",
-      ),
-    supabase
-      .from("custom_events")
-      .select("id, name, content, event_date, location, created_by"),
+  const [persons, customEvents] = await Promise.all([
+    getAllPersons(),
+    getAllEvents(),
   ]);
-
-  const persons = personsRes.data || [];
-  const customEvents = customEventsRes.data || [];
 
   return (
     <DashboardProvider>
@@ -36,8 +26,8 @@ export default async function EventsPage() {
 
         <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex-1">
           <EventsList
-            persons={persons ?? []}
-            customEvents={customEvents ?? []}
+            persons={persons}
+            customEvents={customEvents}
           />
         </main>
       </div>

@@ -1,12 +1,13 @@
 "use server";
 
-import { getProfile, getSupabase } from "@/utils/supabase/queries";
+import { getProfile } from "@/utils/supabase/queries";
+import { hasRelationships } from "@/lib/db/relationships";
+import { deletePerson } from "@/lib/db/persons";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function deleteMemberProfile(memberId: string) {
   const profile = await getProfile();
-  const supabase = await getSupabase();
 
   if (profile?.role !== "admin" && profile?.role !== "editor") {
     return {
@@ -14,37 +15,24 @@ export async function deleteMemberProfile(memberId: string) {
     };
   }
 
-  // 2. Check for existing relationships
-  const { data: relationships, error: relationshipError } = await supabase
-    .from("relationships")
-    .select("id")
-    .or(`person_a.eq.${memberId},person_b.eq.${memberId}`)
-    .limit(1);
+  // Check for existing relationships
+  const hasRels = await hasRelationships(memberId);
 
-  if (relationshipError) {
-    console.error("Error checking relationships:", relationshipError);
-    return { error: "Lỗi kiểm tra mối quan hệ gia đình." };
-  }
-
-  if (relationships && relationships.length > 0) {
+  if (hasRels) {
     return {
       error:
         "Không thể xoá. Vui lòng xoá hết các mối quan hệ gia đình của người này trước.",
     };
   }
 
-  // 3. Delete the member
-  const { error: deleteError } = await supabase
-    .from("persons")
-    .delete()
-    .eq("id", memberId);
-
-  if (deleteError) {
-    console.error("Error deleting person:", deleteError);
+  // Delete the member
+  try {
+    await deletePerson(memberId);
+  } catch (err) {
+    console.error("Error deleting person:", err);
     return { error: "Đã xảy ra lỗi khi xoá hồ sơ." };
   }
 
-  // 4. Revalidate and redirect
   revalidatePath("/dashboard/members");
   redirect("/dashboard/members");
 }

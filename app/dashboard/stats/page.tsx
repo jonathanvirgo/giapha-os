@@ -1,17 +1,16 @@
 import FamilyStats from "@/components/FamilyStats";
-import { getSupabase } from "@/utils/supabase/queries";
+import { getAllPersons } from "@/lib/db/persons";
+import { getAllRelationships } from "@/lib/db/relationships";
 
 export const metadata = {
   title: "Thống kê gia phả",
 };
 
 export default async function StatsPage() {
-  const supabase = await getSupabase();
-
-  const { data: persons } = await supabase.from("persons").select("*");
-  const { data: relationships } = await supabase
-    .from("relationships")
-    .select("*");
+  const [persons, relationships] = await Promise.all([
+    getAllPersons(),
+    getAllRelationships(),
+  ]);
 
   return (
     <div className="flex-1 w-full relative flex flex-col pb-12">
@@ -24,8 +23,8 @@ export default async function StatsPage() {
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex-1">
         <FamilyStats
-          persons={persons ?? []}
-          relationships={relationships ?? []}
+          persons={persons}
+          relationships={relationships}
         />
       </main>
     </div>

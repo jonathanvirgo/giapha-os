@@ -1,6 +1,8 @@
 import { getTodayLunar } from "@/utils/dateHelpers";
 import { computeEvents } from "@/utils/eventHelpers";
-import { getIsAdmin, getSupabase } from "@/utils/supabase/queries";
+import { getIsAdmin } from "@/utils/supabase/queries";
+import { getAllPersons } from "@/lib/db/persons";
+import { getAllEvents } from "@/lib/db/events";
 import {
   ArrowRight,
   BarChart2,
@@ -39,18 +41,11 @@ const eventTypeConfig = {
 
 export default async function DashboardLaunchpad() {
   const isAdmin = await getIsAdmin();
-  const supabase = await getSupabase();
 
   /* ── Fetch events data ────────────────────────────────────────── */
-  const { data: persons } = await supabase
-    .from("persons")
-    .select(
-      "id, full_name, birth_year, birth_month, birth_day, death_year, death_month, death_day, is_deceased",
-    );
+  const persons = await getAllPersons();
 
-  const { data: customEvents } = await supabase
-    .from("custom_events")
-    .select("id, name, content, event_date, location, created_by");
+  const customEvents = await getAllEvents();
 
   const allEvents = computeEvents(persons ?? [], customEvents ?? []);
   const upcomingEvents = allEvents.filter(
@@ -70,15 +65,6 @@ export default async function DashboardLaunchpad() {
       borderColor: "border-amber-200/60",
       hoverColor: "hover:border-amber-400 hover:shadow-amber-100",
     },
-    // {
-    //   title: "Sự kiện",
-    //   description: "Quản lý ngày giỗ, họp họ và các dịp quan trọng",
-    //   icon: <CalendarClock className="size-8 text-emerald-600" />,
-    //   href: "/dashboard/events",
-    //   bgColor: "bg-emerald-50",
-    //   borderColor: "border-emerald-200/60",
-    //   hoverColor: "hover:border-emerald-400 hover:shadow-emerald-100",
-    // },
     {
       title: "Tra cứu danh xưng",
       description: "Hệ thống gọi tên họ hàng chuẩn xác",
@@ -97,15 +83,6 @@ export default async function DashboardLaunchpad() {
       borderColor: "border-purple-200/60",
       hoverColor: "hover:border-purple-400 hover:shadow-purple-100",
     },
-    // {
-    //   title: "Giới thiệu & Liên hệ",
-    //   description: "Thông tin về ứng dụng và đội ngũ phát triển",
-    //   icon: <Info className="size-8 text-stone-600" />,
-    //   href: "/about",
-    //   bgColor: "bg-stone-50",
-    //   borderColor: "border-stone-200/60",
-    //   hoverColor: "hover:border-stone-400 hover:shadow-stone-100",
-    // },
   ];
 
   const adminFeatures = [
@@ -140,10 +117,6 @@ export default async function DashboardLaunchpad() {
 
   return (
     <main className="flex-1 flex flex-col p-4 sm:p-8 max-w-7xl mx-auto w-full">
-      {/* <div className="mb-8 sm:mb-12 text-center sm:text-left">
-        <h1 className="title">Bảng điều khiển</h1>
-      </div> */}
-
       {/* ── Today's Date & Upcoming Events ─────────────────── */}
       <Link
         href="/dashboard/events"
@@ -248,10 +221,6 @@ export default async function DashboardLaunchpad() {
       {/* ── Feature Grid ──────────────────────────────────── */}
       <div className="space-y-12">
         <section>
-          {/* <h3 className="text-xl font-serif font-bold text-stone-700 mb-6 flex items-center gap-2">
-            <span className="w-8 h-px bg-stone-300 rounded-full"></span>
-            Chức năng chung
-          </h3> */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {publicFeatures.map((feat) => (
               <Link

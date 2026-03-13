@@ -2,6 +2,7 @@
 
 import { Gender, Person } from "@/types";
 import { createClient } from "@/utils/supabase/client";
+import { savePerson } from "@/app/actions/person";
 import { AnimatePresence, motion, Variants } from "framer-motion";
 import {
   AlertCircle,
@@ -37,7 +38,7 @@ export default function MemberForm({
   onCancel,
 }: MemberFormProps) {
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = createClient(); // Only used for avatar storage
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -173,7 +174,7 @@ export default function MemberForm({
     try {
       let finalAvatarUrl = avatarUrl;
 
-      // 0. Handle Avatar Upload if a new file is selected
+      // 0. Handle Avatar Upload if a new file is selected (still uses Supabase Storage)
       if (avatarFile) {
         const fileExt = avatarFile.name.split(".").pop();
         const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
@@ -192,8 +193,9 @@ export default function MemberForm({
         finalAvatarUrl = publicUrl;
       }
 
-      // 1. Upsert public data
-      const personData = {
+      // 1. Save person + private data via server action (Prisma)
+      const result = await savePerson({
+        id: isEditing ? initialData?.id : undefined,
         full_name: fullName,
         gender,
         birth_year: birthYear === "" ? null : Number(birthYear),
@@ -212,45 +214,17 @@ export default function MemberForm({
         other_names: otherNames || null,
         avatar_url: finalAvatarUrl || null,
         note: note || null,
-      };
+        phone_number: phoneNumber || null,
+        occupation: occupation || null,
+        current_residence: currentResidence || null,
+      });
 
-      let personId = initialData?.id;
+      if (result.error) throw new Error(result.error);
 
-      if (isEditing && personId) {
-        const { error: updateError } = await supabase
-          .from("persons")
-          .update(personData)
-          .eq("id", personId);
-        if (updateError) throw updateError;
-      } else {
-        const { data: newPerson, error: createError } = await supabase
-          .from("persons")
-          .insert(personData)
-          .select()
-          .single();
-        if (createError) throw createError;
-        personId = newPerson.id;
-      }
-
-      // 2. Upsert private data (only if admin and personId exists)
-      if (isAdmin && personId) {
-        const privateData = {
-          person_id: personId,
-          phone_number: phoneNumber || null,
-          occupation: occupation || null,
-          current_residence: currentResidence || null,
-        };
-
-        const { error: privateError } = await supabase
-          .from("person_details_private")
-          .upsert(privateData); // Upsert works for both new and existing if we use person_id as unique key
-
-        if (privateError) throw privateError;
-      }
-
-      // After save: use callback if provided, otherwise fall back to page navigation
+      const personId = result.personId;
       if (!personId)
         throw new Error("Không lấy được ID thành viên sau khi lưu.");
+
       if (onSuccess) {
         onSuccess(personId);
       } else {

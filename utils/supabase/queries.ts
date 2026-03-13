@@ -1,9 +1,10 @@
 import { Profile } from "@/types";
+import { getProfileById } from "@/lib/db/profiles";
 import { createClient } from "@/utils/supabase/server";
 import { cookies } from "next/headers";
 import { cache } from "react";
 
-// Hàm này được cache lại để đảm bảo chỉ tạo 1 Supabase Client duy nhất cho mỗi request
+// Supabase client — still needed for Auth only
 export const getSupabase = cache(async () => {
   const cookieStore = await cookies();
   return createClient(cookieStore);
@@ -26,14 +27,7 @@ export const getProfile = cache(async (userId?: string) => {
     id = user.id;
   }
 
-  const supabase = await getSupabase();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", id)
-    .single();
-
-  return profile as Profile | null;
+  return getProfileById(id) as Promise<Profile | null>;
 });
 
 export const getIsAdmin = cache(async () => {

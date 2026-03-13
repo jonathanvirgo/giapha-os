@@ -1,8 +1,10 @@
 import MemberForm from "@/components/MemberForm";
-import { getProfile, getSupabase } from "@/utils/supabase/queries";
+import { getProfile } from "@/utils/supabase/queries";
+import { getPersonById, getPrivateDetails } from "@/lib/db/persons";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Person } from "@/types";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -28,34 +30,27 @@ export default async function EditMemberPage({ params }: PageProps) {
     );
   }
 
-  const supabase = await getSupabase();
-
   // Fetch Public Data
-  const { data: person, error } = await supabase
-    .from("persons")
-    .select("*")
-    .eq("id", id)
-    .single();
+  const person = await getPersonById(id);
 
-  if (error || !person) {
+  if (!person) {
     notFound();
   }
 
   // Fetch Private Data
-  const { data: privateData } = await supabase
-    .from("person_details_private")
-    .select("*")
-    .eq("person_id", id)
-    .single();
+  const privateData = await getPrivateDetails(id);
 
-  const initialData = { ...person, ...privateData };
+  const initialData = person
+    ? ({
+        ...person,
+        phone_number: privateData?.phone_number || undefined,
+        occupation: privateData?.occupation || undefined,
+        current_residence: privateData?.current_residence || undefined,
+      } as Person)
+    : undefined;
 
   return (
     <div className="flex-1 w-full relative flex flex-col pb-8">
-      {/* Decorative background blurs */}
-      {/* <div className="absolute -top-[20%] -left-[10%] w-[500px] h-[500px] bg-amber-200/20 rounded-full blur-[120px] pointer-events-none" /> */}
-      {/* <div className="absolute top-[40%] -right-[10%] w-[400px] h-[400px] bg-stone-300/20 rounded-full blur-[100px] pointer-events-none" /> */}
-
       <div className="w-full relative z-20 py-4 px-4 sm:px-6 lg:px-8 max-w-3xl mx-auto flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link

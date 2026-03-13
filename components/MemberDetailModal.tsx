@@ -3,6 +3,7 @@
 import MemberDetailContent from "@/components/MemberDetailContent";
 import MemberForm from "@/components/MemberForm";
 import { Person } from "@/types";
+import { fetchPerson } from "@/app/actions/person";
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertCircle, ArrowLeft, Edit2, ExternalLink, X } from "lucide-react";
 import Link from "next/link";
@@ -18,7 +19,7 @@ export default function MemberDetailModal() {
     showCreateMember,
     setShowCreateMember,
   } = useDashboard();
-  const { isAdmin, isEditor: canEdit, supabase } = useUser();
+  const { isAdmin, isEditor: canEdit } = useUser();
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -43,38 +44,22 @@ export default function MemberDetailModal() {
       setLoading(true);
       setError(null);
       try {
-        // 1. Fetch Person Public Data
-        const { data: personData, error: personError } = await supabase
-          .from("persons")
-          .select("*")
-          .eq("id", id)
-          .single();
+        const result = await fetchPerson(id);
 
-        if (personError || !personData) {
-          throw new Error("Không thể tải thông tin thành viên.");
+        if (result.error || !result.person) {
+          throw new Error(result.error || "Không thể tải thông tin thành viên.");
         }
-        setPerson(personData);
 
-        // 2. Fetch Private Data if Admin
-        if (isAdmin) {
-          const { data: privData } = await supabase
-            .from("person_details_private")
-            .select("*")
-            .eq("person_id", id)
-            .single();
-          setPrivateData(privData || {});
-        } else {
-          setPrivateData(null);
-        }
+        setPerson(result.person);
+        setPrivateData(result.privateData);
       } catch (err) {
         console.error("Error fetching member details:", err);
-        // @ts-expect-error - err is caught as unknown, but we check for message
-        setError(err?.message || "Đã xảy ra lỗi hệ thống.");
+        setError((err as Error)?.message || "Đã xảy ra lỗi hệ thống.");
       } finally {
         setLoading(false);
       }
     },
-    [isAdmin, supabase],
+    [],
   );
 
   // Sync state with URL parameter or create mode

@@ -1,0 +1,123 @@
+// Prisma schema for giapha-os
+// Generated from docs/schema.sql
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum gender_enum {
+  male
+  female
+  other
+}
+
+enum relationship_type_enum {
+  marriage
+  biological_child
+  adopted_child
+}
+
+enum user_role_enum {
+  admin
+  editor
+  member
+}
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+
+model profiles {
+  id         String         @id @db.Uuid
+  role       user_role_enum @default(member)
+  is_active  Boolean        @default(false)
+  created_at DateTime?      @default(now()) @db.Timestamptz(6)
+  updated_at DateTime?      @default(now()) @db.Timestamptz(6)
+}
+
+model persons {
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  full_name   String
+  gender      gender_enum
+
+  birth_year  Int?
+  birth_month Int?
+  birth_day   Int?
+  death_year  Int?
+  death_month Int?
+  death_day   Int?
+
+  is_deceased Boolean @default(false)
+  is_in_law   Boolean @default(false)
+  birth_order Int?
+  generation  Int?
+  other_names String?
+  avatar_url  String?
+  note        String?
+
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  private_details      person_details_private?
+  relationships_as_a   relationships[]  @relation("person_a_rel")
+  relationships_as_b   relationships[]  @relation("person_b_rel")
+  family_settings_root family_settings[] @relation("default_root")
+}
+
+model person_details_private {
+  person_id         String  @id @db.Uuid
+  phone_number      String?
+  occupation        String?
+  current_residence String?
+
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  person persons @relation(fields: [person_id], references: [id], onDelete: Cascade)
+}
+
+model relationships {
+  id       String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type     relationship_type_enum
+  person_a String                 @db.Uuid
+  person_b String                 @db.Uuid
+  note     String?
+
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  personA persons @relation("person_a_rel", fields: [person_a], references: [id], onDelete: Cascade)
+  personB persons @relation("person_b_rel", fields: [person_b], references: [id], onDelete: Cascade)
+
+  @@unique([person_a, person_b, type])
+  @@index([person_a])
+  @@index([person_b])
+  @@index([type])
+}
+
+model custom_events {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name       String
+  content    String?
+  event_date DateTime @db.Date
+  location   String?
+  created_by String?  @db.Uuid
+
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+}
+
+model family_settings {
+  id              String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  default_root_id String? @db.Uuid
+
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  default_root persons? @relation("default_root", fields: [default_root_id], references: [id], onDelete: SetNull)
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import { CustomEventRecord } from "@/utils/eventHelpers";
-import { createClient } from "@/utils/supabase/client";
+import { saveEvent, deleteEventAction } from "@/app/actions/event";
 import { AnimatePresence, motion, Variants } from "framer-motion";
 import {
   AlertCircle,
@@ -69,29 +69,15 @@ export default function CustomEventModal({
     setError(null);
 
     try {
-      const supabase = createClient();
-      const payload = {
+      const result = await saveEvent({
+        id: eventToEdit?.id,
         name,
         event_date: eventDate,
         location: location || null,
         content: content || null,
-      };
+      });
 
-      let resultError;
-      if (eventToEdit) {
-        const { error: err } = await supabase
-          .from("custom_events")
-          .update(payload)
-          .eq("id", eventToEdit.id);
-        resultError = err;
-      } else {
-        const { error: err } = await supabase
-          .from("custom_events")
-          .insert([payload]);
-        resultError = err;
-      }
-
-      if (resultError) throw resultError;
+      if (!result.success) throw new Error(result.error);
 
       onSuccess();
       onClose();
@@ -114,13 +100,8 @@ export default function CustomEventModal({
     setLoading(true);
     setError(null);
     try {
-      const supabase = createClient();
-      const { error: err } = await supabase
-        .from("custom_events")
-        .delete()
-        .eq("id", eventToEdit.id);
-
-      if (err) throw err;
+      const result = await deleteEventAction(eventToEdit.id);
+      if (!result.success) throw new Error(result.error);
 
       onSuccess();
       onClose();

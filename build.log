@@ -1,0 +1,30 @@
+
+> giapha-os@0.1.0 build /home/qd/project/giapha-os
+> prisma generate && next build
+
+Loaded Prisma config from prisma.config.ts.
+
+Prisma schema loaded from prisma/schema.prisma.
+
+✔ Generated Prisma Client (7.4.2) to ./lib/generated/prisma in 74ms
+
+▲ Next.js 16.1.6 (Turbopack)
+- Environments: .env
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 8.8s
+  Running TypeScript ...
+Failed to compile.
+
+./lib/prisma.ts:7:66
+Type error: Argument of type '{}' is not assignable to parameter of type 'Subset<PrismaClientOptions, PrismaClientOptions>'.
+
+[0m [90m  5 |[39m }[33m;[39m
+ [90m  6 |[39m
+[31m[1m>[22m[39m[90m  7 |[39m [36mexport[39m [36mconst[39m prisma [33m=[39m globalForPrisma[33m.[39mprisma [33m?[39m[33m?[39m [36mnew[39m [33mPrismaClient[39m({})[33m;[39m
+ [90m    |[39m                                                                  [31m[1m^[22m[39m
+ [90m  8 |[39m
+ [90m  9 |[39m [36mif[39m (process[33m.[39menv[33m.[39m[33mNODE_ENV[39m [33m!==[39m [32m"production"[39m) globalForPrisma[33m.[39mprisma [33m=[39m prisma[33m;[39m
+ [90m 10 |[39m[0m
+Next.js build worker exited with code: 1 and signal: null
+ ELIFECYCLE  Command failed with exit code 1.
