@@ -54,31 +54,25 @@ export default function DashboardViews({
 
     let finalRootId = rootId;
 
-    // If no rootId is provided, fallback to generation 1 or earliest birth year
-    // Priority: 1) URL rootId → 2) saved default → 3) auto-detect root
+    // Priority: 1) URL rootId → 2) saved default → 3) auto-detect root (gen1 or earliest birth year)
     if (!finalRootId || !pMap.has(finalRootId)) {
-      const rootsFallback = persons.filter((p) => !childIds.has(p.id));
-      if (rootsFallback.length > 0) {
-        const gen1 = rootsFallback.filter((p) => p.generation === 1);
-        const sortByBirthYear = (a: Person, b: Person) => {
-          const ya = a.birth_year ?? Infinity;
-          const yb = b.birth_year ?? Infinity;
-          return ya - yb;
-        };
-
-        if (gen1.length > 0) {
-          finalRootId = gen1.sort(sortByBirthYear)[0].id;
-        } else {
-          finalRootId = rootsFallback.sort(sortByBirthYear)[0].id;
-        }
-      } else if (persons.length > 0) {
-        finalRootId = persons[0].id; // ultimate fallback
       if (savedDefaultRootId && pMap.has(savedDefaultRootId)) {
         finalRootId = savedDefaultRootId;
       } else {
         const rootsFallback = persons.filter((p) => !childIds.has(p.id));
         if (rootsFallback.length > 0) {
-          finalRootId = rootsFallback[0].id;
+          const gen1 = rootsFallback.filter((p) => p.generation === 1);
+          const sortByBirthYear = (a: Person, b: Person) => {
+            const ya = a.birth_year ?? Infinity;
+            const yb = b.birth_year ?? Infinity;
+            return ya - yb;
+          };
+
+          if (gen1.length > 0) {
+            finalRootId = gen1.sort(sortByBirthYear)[0].id;
+          } else {
+            finalRootId = rootsFallback.sort(sortByBirthYear)[0].id;
+          }
         } else if (persons.length > 0) {
           finalRootId = persons[0].id; // ultimate fallback
         }
