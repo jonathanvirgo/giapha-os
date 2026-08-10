@@ -1,5 +1,5 @@
 import DeleteMemberButton from "@/components/DeleteMemberButton";
-import MemberDetailContent from "@/components/MemberDetailContent";
+import MemberDetailContent from "@/context/MemberDetailContent";
 import { getProfile, getSupabase } from "@/utils/supabase/queries";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
@@ -47,7 +47,7 @@ export default async function MemberDetailPage({ params }: PageProps) {
       {/* <div className="absolute -top-[20%] left-0 w-[500px] h-[500px] bg-amber-200/20 rounded-full blur-[120px] pointer-events-none" /> */}
       {/* <div className="absolute top-[40%] right-0 w-[400px] h-[400px] bg-stone-300/20 rounded-full blur-[100px] pointer-events-none" /> */}
 
-      <div className="w-full relative z-20 py-4 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto flex items-center justify-between">
+      <div className="w-full relative z-20 py-4 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3">
           <Link
             href="/dashboard/members"
@@ -59,14 +59,14 @@ export default async function MemberDetailPage({ params }: PageProps) {
           <h1 className="title">Chi Tiết Thành Viên</h1>
         </div>
         {canEdit && (
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 w-full sm:w-auto">
             <Link
               href={`/dashboard/members/${id}/edit`}
-              className="px-4 py-2 bg-stone-100/80 text-stone-700 rounded-lg hover:bg-stone-200 hover:text-stone-900 font-medium text-sm transition-all shadow-sm"
+              className="btn flex-1 sm:flex-none w-full sm:w-auto"
             >
               Chỉnh sửa
             </Link>
-            <DeleteMemberButton memberId={id} />
+            <DeleteMemberButton memberId={id} className="flex-1 sm:flex-none" />
           </div>
         )}
       </div>

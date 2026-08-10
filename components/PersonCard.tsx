@@ -3,7 +3,7 @@
 import { Person } from "@/types";
 import { getAvatarBg } from "@/utils/styleHelprs";
 import Image from "next/image";
-import { useDashboard } from "./DashboardContext";
+import { useMemberListView } from "@/context/MemberListContext";
 import DefaultAvatar from "./DefaultAvatar";
 import { FemaleIcon, MaleIcon } from "./GenderIcons";
 
@@ -12,7 +12,7 @@ interface PersonCardProps {
 }
 
 export default function PersonCard({ person }: PersonCardProps) {
-  const { setMemberModalId } = useDashboard();
+  const { setMemberModalId } = useMemberListView();
 
   const isDeceased = person.is_deceased;
 
@@ -25,7 +25,7 @@ export default function PersonCard({ person }: PersonCardProps) {
   return (
     <button
       onClick={() => setMemberModalId(person.id)}
-      className={`group block relative bg-white/60 p-2 sm:p-4 rounded-2xl shadow-sm border border-stone-200/60 hover:border-amber-300 hover:shadow-md hover:bg-white/90 transition-all duration-300 overflow-hidden
+      className={`group block relative bg-white/60 p-2 sm:p-4 rounded-3xl shadow-soft border border-border hover:border-tertiary hover:-translate-y-1 hover:shadow-soft-hover hover:bg-surface/90 transition-all duration-300 overflow-hidden
         ${isDeceased ? "opacity-80 grayscalePer-[0.3]" : ""}`}
     >
       {/* Decorative gradient blob */}

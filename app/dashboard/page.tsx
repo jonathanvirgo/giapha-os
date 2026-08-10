@@ -12,6 +12,8 @@ import {
   Network,
   Star,
   Users,
+  Image as ImageIcon,
+  Info,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -97,15 +99,24 @@ export default async function DashboardLaunchpad() {
       borderColor: "border-purple-200/60",
       hoverColor: "hover:border-purple-400 hover:shadow-purple-100",
     },
-    // {
-    //   title: "Giới thiệu & Liên hệ",
-    //   description: "Thông tin về ứng dụng và đội ngũ phát triển",
-    //   icon: <Info className="size-8 text-stone-600" />,
-    //   href: "/about",
-    //   bgColor: "bg-stone-50",
-    //   borderColor: "border-stone-200/60",
-    //   hoverColor: "hover:border-stone-400 hover:shadow-stone-100",
-    // },
+    {
+      title: "Phòng trưng bày",
+      description: "Lưu giữ và chia sẻ hình ảnh, kỷ niệm dòng họ",
+      icon: <ImageIcon className="size-8 text-pink-600" />,
+      href: "/dashboard/gallery",
+      bgColor: "bg-pink-50",
+      borderColor: "border-pink-200/60",
+      hoverColor: "hover:border-pink-400 hover:shadow-pink-100",
+    },
+    {
+      title: "Giới thiệu & Liên hệ",
+      description: "Thông tin về ứng dụng và đội ngũ phát triển",
+      icon: <Info className="size-8 text-stone-600" />,
+      href: "/about",
+      bgColor: "bg-stone-50",
+      borderColor: "border-stone-200/60",
+      hoverColor: "hover:border-stone-400 hover:shadow-stone-100",
+    },
   ];
 
   const adminFeatures = [

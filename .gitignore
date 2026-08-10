@@ -40,6 +40,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# agent
+.antigravitycli/
 .agents/
 .agent/
 skills-lock.json

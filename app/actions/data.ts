@@ -135,89 +135,106 @@ export async function exportData(
 
   const supabase = await getSupabase();
 
-  // Fetch ALL persons and relationships first to perform traversal in memory.
-  // This is safe since typical family trees are < 10,000 nodes, easily fitting in memory.
-  const { data: allPersons, error: personsError } = await supabase
-    .from("persons")
-    .select(
+  // Fetch ALL rows using pagination to avoid the 1000-row Supabase limit.
+  const fetchAll = async <T>(
+    table: string,
+    selectCols: string,
+    orderBy: string,
+  ): Promise<T[]> => {
+    let allData: T[] = [];
+    let from = 0;
+    const step = 1000;
+    while (true) {
+      const { data, error } = await supabase
+        .from(table)
+        .select(selectCols)
+        .order(orderBy, { ascending: true })
+        .range(from, from + step - 1);
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+      allData = allData.concat(data as T[]);
+      if (data.length < step) break;
+      from += step;
+    }
+    return allData;
+  };
+
+  let allPersons: PersonExport[] = [];
+  let allRels: RelationshipExport[] = [];
+  let allPrivateDetails: PersonDetailsPrivateExport[] = [];
+  let allCustomEvents: CustomEventExport[] = [];
+
+  try {
+    allPersons = await fetchAll<PersonExport>(
+      "persons",
       "id, full_name, gender, birth_year, birth_month, birth_day, death_year, death_month, death_day, death_lunar_year, death_lunar_month, death_lunar_day, is_deceased, is_in_law, birth_order, generation, other_names, avatar_url, note, created_at, updated_at",
-    )
-    .order("created_at", { ascending: true });
+      "created_at",
+    );
+    allRels = await fetchAll<RelationshipExport>(
+      "relationships",
+      "id, type, person_a, person_b, note, created_at, updated_at",
+      "created_at",
+    );
+    // person_details_private might not have created_at, order by person_id
+    allPrivateDetails = await fetchAll<PersonDetailsPrivateExport>(
+      "person_details_private",
+      "person_id, phone_number, occupation, current_residence",
+      "person_id",
+    );
+    allCustomEvents = await fetchAll<CustomEventExport>(
+      "custom_events",
+      "id, name, content, event_date, location, created_by",
+      "event_date",
+    );
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { error: "Lỗi tải dữ liệu: " + message };
+  }
 
-  if (personsError)
-    return { error: "Lỗi tải dữ liệu persons: " + personsError.message };
-
-  const { data: allRels, error: relationshipsError } = await supabase
-    .from("relationships")
-    .select("id, type, person_a, person_b, note, created_at, updated_at")
-    .order("created_at", { ascending: true });
-
-  if (relationshipsError)
-    return {
-      error: "Lỗi tải dữ liệu relationships: " + relationshipsError.message,
-    };
-
-  const { data: allPrivateDetails, error: privateDetailsError } = await supabase
-    .from("person_details_private")
-    .select("person_id, phone_number, occupation, current_residence");
-
-  if (privateDetailsError)
-    return {
-      error:
-        "Lỗi tải dữ liệu person_details_private: " +
-        privateDetailsError.message,
-    };
-
-  const { data: allCustomEvents, error: customEventsError } = await supabase
-    .from("custom_events")
-    .select("id, name, content, event_date, location, created_by")
-    .order("event_date", { ascending: true });
-
-  if (customEventsError)
-    return {
-      error: "Lỗi tải dữ liệu custom_events: " + customEventsError.message,
-    };
-
-  let exportPersons = (allPersons ?? []) as PersonExport[];
-  let exportRels = (allRels ?? []) as RelationshipExport[];
-  let exportPrivateDetails = (allPrivateDetails ??
-    []) as PersonDetailsPrivateExport[];
-  const exportCustomEvents = (allCustomEvents ?? []) as CustomEventExport[];
+  let exportPersons = allPersons;
+  let exportRels = allRels;
+  let exportPrivateDetails = allPrivateDetails;
+  const exportCustomEvents = allCustomEvents;
 
   // If a root person is selected, filter the export to only their subtree
   if (exportRootId && exportPersons.some((p) => p.id === exportRootId)) {
     const includedPersonIds = new Set<string>([exportRootId]);
 
+    // Pre-calculate adjacency lists for O(1) lookup to improve performance with large datasets
+    const childrenMap = new Map<string, string[]>();
+    const spouseMap = new Map<string, string[]>();
+
+    exportRels.forEach((r) => {
+      if (r.type === "biological_child" || r.type === "adopted_child") {
+        if (!childrenMap.has(r.person_a)) childrenMap.set(r.person_a, []);
+        childrenMap.get(r.person_a)!.push(r.person_b);
+      } else if (r.type === "marriage") {
+        if (!spouseMap.has(r.person_a)) spouseMap.set(r.person_a, []);
+        if (!spouseMap.has(r.person_b)) spouseMap.set(r.person_b, []);
+        spouseMap.get(r.person_a)!.push(r.person_b);
+        spouseMap.get(r.person_b)!.push(r.person_a);
+      }
+    });
+
     // 1. Traverse biological and adopted children recursively
     const findDescendants = (parentId: string) => {
-      exportRels
-        .filter(
-          (r) =>
-            (r.type === "biological_child" || r.type === "adopted_child") &&
-            r.person_a === parentId,
-        )
-        .forEach((r) => {
-          if (!includedPersonIds.has(r.person_b)) {
-            includedPersonIds.add(r.person_b);
-            findDescendants(r.person_b);
-          }
-        });
+      const children = childrenMap.get(parentId) || [];
+      children.forEach((childId) => {
+        if (!includedPersonIds.has(childId)) {
+          includedPersonIds.add(childId);
+          findDescendants(childId);
+        }
+      });
     };
     findDescendants(exportRootId);
 
     // 2. Add spouses for everyone in the tree so far
     const descendantsArray = Array.from(includedPersonIds); // snapshot current members
     descendantsArray.forEach((personId) => {
-      exportRels
-        .filter(
-          (r) =>
-            r.type === "marriage" &&
-            (r.person_a === personId || r.person_b === personId),
-        )
-        .forEach((r) => {
-          const spouseId = r.person_a === personId ? r.person_b : r.person_a;
-          includedPersonIds.add(spouseId);
-        });
+      const spouses = spouseMap.get(personId) || [];
+      spouses.forEach((spouseId) => {
+        includedPersonIds.add(spouseId);
+      });
     });
 
     // 3. Filter the payload

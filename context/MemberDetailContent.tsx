@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useCallback, useState } from "react";
-import { FemaleIcon, MaleIcon } from "./GenderIcons";
+import { FemaleIcon, MaleIcon } from "@/components/GenderIcons";
 
 interface MemberDetailContentProps {
   person: Person;

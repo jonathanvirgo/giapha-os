@@ -1,5 +1,7 @@
 "use client";
 
+import CustomEventModal from "@/components/modal/CustomEventModal";
+import { useMemberListView } from "@/context/MemberListContext";
 import { getZodiacSign } from "@/utils/dateHelpers";
 import {
   computeEvents,
@@ -20,8 +22,6 @@ import {
 import { Solar } from "lunar-javascript";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import CustomEventModal from "./CustomEventModal";
-import { useDashboard } from "./DashboardContext";
 
 interface EventsListProps {
   persons: {
@@ -75,7 +75,7 @@ function EventCard({
   const isPast = event.daysUntil < 0;
   const isSoon = event.daysUntil > 0 && event.daysUntil <= 7;
 
-  const { setMemberModalId } = useDashboard();
+  const { setMemberModalId } = useMemberListView();
 
   const handleClick = () => {
     if (isCustom) {
@@ -155,11 +155,11 @@ function EventCard({
         }`}
       >
         {isBirthday ? (
-          <Cake className="size-[18px] sm:size-5" />
+          <Cake className="size-4.5 sm:size-5" />
         ) : isCustom ? (
-          <Star className="size-[18px] sm:size-5" />
+          <Star className="size-4.5 sm:size-5" />
         ) : (
-          <Flower className="size-[18px] sm:size-5" />
+          <Flower className="size-4.5 sm:size-5" />
         )}
       </div>
 
@@ -383,7 +383,7 @@ export default function EventsList({
 
         <button
           onClick={handleOpenCreateModal}
-          className="relative z-10 w-full sm:w-auto px-5 py-3 rounded-xl bg-stone-800 text-white font-semibold hover:bg-stone-900 active:scale-95 transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+          className="btn-primary relative z-10 w-full sm:w-auto"
         >
           <Plus className="size-5 text-stone-300" />
           <span>Thêm sự kiện</span>
@@ -467,7 +467,7 @@ export default function EventsList({
       {filtered.length > showCount && (
         <button
           onClick={() => setShowCount((n) => n + 20)}
-          className="w-full py-3 text-sm font-semibold text-stone-500 hover:text-amber-600 transition-colors"
+          className="btn w-full"
         >
           Xem thêm {filtered.length - showCount} sự kiện…
         </button>

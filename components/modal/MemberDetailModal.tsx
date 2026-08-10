@@ -1,15 +1,15 @@
 "use client";
 
-import MemberDetailContent from "@/components/MemberDetailContent";
 import MemberForm from "@/components/MemberForm";
+import { useUser } from "@/components/UserProvider";
+import MemberDetailContent from "@/context/MemberDetailContent";
+import { useMemberListView } from "@/context/MemberListContext";
 import { Person } from "@/types";
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertCircle, ArrowLeft, Edit2, ExternalLink, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { useDashboard } from "./DashboardContext";
-import { useUser } from "./UserProvider";
 
 export default function MemberDetailModal() {
   const {
@@ -17,7 +17,7 @@ export default function MemberDetailModal() {
     setMemberModalId,
     showCreateMember,
     setShowCreateMember,
-  } = useDashboard();
+  } = useMemberListView();
   const { isAdmin, isEditor: canEdit, supabase } = useUser();
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
@@ -182,7 +182,7 @@ export default function MemberDetailModal() {
                   onClick={() => {
                     setIsEditing(false);
                   }}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-stone-100/80 text-stone-700 rounded-full hover:bg-stone-200 font-semibold text-sm shadow-sm border border-stone-200/50 transition-colors"
+                  className="inline-flex items-center justify-center shrink-0 gap-1.5 px-3 py-2.5 bg-stone-100/80 text-stone-700 rounded-full hover:bg-stone-200 font-medium text-sm border border-stone-200/50 hover:-translate-y-1 hover:shadow-soft-hover transition-all duration-300"
                 >
                   <ArrowLeft className="size-4" />
                   <span className="hidden sm:inline">Quay lại</span>
@@ -193,14 +193,14 @@ export default function MemberDetailModal() {
                   <>
                     <Link
                       href={`/dashboard/members/${person.id}`}
-                      className="flex items-center gap-1.5 px-4 py-2 bg-amber-100/80 text-amber-800 rounded-full hover:bg-amber-200 font-semibold text-sm shadow-sm border border-amber-200/50 transition-colors"
+                      className="btn-amber text-sm"
                     >
                       <ExternalLink className="size-4" />
                       <span className="hidden sm:inline">Xem</span>
                     </Link>
                     <button
                       onClick={() => setIsEditing(true)}
-                      className="flex items-center gap-1.5 px-4 py-2 bg-amber-100/80 text-amber-800 rounded-full hover:bg-amber-200 font-semibold text-sm shadow-sm border border-amber-200/50 transition-colors"
+                      className="btn-amber text-sm"
                     >
                       <Edit2 className="size-4" />
                       <span className="hidden sm:inline">Chỉnh sửa</span>
@@ -225,7 +225,7 @@ export default function MemberDetailModal() {
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
                   transition={{ duration: 0.2 }}
-                  className="flex-1 min-h-[500px] flex items-center justify-center flex-col gap-4"
+                  className="flex-1 min-h-125 flex items-center justify-center flex-col gap-4"
                 >
                   <div className="size-10 border-4 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
                   <p className="text-stone-500 font-medium">Đang tải...</p>
@@ -237,7 +237,7 @@ export default function MemberDetailModal() {
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
                   transition={{ duration: 0.2 }}
-                  className="flex-1 min-h-[400px] flex items-center justify-center flex-col gap-4 p-8 text-center"
+                  className="flex-1 min-h-100 flex items-center justify-center flex-col gap-4 p-8 text-center"
                 >
                   <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-2 shadow-inner">
                     <AlertCircle className="size-8" />
@@ -245,7 +245,7 @@ export default function MemberDetailModal() {
                   <p className="text-red-600 font-medium text-lg">{error}</p>
                   <button
                     onClick={closeModal}
-                    className="mt-2 px-6 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold rounded-full transition-colors"
+                    className="btn mt-2 rounded-full"
                   >
                     Đóng
                   </button>

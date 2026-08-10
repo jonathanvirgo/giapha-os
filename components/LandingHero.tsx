@@ -75,7 +75,7 @@ export default function LandingHero({ siteName }: LandingHeroProps) {
 
           <Link
             href="/login"
-            className="group inline-flex items-center justify-center gap-2 px-8 py-4 sm:px-10 sm:py-5 text-base sm:text-lg font-bold text-white bg-stone-900 border border-stone-800 hover:bg-stone-800 hover:border-stone-700 rounded-2xl shadow-xl shadow-stone-900/10 hover:shadow-2xl hover:shadow-stone-900/20 transition-all duration-300 hover:-translate-y-1 active:translate-y-0 w-full sm:w-auto overflow-hidden relative"
+            className="group inline-flex items-center justify-center gap-2 px-8 py-4 sm:px-10 sm:py-5 text-base sm:text-lg font-bold text-white bg-primary border border-stone-800 hover:bg-stone-800 hover:border-stone-700 rounded-xl shadow-xl shadow-stone-900/10 hover:shadow-2xl hover:shadow-stone-900/20 transition-all duration-300 hover:-translate-y-1 active:translate-y-0 w-full sm:w-auto overflow-hidden relative"
           >
             <span className="relative z-10 flex items-center gap-3">
               Đăng nhập để xem thông tin
@@ -109,7 +109,7 @@ export default function LandingHero({ siteName }: LandingHeroProps) {
               key={idx}
               variants={fadeIn}
               whileHover={{ y: -5 }}
-              className="bg-white/70 backdrop-blur-xl p-8 rounded-3xl border border-white/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:bg-white transition-all duration-500 flex flex-col items-start group relative overflow-hidden"
+              className="card-feature flex flex-col items-start group relative overflow-hidden"
             >
               <div className="absolute top-0 right-0 w-32 h-32 bg-linear-to-br from-amber-100/50 to-transparent rounded-bl-[100px] opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
 

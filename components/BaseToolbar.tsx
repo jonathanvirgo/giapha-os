@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Filter } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useDashboard } from "./DashboardContext";
+import { useMemberListView } from "@/context/MemberListContext";
 import ExportButton from "./ExportButton";
 
 export interface BaseToolbarProps {
@@ -48,7 +48,7 @@ export default function BaseToolbar({
   canEdit,
   children,
 }: BaseToolbarProps) {
-  const { showAvatar, setShowAvatar } = useDashboard();
+  const { showAvatar, setShowAvatar } = useMemberListView();
   const [showFilters, setShowFilters] = useState(false);
   const filtersRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
@@ -109,7 +109,7 @@ export default function BaseToolbar({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.95 }}
               transition={{ duration: 0.15, ease: "easeOut" }}
-              className="absolute top-full right-0 mt-2 w-48 bg-white/95 backdrop-blur-xl shadow-xl border border-stone-200/60 rounded-2xl p-4 flex flex-col gap-3 z-50"
+              className="absolute top-full right-0 mt-2 w-48 bg-surface/95 backdrop-blur-xl shadow-soft border border-border rounded-3xl p-4 flex flex-col gap-3 z-50"
             >
               <div className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-1">
                 HIỂN THỊ

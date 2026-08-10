@@ -46,7 +46,7 @@ function StatCard({
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay }}
-      className="bg-white/80 border border-stone-200/60 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all group relative overflow-hidden"
+      className="bg-white/80 border border-stone-200/60 rounded-3xl p-5 shadow-soft hover:-translate-y-1 hover:shadow-soft-hover transition-all group relative overflow-hidden"
     >
       {/* Background glow */}
       <div
@@ -286,7 +286,7 @@ export default function FamilyStats({
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.5 }}
-          className="bg-white/80 border border-stone-200/60 rounded-2xl p-6 shadow-sm"
+          className="card-feature"
         >
           <h2 className="text-base font-bold text-stone-700 mb-5 flex items-center gap-2">
             <Crown className="size-4 text-amber-500" />
@@ -366,7 +366,7 @@ export default function FamilyStats({
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.8 }}
-            className="bg-white/80 border border-stone-200/60 rounded-2xl p-6 shadow-sm"
+            className="card-feature"
           >
             <h2 className="text-base font-bold text-stone-700 mb-5 flex items-center gap-2">
               <Star className="size-4 text-purple-500" />
@@ -411,7 +411,7 @@ export default function FamilyStats({
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.95 }}
-            className="bg-white/80 border border-stone-200/60 rounded-2xl p-6 shadow-sm"
+            className="card-feature"
           >
             <h2 className="text-base font-bold text-stone-700 mb-5 flex items-center gap-2">
               <Moon className="size-4 text-orange-500" />

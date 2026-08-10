@@ -2,12 +2,12 @@
 
 import { motion } from "framer-motion";
 import { Circle, List, ListTree, Network } from "lucide-react";
-import { useDashboard } from "./DashboardContext";
+import { useMemberListView } from "@/context/MemberListContext";
 
 export type ViewMode = "list" | "tree" | "mindmap" | "bubble";
 
 export default function ViewToggle() {
-  const { view: currentView, setView } = useDashboard();
+  const { view: currentView, setView } = useMemberListView();
 
   const tabs = [
     {

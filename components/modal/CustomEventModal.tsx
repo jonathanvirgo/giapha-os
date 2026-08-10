@@ -408,34 +408,34 @@ export default function CustomEventModal({
                   initial="hidden"
                   animate="show"
                   transition={{ delay: 0.1 }}
-                  className="flex justify-between items-center gap-4 pt-4 sm:pt-6"
+                  className="flex flex-col-reverse sm:flex-row justify-between items-stretch sm:items-center gap-4 pt-4 sm:pt-6"
                 >
                   {eventToEdit ? (
                     <button
                       type="button"
                       onClick={handleDelete}
                       disabled={loading}
-                      className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-colors disabled:opacity-50 border border-rose-200/50"
+                      className="inline-flex items-center justify-center gap-1.5 px-4 py-4 text-sm font-medium text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl disabled:opacity-50 border border-rose-200/50 w-full sm:w-auto hover:-translate-y-1 hover:shadow-soft-hover duration-300 transition-all"
                     >
                       Xoá sự kiện
                     </button>
                   ) : (
-                    <div /> /* Empty div to push right buttons to end */
+                    <div className="hidden sm:block" /> /* Empty div to push right buttons to end on desktop */
                   )}
 
-                  <div className="flex gap-3">
+                  <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                     <button
                       type="button"
                       onClick={onClose}
                       disabled={loading}
-                      className="btn"
+                      className="btn w-full sm:w-auto"
                     >
                       Huỷ bỏ
                     </button>
                     <button
                       type="submit"
                       disabled={loading}
-                      className="btn-primary"
+                      className="btn-primary w-full sm:w-auto"
                     >
                       {loading && <Loader2 className="size-4 animate-spin" />}
                       {loading ? "Đang lưu..." : "Lưu sự kiện"}

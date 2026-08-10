@@ -23,7 +23,7 @@ export default async function DashboardLayout({
 
   if (!profile?.is_active) {
     return (
-      <div className="min-h-screen bg-stone-50 text-stone-900 flex flex-col font-sans">
+      <div className="min-h-screen bg-neutral text-primary flex flex-col font-sans">
         <header className="sticky top-0 z-30 bg-white/80 border-b border-stone-200 shadow-sm transition-all duration-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -39,7 +39,7 @@ export default async function DashboardLayout({
           </div>
         </header>
         <main className="flex-1 flex flex-col items-center justify-center p-4">
-          <div className="max-w-md w-full text-center bg-white p-6 sm:p-8 rounded-xl sm:rounded-2xl shadow-sm border border-stone-200">
+          <div className="max-w-md w-full text-center card-feature">
             <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg
                 className="size-8"
@@ -76,7 +76,7 @@ export default async function DashboardLayout({
 
   return (
     <UserProvider user={user} profile={profile}>
-      <div className="min-h-screen bg-stone-50 text-stone-900 flex flex-col font-sans">
+      <div className="min-h-screen bg-neutral text-primary flex flex-col font-sans">
         <DashboardHeader />
         {children}
         <Footer

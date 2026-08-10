@@ -416,19 +416,36 @@ export function parseGedcom(gedcom: string): {
       });
     }
 
-    // Assigning children to the first available parent
-    const parentA = husb || wife;
-    if (parentA) {
-      for (const childId of children) {
-        if (parentA === childId) continue;
+    // Assigning children to both parents
+    for (const childId of children) {
+      if (husb && husb !== childId) {
         relationships.push({
           type: "biological_child",
-          person_a: parentA,
+          person_a: husb,
+          person_b: childId,
+        });
+      }
+      if (wife && wife !== childId) {
+        relationships.push({
+          type: "biological_child",
+          person_a: wife,
           person_b: childId,
         });
       }
     }
   }
 
-  return { persons, relationships };
+  // Deduplicate relationships to prevent database unique constraint errors
+  const uniqueRelationships: GedcomRelationship[] = [];
+  const seenKeys = new Set<string>();
+
+  for (const rel of relationships) {
+    const key = `${rel.type}_${rel.person_a}_${rel.person_b}`;
+    if (!seenKeys.has(key)) {
+      seenKeys.add(key);
+      uniqueRelationships.push(rel);
+    }
+  }
+
+  return { persons, relationships: uniqueRelationships };
 }

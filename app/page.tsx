@@ -4,7 +4,7 @@ import config from "./config";
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-[#fafaf9] flex flex-col selection:bg-amber-200 selection:text-amber-900 relative overflow-hidden">
+    <div className="min-h-screen bg-neutral flex flex-col selection:bg-amber-200 selection:text-amber-900 relative overflow-hidden">
       {/* Decorative background grid and blurs */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-size-[24px_24px] pointer-events-none"></div>
       <div className="absolute inset-0 bg-[radial-gradient(circle_800px_at_50%_-30%,#fef3c7,transparent)] pointer-events-none"></div>

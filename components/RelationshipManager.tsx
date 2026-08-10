@@ -1,6 +1,9 @@
 "use client";
 
-import { DashboardContext, useDashboard } from "@/components/DashboardContext";
+import {
+  MemberListContext,
+  useMemberListView,
+} from "@/context/MemberListContext";
 import { Person, RelationshipType } from "@/types";
 import { formatDisplayDate } from "@/utils/dateHelpers";
 import { getAvatarBg } from "@/utils/styleHelprs";
@@ -40,8 +43,8 @@ export default function RelationshipManager({
   onStatsLoaded,
 }: RelationshipManagerProps) {
   const supabase = createClient();
-  const dashboardContext = useContext(DashboardContext);
-  const { setMemberModalId } = useDashboard();
+  const memberListContext = useContext(MemberListContext);
+  const { setMemberModalId } = useMemberListView();
   const router = useRouter();
 
   const personId = person.id;
@@ -49,7 +52,7 @@ export default function RelationshipManager({
 
   // If inside DashboardProvider → open modal; otherwise → navigate to full page
   const handlePersonClick = (id: string) => {
-    if (dashboardContext !== undefined) {
+    if (memberListContext !== undefined) {
       setMemberModalId(id);
     } else {
       router.push(`/dashboard/members/${id}`);
@@ -612,17 +615,31 @@ export default function RelationshipManager({
     }
   };
 
-  const groupByType = (type: string) =>
-    relationships
-      .filter((r) => r.direction === type)
-      .sort((a, b) => {
-        const yearA = a.targetPerson.birth_year;
-        const yearB = b.targetPerson.birth_year;
-        if (yearA == null && yearB == null) return 0;
-        if (yearA == null) return 1;
-        if (yearB == null) return -1;
-        return yearA - yearB;
+  const groupByType = (type: string) => {
+    const items = relationships.filter((r) => r.direction === type);
+
+    // Nếu là nhóm con cái → sắp xếp theo birth_order
+    if (type === "child") {
+      return items.sort((a, b) => {
+        const orderA = a.targetPerson.birth_order;
+        const orderB = b.targetPerson.birth_order;
+
+        if (orderA != null && orderB != null) {
+          return orderA - orderB;
+        }
+
+        if (orderA != null) return -1;
+        if (orderB != null) return 1;
+
+        return (
+          (a.targetPerson.birth_year ?? 9999) -
+          (b.targetPerson.birth_year ?? 9999)
+        );
       });
+    }
+
+    return items;
+  };
 
   if (loading)
     return (
@@ -897,56 +914,57 @@ export default function RelationshipManager({
                 (searchTerm.length === 0 &&
                   !selectedTargetId &&
                   recentMembers.length > 0)) && (
-                  <div className="mt-2 bg-white border border-stone-200 rounded-md shadow-lg max-h-[250px] overflow-y-auto">
-                    <div className="px-3 py-1.5 bg-stone-100 text-[10px] font-bold text-stone-500 uppercase tracking-wide border-b border-stone-200 sticky top-0 z-10">
-                      {searchResults.length > 0
-                        ? "Kết quả tìm kiếm"
-                        : "Thành viên vừa thêm gần đây"}
-                    </div>
-                    {(searchResults.length > 0
-                      ? searchResults
-                      : recentMembers
-                    ).map((p) => (
-                      <button
-                        key={p.id}
-                        onClick={() => {
-                          setSelectedTargetId(p.id);
-                          setSearchTerm(p.full_name);
-                          setSearchResults([]);
-                        }}
-                        className="px-3 py-2 hover:bg-amber-50 text-sm flex items-center justify-between border-b border-stone-100 last:border-0"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`flex items-center justify-center text-[8px] font-bold size-3 rounded-full text-white shrink-0
-                               ${p.gender === "male"
-                                ? "bg-sky-500"
-                                : p.gender === "female"
-                                  ? "bg-rose-500"
-                                  : "bg-stone-400"
-                              }`}
-                          >
-                            {p.gender === "male"
-                              ? "♂"
-                              : p.gender === "female"
-                                ? "♀"
-                                : "?"}
-                          </span>
-                          <span className="font-medium text-stone-800">
-                            {p.full_name}
-                          </span>
-                        </div>
-                        <span className="text-[10px] text-stone-400">
-                          {formatDisplayDate(
-                            p.birth_year,
-                            p.birth_month,
-                            p.birth_day,
-                          )}
-                        </span>
-                      </button>
-                    ))}
+                <div className="mt-2 bg-white border border-stone-200 rounded-md shadow-lg max-h-62.5 overflow-y-auto">
+                  <div className="px-3 py-1.5 bg-stone-100 text-[10px] font-bold text-stone-500 uppercase tracking-wide border-b border-stone-200 sticky top-0 z-10">
+                    {searchResults.length > 0
+                      ? "Kết quả tìm kiếm"
+                      : "Thành viên vừa thêm gần đây"}
                   </div>
-                )}
+                  {(searchResults.length > 0
+                    ? searchResults
+                    : recentMembers
+                  ).map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => {
+                        setSelectedTargetId(p.id);
+                        setSearchTerm(p.full_name);
+                        setSearchResults([]);
+                      }}
+                      className="px-3 py-2 hover:bg-amber-50 text-sm flex items-center justify-between border-b border-stone-100 last:border-0"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`flex items-center justify-center text-[8px] font-bold size-3 rounded-full text-white shrink-0
+                               ${
+                                 p.gender === "male"
+                                   ? "bg-sky-500"
+                                   : p.gender === "female"
+                                     ? "bg-rose-500"
+                                     : "bg-stone-400"
+                               }`}
+                        >
+                          {p.gender === "male"
+                            ? "♂"
+                            : p.gender === "female"
+                              ? "♀"
+                              : "?"}
+                        </span>
+                        <span className="font-medium text-stone-800">
+                          {p.full_name}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-stone-400">
+                        {formatDisplayDate(
+                          p.birth_year,
+                          p.birth_month,
+                          p.birth_day,
+                        )}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
               {selectedTargetId && (
                 <p className="text-xs text-green-600 mt-1">
                   Đã chọn: {searchTerm}
@@ -1084,9 +1102,7 @@ export default function RelationshipManager({
                       onChange={(e) => {
                         const newBulk = [...bulkChildren];
                         newBulk[index].gender = e.target.value as
-                          | "male"
-                          | "female"
-                          | "other";
+                          "male" | "female" | "other";
                         setBulkChildren(newBulk);
                       }}
                       className="w-[calc(50%-0.25rem)] sm:w-24 shrink-0 bg-stone-50 text-stone-900 text-sm rounded-lg border-stone-300 shadow-sm focus:border-sky-500 focus:ring-sky-500 px-2 py-2 border transition-colors"
