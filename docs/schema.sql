@@ -245,6 +245,15 @@ CREATE POLICY "Users can update own custom events" ON public.custom_events FOR U
 DROP POLICY IF EXISTS "Users can delete own custom events" ON public.custom_events;
 CREATE POLICY "Users can delete own custom events" ON public.custom_events FOR DELETE TO authenticated USING (auth.uid() = created_by OR public.is_admin());
 
+-- FAMILY_SETTINGS POLICIES
+ALTER TABLE public.family_settings ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Authenticated users can read settings" ON public.family_settings;
+CREATE POLICY "Authenticated users can read settings" ON public.family_settings FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "Admins and Editors can manage settings" ON public.family_settings;
+CREATE POLICY "Admins and Editors can manage settings" ON public.family_settings FOR ALL TO authenticated USING (public.is_admin() OR public.is_editor());
+
 -- ==========================================
 -- TRIGGERS
 -- ==========================================

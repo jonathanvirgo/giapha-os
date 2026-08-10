@@ -4,6 +4,7 @@ import MemberDetailModal from "@/components/modal/MemberDetailModal";
 import ViewToggle from "@/components/ViewToggle";
 import { getProfile, getSupabase } from "@/utils/supabase/queries";
 
+import { getDefaultRootId } from "@/app/actions/settings";
 import { ViewMode } from "@/components/ViewToggle";
 
 interface PageProps {
@@ -48,13 +49,18 @@ export default async function FamilyTreePage({ searchParams }: PageProps) {
 
   let finalRootId = rootId;
 
-  // If no rootId is provided, fallback to the earliest created person
+  // If no rootId is provided, fallback to default_root_id from family_settings
   if (!finalRootId || !personsMap.has(finalRootId)) {
-    const rootsFallback = persons.filter((p) => !childIds.has(p.id));
-    if (rootsFallback.length > 0) {
-      finalRootId = rootsFallback[0].id;
-    } else if (persons.length > 0) {
-      finalRootId = persons[0].id; // ultimate fallback
+    const defaultRootId = await getDefaultRootId();
+    if (defaultRootId && personsMap.has(defaultRootId)) {
+      finalRootId = defaultRootId;
+    } else {
+      const rootsFallback = persons.filter((p) => !childIds.has(p.id));
+      if (rootsFallback.length > 0) {
+        finalRootId = rootsFallback[0].id;
+      } else if (persons.length > 0) {
+        finalRootId = persons[0].id; // ultimate fallback
+      }
     }
   }
 

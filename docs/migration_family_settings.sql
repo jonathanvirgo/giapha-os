@@ -20,7 +20,8 @@ DROP POLICY IF EXISTS "Authenticated users can read settings" ON public.family_s
 CREATE POLICY "Authenticated users can read settings" ON public.family_settings FOR SELECT TO authenticated USING (true);
 
 DROP POLICY IF EXISTS "Admins can manage settings" ON public.family_settings;
-CREATE POLICY "Admins can manage settings" ON public.family_settings FOR ALL TO authenticated USING (public.is_admin());
+DROP POLICY IF EXISTS "Admins and Editors can manage settings" ON public.family_settings;
+CREATE POLICY "Admins and Editors can manage settings" ON public.family_settings FOR ALL TO authenticated USING (public.is_admin() OR public.is_editor());
 
 -- Trigger
 DROP TRIGGER IF EXISTS tr_family_settings_updated_at ON public.family_settings;

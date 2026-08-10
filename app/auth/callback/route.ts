@@ -6,7 +6,9 @@ export async function GET(request: Request) {
     const { searchParams, origin } = new URL(request.url);
     const code = searchParams.get("code");
     const type = searchParams.get("type");
-    const next = searchParams.get("next") ?? "/dashboard";
+    const rawNext = searchParams.get("next");
+    const isRelative = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//");
+    const next = isRelative ? rawNext : "/dashboard";
 
     if (code) {
         const cookieStore = await cookies();
