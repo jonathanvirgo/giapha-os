@@ -1,23 +1,47 @@
-import { getSupabase, getIsAdmin } from "@/utils/supabase/queries";
-import GalleryClient from "@/components/GalleryClient";
+import GalleryClient from '@/components/GalleryClient'
+import { getServerTranslations } from '@/lib/i18n/server'
+import { getIsAdmin, getSupabase } from '@/utils/supabase/queries'
+import { getGalleryStoragePath } from '@/utils/supabase/storage-path'
 
-export const metadata = {
-  title: "Phòng trưng bày | Gia Phả OS",
-  description: "Lưu giữ và chia sẻ hình ảnh, kỷ niệm dòng họ",
-};
+export async function generateMetadata() {
+  const { t } = await getServerTranslations()
+  return {
+    title: `${t('galleryTitle')} | Gia Phả OS`,
+    description: t('galleryDescription')
+  }
+}
 
 export default async function GalleryPage() {
-  const supabase = await getSupabase();
-  const isAdmin = await getIsAdmin();
+  const supabase = await getSupabase()
+  const isAdmin = await getIsAdmin()
 
   const { data: items } = await supabase
-    .from("gallery_items")
-    .select("*")
-    .order("event_date", { ascending: false, nullsFirst: false });
+    .from('gallery_items')
+    .select('*')
+    .order('event_date', { ascending: false, nullsFirst: false })
+
+  const signedItems = await Promise.all(
+    (items || []).map(async (item) => {
+      const storagePath = getGalleryStoragePath(item.image_url)
+      const { data } = await supabase.storage
+        .from('gallery')
+        .createSignedUrl(storagePath, 60 * 60)
+
+      return {
+        ...item,
+        image_url: data?.signedUrl || '',
+        storage_path: storagePath
+      }
+    })
+  )
 
   return (
-    <main className="flex-1 flex flex-col p-4 sm:p-8 max-w-7xl mx-auto w-full">
-      <GalleryClient initialItems={items || []} isAdmin={isAdmin} />
+    <main className='mx-auto flex w-full max-w-7xl flex-1 flex-col p-4 sm:p-8'>
+      <GalleryClient
+        key={signedItems.length}
+        initialItems={signedItems}
+        isAdmin={isAdmin}
+      />
     </main>
-  );
+  )
 }

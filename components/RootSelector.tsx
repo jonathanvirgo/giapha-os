@@ -1,28 +1,31 @@
-"use client";
+'use client'
 
-import { Person } from "@/types";
-import { useMemberListView } from "@/context/MemberListContext";
-import PersonSelector from "./PersonSelector";
+import { useMemberListView } from '@/context/MemberListContext'
+import { useI18n } from '@/lib/i18n/I18nProvider'
+import { Person } from '@/types'
+
+import PersonSelector from './PersonSelector'
 
 export default function RootSelector({
   persons,
-  currentRootId,
+  currentRootId
 }: {
-  persons: Person[];
-  currentRootId: string;
+  persons: Person[]
+  currentRootId: string
 }) {
-  const { setRootId } = useMemberListView();
+  const { t } = useI18n()
+  const { setRootId } = useMemberListView()
 
   return (
     <PersonSelector
       persons={persons}
       selectedId={currentRootId}
       onSelect={(id) => {
-        if (id) setRootId(id);
+        if (id) setRootId(id)
       }}
-      placeholder="Chọn người..."
-      label="Gốc hiển thị"
-      className="w-full sm:w-72"
+      placeholder={t('choosePerson')}
+      label={t('displayRoot')}
+      className='w-full sm:w-72'
     />
-  );
+  )
 }

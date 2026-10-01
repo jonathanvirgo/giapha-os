@@ -1,7 +1,8 @@
-"use client";
+'use client'
 
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion } from 'framer-motion'
 import {
+  ArrowUpCircle,
   BarChart2,
   ChevronDown,
   Database,
@@ -9,45 +10,105 @@ import {
   Info,
   Network,
   UserCircle,
-  Users,
-} from "lucide-react";
-import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import LogoutButton from "./LogoutButton";
-import { useUser } from "./UserProvider";
+  Users
+} from 'lucide-react'
+import Link from 'next/link'
+import { useEffect, useRef, useState } from 'react'
+
+import { useI18n } from '@/lib/i18n/I18nProvider'
+
+import LogoutButton from './LogoutButton'
+import { useUser } from './UserProvider'
 
 export default function HeaderMenu() {
-  const { user, isAdmin } = useUser();
-  const userEmail = user?.email;
-  const [isOpen, setIsOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const { user, isAdmin } = useUser()
+  const { t } = useI18n()
+  const userEmail = user?.email
+  const [isOpen, setIsOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
+        setIsOpen(false)
       }
-    };
+    }
 
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const links = [
+    {
+      href: '/dashboard',
+      icon: Network,
+      label: t('dashboard'),
+      hover: 'hover:bg-amber-50 hover:text-amber-700'
+    },
+    {
+      href: '/dashboard/members',
+      icon: Network,
+      label: t('familyTree'),
+      hover: 'hover:bg-amber-50 hover:text-amber-700'
+    },
+    {
+      href: '/dashboard/kinship',
+      icon: GitMerge,
+      label: t('kinship'),
+      hover: 'hover:bg-blue-50 hover:text-blue-700'
+    },
+    {
+      href: '/dashboard/stats',
+      icon: BarChart2,
+      label: t('statistics'),
+      hover: 'hover:bg-purple-50 hover:text-purple-700'
+    }
+  ]
+
+  const adminLinks = [
+    {
+      href: '/dashboard/users',
+      icon: Users,
+      label: t('manageUsers'),
+      hover: 'hover:bg-rose-50 hover:text-rose-700'
+    },
+    {
+      href: '/dashboard/lineage',
+      icon: Network,
+      label: t('lineageOrder'),
+      hover: 'hover:bg-indigo-50 hover:text-indigo-700'
+    },
+    {
+      href: '/dashboard/data',
+      icon: Database,
+      label: t('backupRestore'),
+      hover: 'hover:bg-teal-50 hover:text-teal-700'
+    },
+    {
+      href: '/dashboard/upgrade',
+      icon: ArrowUpCircle,
+      label: t('upgrade'),
+      hover: 'hover:bg-amber-50 hover:text-amber-700'
+    }
+  ]
 
   return (
-    <div className="relative" ref={menuRef}>
+    <div className='relative' ref={menuRef}>
       <button
+        type='button'
+        aria-expanded={isOpen}
+        aria-label={t('account')}
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 pl-2 pr-4 py-1.5 rounded-full hover:bg-stone-100 transition-all duration-200 border border-transparent hover:border-stone-200"
-      >
-        <div className="size-8 rounded-full bg-linear-to-br from-amber-200 to-amber-100 text-amber-800 flex items-center justify-center font-bold shadow-sm ring-1 ring-amber-300/50">
+        className='flex items-center gap-2 rounded-full border border-transparent py-1.5 pr-4 pl-2 transition-all duration-200 hover:border-stone-200 hover:bg-stone-100'>
+        <div className='flex size-8 items-center justify-center rounded-full bg-linear-to-br from-amber-200 to-amber-100 font-medium text-amber-800 shadow-sm ring-1 ring-amber-300/50'>
           {userEmail ? (
             userEmail.charAt(0).toUpperCase()
           ) : (
-            <UserCircle className="size-5" />
+            <UserCircle className='size-5' />
           )}
         </div>
         <ChevronDown
-          className={`size-4 text-stone-500 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`}
+          className={`size-4 text-stone-500 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
         />
       </button>
 
@@ -57,108 +118,61 @@ export default function HeaderMenu() {
             initial={{ opacity: 0, y: 10, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
-            transition={{ duration: 0.15, ease: "easeOut" }}
-            className="absolute right-0 mt-2 w-56 bg-surface rounded-3xl shadow-soft border border-border py-2 z-50 overflow-hidden"
-          >
-            <div className="px-4 py-3 border-b border-stone-100 bg-stone-50/50">
-              <p className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-0.5">
-                Tài khoản
+            transition={{ duration: 0.15, ease: 'easeOut' }}
+            className='absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-3xl border border-border bg-surface py-2'>
+            <div className='border-b border-stone-100 bg-stone-50/50 px-4 py-3'>
+              <p className='mb-0.5 text-sm font-medium text-stone-400'>
+                {t('account')}
               </p>
-              <p className="text-sm font-medium text-stone-900 truncate">
+              <p className='truncate text-sm font-medium text-stone-900'>
                 {userEmail}
               </p>
             </div>
-
-            <div className="py-1">
-              <Link
-                href="/dashboard"
-                onClick={() => setIsOpen(false)}
-                className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-stone-700 hover:text-amber-700 hover:bg-amber-50 transition-colors"
-              >
-                <Network className="size-4" />
-                Bảng điều khiển
-              </Link>
-
-              <Link
-                href="/dashboard/members"
-                onClick={() => setIsOpen(false)}
-                className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-stone-700 hover:text-amber-700 hover:bg-amber-50 transition-colors"
-              >
-                <Network className="size-4" />
-                Cây gia phả
-              </Link>
-
-              <Link
-                href="/dashboard/kinship"
-                onClick={() => setIsOpen(false)}
-                className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-stone-700 hover:text-blue-700 hover:bg-blue-50 transition-colors"
-              >
-                <GitMerge className="size-4" />
-                Tra cứu danh xưng
-              </Link>
-
-              <Link
-                href="/dashboard/stats"
-                onClick={() => setIsOpen(false)}
-                className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-stone-700 hover:text-purple-700 hover:bg-purple-50 transition-colors"
-              >
-                <BarChart2 className="size-4" />
-                Thống kê
-              </Link>
+            <div className='py-1'>
+              {links.map(({ href, icon: Icon, label, hover }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={() => setIsOpen(false)}
+                  className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-stone-700 transition-colors ${hover}`}>
+                  <Icon className='size-4' />
+                  {label}
+                </Link>
+              ))}
 
               {isAdmin && (
                 <>
-                  <div className="px-4 py-2 mt-1">
-                    <p className="text-[10px] font-bold text-rose-500 uppercase tracking-wider">
-                      Quản trị viên
+                  <div className='mt-1 px-4 py-2'>
+                    <p className='text-sm font-medium text-rose-500'>
+                      {t('admin')}
                     </p>
                   </div>
-
-                  <Link
-                    href="/dashboard/users"
-                    onClick={() => setIsOpen(false)}
-                    className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-stone-700 hover:text-rose-700 hover:bg-rose-50 transition-colors"
-                  >
-                    <Users className="size-4" />
-                    Quản lý Người dùng
-                  </Link>
-
-                  <Link
-                    href="/dashboard/lineage"
-                    onClick={() => setIsOpen(false)}
-                    className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-stone-700 hover:text-indigo-700 hover:bg-indigo-50 transition-colors"
-                  >
-                    <Network className="size-4" />
-                    Thứ tự gia phả
-                  </Link>
-
-                  <Link
-                    href="/dashboard/data"
-                    onClick={() => setIsOpen(false)}
-                    className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-stone-700 hover:text-teal-700 hover:bg-teal-50 transition-colors"
-                  >
-                    <Database className="size-4" />
-                    Sao lưu & Phục hồi
-                  </Link>
+                  {adminLinks.map(({ href, icon: Icon, label, hover }) => (
+                    <Link
+                      key={href}
+                      href={href}
+                      onClick={() => setIsOpen(false)}
+                      className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-stone-700 transition-colors ${hover}`}>
+                      <Icon className='size-4' />
+                      {label}
+                    </Link>
+                  ))}
                 </>
               )}
 
-              <div className="h-px bg-stone-100 my-1 mx-4" />
-
+              <div className='mx-4 my-1 h-px bg-stone-100' />
               <Link
-                href="/about"
+                href='/about'
                 onClick={() => setIsOpen(false)}
-                className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-stone-700 hover:text-rose-700 hover:bg-rose-50 transition-colors"
-              >
-                <Info className="size-4" />
-                Giới thiệu
+                className='flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-stone-700 transition-colors hover:bg-rose-50 hover:text-rose-700'>
+                <Info className='size-4' />
+                {t('about')}
               </Link>
-
               <LogoutButton />
             </div>
           </motion.div>
         )}
       </AnimatePresence>
     </div>
-  );
+  )
 }

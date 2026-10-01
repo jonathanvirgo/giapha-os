@@ -1,124 +1,66 @@
-"use client";
+'use client'
 
-import config from "@/app/config";
-import Footer from "@/components/Footer";
-import { createClient } from "@/utils/supabase/client";
-import { AnimatePresence, motion } from "framer-motion";
-import {
-  ArrowLeft,
-  Info,
-  KeyRound,
-  Mail,
-  Shield,
-  UserPlus,
-} from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion } from 'framer-motion'
+import { ArrowLeft, Info, KeyRound, Mail, Shield, UserPlus } from 'lucide-react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useMemo, useState } from 'react'
+
+import config from '@/app/config'
+import Footer from '@/components/Footer'
+import LanguageSwitcher from '@/components/LanguageSwitcher'
+import { useI18n } from '@/lib/i18n/I18nProvider'
+import { createClient } from '@/utils/supabase/client'
+
+const ssoGuideUrl =
+  'https://github.com/homielab/giapha-os#đăng-nhập-bằng-google-và-facebook'
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isDemo, setIsDemo] = useState(false);
+  const { t } = useI18n()
+  const isDemo =
+    typeof window !== 'undefined' &&
+    window.location.hostname === config.demoDomain
+  const [email, setEmail] = useState(isDemo ? 'giaphaos@homielab.com' : '')
+  const [password, setPassword] = useState(isDemo ? 'giaphaos' : '')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const hostname = window.location.hostname;
-      if (hostname === config.demoDomain) {
-        setIsDemo(true);
-        setEmail("giaphaos@homielab.com");
-        setPassword("giaphaos");
-      }
+  const router = useRouter()
+  const supabase = useMemo(() => createClient(), [])
+
+  const [isLogin, setIsLogin] = useState(true)
+  const [isForgotPassword, setIsForgotPassword] = useState(false)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [ssoError, setSsoError] = useState(false)
+  // Fail closed: SSO is hidden until the deployment explicitly enables it.
+  const ssoDisabled = process.env.NEXT_PUBLIC_DISABLE_SSO !== 'false'
+
+  const handleOAuthLogin = async (provider: 'google' | 'facebook') => {
+    if (isDemo) {
+      setError(t('demoOAuthNotice'));
+      return;
     }
-  }, []);
 
-  const router = useRouter();
-  const supabase = useMemo(() => createClient(), []);
-
-  const [isLogin, setIsLogin] = useState(true);
-  const [isForgotPassword, setIsForgotPassword] = useState(false);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [confirmPassword, setConfirmPassword] = useState("");
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
     setLoading(true);
     setError(null);
     setSuccessMessage(null);
+    setSsoError(false);
 
-    try {
-      if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (error) {
-          setError(error.message);
-        } else {
-          router.push("/dashboard");
-          router.refresh();
-        }
-      } else {
-        if (password !== confirmPassword) {
-          setError("Mật khẩu xác nhận không khớp.");
-          setLoading(false);
-          return;
-        }
-
-        // 1. Try to sign up
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-        });
-
-        if (error) {
-          // Check if error is related to missing database schema/tables
-          if (
-            error.message.includes("relation") &&
-            error.message.includes("does not exist")
-          ) {
-            router.push("/setup");
-            return;
-          }
-
-          setError(error.message);
-        } else if (data.user?.identities && data.user.identities.length === 0) {
-          setError(
-            "Email này đã được đăng ký. Vui lòng đăng nhập hoặc dùng email khác.",
-          );
-        } else {
-          if (data.session) {
-            router.push("/dashboard");
-            router.refresh();
-          } else {
-            // Attempt to sign in immediately (catches auto-confirmed first admin)
-            const { data: signInData, error: signInError } =
-              await supabase.auth.signInWithPassword({
-                email,
-                password,
-              });
-
-            if (!signInError && signInData.session) {
-              router.push("/dashboard");
-              router.refresh();
-            } else {
-              setSuccessMessage(
-                "Đăng ký thành công! Vui lòng xác thực email để đăng nhập.",
-              );
-              setIsLogin(true); // Switch back to login view
-              setConfirmPassword(""); // clear confirm password
-              setPassword(""); // clear password
-            }
-          }
-        }
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`
       }
-    } catch (err) {
-      setError("An unexpected error occurred");
-      console.error(err);
-    } finally {
+    });
+
+    if (error) {
+      setSsoError(true);
+      setError(
+        t('oauthNotConfigured', {
+          provider: provider === 'google' ? 'Google' : 'Facebook'
+        })
+      );
       setLoading(false);
     }
   };
@@ -140,94 +82,189 @@ export default function LoginPage() {
         setError(error.message);
       } else {
         setSuccessMessage(
-          "Đã gửi email khôi phục mật khẩu! Vui lòng kiểm tra hộp thư (bao gồm cả thư mục Spam).",
+          t('recoveryEmailSent')
         );
       }
     } catch {
-      setError("Đã xảy ra lỗi không mong muốn.");
+      setError(t('unexpectedError'));
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <div className="min-h-screen flex flex-col bg-[#fafaf9] select-none selection:bg-amber-200 selection:text-amber-900 relative overflow-hidden">
-      {/* Decorative background grid and blurs */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-size-[24px_24px] pointer-events-none"></div>
-      <div className="absolute inset-0 bg-[radial-gradient(circle_800px_at_50%_-30%,#fef3c7,transparent)] pointer-events-none"></div>
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError(null)
+    setSuccessMessage(null)
+    setSsoError(false)
 
-      <div className="absolute top-0 inset-x-0 h-screen overflow-hidden pointer-events-none flex justify-center">
-        <div className="absolute top-[-10%] right-[-5%] w-[50vw] h-[50vw] max-w-[600px] max-h-[600px] bg-amber-300/20 rounded-full blur-[100px] mix-blend-multiply" />
-        <div className="absolute bottom-[0%] left-[-10%] w-[60vw] h-[60vw] max-w-[800px] max-h-[800px] bg-rose-200/20 rounded-full blur-[120px] mix-blend-multiply" />
+    try {
+      if (isLogin) {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        })
+
+        if (error) {
+          setError(error.message)
+        } else {
+          router.push('/dashboard')
+          router.refresh()
+        }
+      } else {
+        if (password !== confirmPassword) {
+          setError(t('passwordMismatch'))
+          setLoading(false)
+          return
+        }
+
+        // 1. Try to sign up
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback`
+          }
+        })
+
+        if (error) {
+          // Check if error is related to missing database schema/tables
+          if (
+            error.message.includes('relation') &&
+            error.message.includes('does not exist')
+          ) {
+            router.push('/setup')
+            return
+          }
+
+          setError(error.message)
+        } else {
+          if (data.session) {
+            router.push('/dashboard')
+            router.refresh()
+          } else {
+            // Attempt to sign in immediately (catches auto-confirmed first admin)
+            const { data: signInData, error: signInError } =
+              await supabase.auth.signInWithPassword({
+                email,
+                password
+              })
+
+            if (!signInError && signInData.session) {
+              router.push('/dashboard')
+              router.refresh()
+            } else {
+              setSuccessMessage(t('signupSuccess'))
+              setIsLogin(true) // Switch back to login view
+              setConfirmPassword('') // clear confirm password
+              setPassword('') // clear password
+            }
+          }
+        }
+      }
+    } catch (err) {
+      setError(t('unexpectedError'))
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+
+  return (
+    <div className='relative flex min-h-screen flex-col overflow-hidden bg-[#fafaf9] select-none selection:bg-amber-200 selection:text-amber-900'>
+      {/* Decorative background grid and blurs */}
+      <div className='pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-size-[24px_24px]'></div>
+      <div className='pointer-events-none absolute inset-0 bg-[radial-gradient(circle_800px_at_50%_-30%,#fef3c7,transparent)]'></div>
+
+      <div className='pointer-events-none absolute inset-x-0 top-0 flex h-screen justify-center overflow-hidden'>
+        <div className='absolute top-[-10%] right-[-5%] h-[50vw] max-h-[600px] w-[50vw] max-w-[600px] rounded-full bg-amber-300/20 mix-blend-multiply blur-[100px]' />
+        <div className='absolute bottom-[0%] left-[-10%] h-[60vw] max-h-[800px] w-[60vw] max-w-[800px] rounded-full bg-rose-200/20 mix-blend-multiply blur-[120px]' />
       </div>
 
-      <div className="flex-1 flex items-center justify-center px-4 py-12 relative z-10 w-full">
+      <header className='relative z-20 flex w-full items-center justify-between gap-3 px-4 pt-6 sm:px-6'>
+        <Link
+          href='/'
+          className='group flex shrink-0 items-center gap-2 rounded-full border border-stone-200 bg-white/60 px-4 py-2.5 text-sm font-medium text-stone-500 transition-all duration-300 hover:border-stone-300 hover:text-stone-900 sm:px-5'>
+          <ArrowLeft className='size-4 transition-transform group-hover:-translate-x-1' />
+          {t('home')}
+        </Link>
+
+        <div className='flex shrink-0 items-center gap-2 sm:gap-3'>
+          <LanguageSwitcher />
+          <Link
+            href='/about'
+            className='group flex items-center gap-2 rounded-full border border-stone-200 bg-white/60 px-4 py-2.5 text-sm font-medium text-stone-500 transition-all duration-300 hover:border-stone-300 hover:text-stone-900 sm:px-5'>
+            <Info className='size-4 transition-transform group-hover:scale-110' />
+            {t('about')}
+          </Link>
+        </div>
+      </header>
+
+      <div className='relative z-10 flex w-full flex-1 items-center justify-center px-4 py-12'>
         <motion.div
-          className="max-w-md w-full bg-white/70 backdrop-blur-xl p-8 sm:p-10 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/80 relative overflow-hidden"
+          className='relative w-full max-w-md overflow-hidden rounded-3xl border border-white/80 bg-white/70 p-8 backdrop-blur-xl sm:p-10'
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
-        >
-          <div className="absolute top-0 right-0 w-32 h-32 bg-linear-to-br from-amber-100/50 to-transparent rounded-bl-[100px] pointer-events-none"></div>
+          transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}>
+          <div className='pointer-events-none absolute top-0 right-0 h-32 w-32 rounded-bl-[100px] bg-linear-to-br from-amber-100/50 to-transparent'></div>
 
-          <div className="text-center mb-8 relative z-10">
+          <div className='relative z-10 mb-8 text-center'>
             <Link
-              href="/"
-              className="inline-flex items-center justify-center p-3.5 bg-white rounded-2xl mb-5 shadow-sm ring-1 ring-stone-100 hover:scale-105 hover:shadow-md transition-all duration-300"
-            >
-              <Shield className="size-8 text-amber-600" />
+              href='/'
+              className='mb-5 inline-flex items-center justify-center rounded-2xl bg-white p-3.5 shadow-sm ring-1 ring-stone-100 transition-all duration-300 hover:scale-105 hover:shadow-md'>
+              <Shield className='size-8 text-amber-600' />
             </Link>
-            <h2 className="text-3xl sm:text-4xl font-serif font-bold text-stone-900 tracking-tight">
+            <h2 className='font-serif text-3xl font-semibold text-stone-900 sm:text-4xl'>
               {isForgotPassword
-                ? "Quên mật khẩu"
+                ? t('forgotPassword')
                 : isLogin
-                  ? "Đăng nhập"
-                  : "Đăng ký"}
+                  ? t('login')
+                  : t('signUp')}
             </h2>
-            <p className="mt-3 text-sm text-stone-500 font-medium tracking-wide">
+            <p className='mt-3 text-sm font-medium text-stone-500'>
               {isForgotPassword
-                ? "Nhập email để nhận link khôi phục mật khẩu."
+                ? t('forgotPasswordDescription')
                 : isLogin
-                  ? "Đăng nhập để truy cập gia phả."
-                  : "Tạo tài khoản thành viên mới."}
+                  ? t('loginDescription')
+                  : t('signUpDescription')}
             </p>
             {isDemo && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mt-4 p-3 bg-amber-50 border border-amber-200/60 rounded-xl"
-              >
-                <p className="text-[13px] font-semibold text-amber-800">
-                  Website Demo. Dữ liệu đều không có thật.
+                className='mt-4 rounded-xl border border-amber-200/60 bg-amber-50 p-3'>
+                <p className='text-sm font-medium text-amber-800'>
+                  {t('demoNotice')}
                 </p>
               </motion.div>
             )}
           </div>
 
-          {/* Forgot Password Form */}
           {isForgotPassword ? (
             <form
-              className="space-y-5 relative z-10"
+              className='relative z-10 space-y-5'
               onSubmit={handleForgotPassword}
             >
-              <div className="space-y-4">
-                <div className="relative">
+              <div className='space-y-4'>
+                <div className='relative'>
                   <label
-                    htmlFor="forgot-email"
-                    className="block text-[13px] font-semibold text-stone-600 mb-1.5 ml-1"
+                    htmlFor='forgot-email'
+                    className='mb-1.5 ml-1 block text-sm font-medium text-stone-600'
                   >
-                    Email
+                    {t('email')}
                   </label>
-                  <div className="relative flex items-center group">
-                    <Mail className="absolute left-3.5 size-5 text-stone-400 group-focus-within:text-amber-500 transition-colors" />
+                  <div className='group relative flex items-center'>
+                    <Mail className='absolute left-3.5 size-5 text-stone-400 transition-colors group-focus-within:text-amber-500' />
                     <input
-                      id="forgot-email"
-                      name="email"
-                      type="email"
-                      autoComplete="email"
+                      id='forgot-email'
+                      name='email'
+                      type='email'
+                      autoComplete='email'
                       required
-                      className="bg-white/50 text-stone-900 placeholder-stone-400 block w-full rounded-xl border border-stone-200/80 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.05)] focus:border-amber-400 focus:ring-amber-400 focus:bg-white pl-11 pr-4 py-3.5 transition-all duration-200 outline-none"
-                      placeholder="name@example.com"
+                      className='block w-full rounded-xl border border-stone-200/80 bg-white/50 py-3.5 pr-4 pl-11 text-stone-900 placeholder-stone-400 transition-all duration-200 outline-none focus:border-amber-400 focus:bg-white focus:ring-amber-400'
+                      placeholder='name@example.com'
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                     />
@@ -239,9 +276,9 @@ export default function LoginPage() {
                 {error && (
                   <motion.div
                     initial={{ opacity: 0, y: -10, height: 0 }}
-                    animate={{ opacity: 1, y: 0, height: "auto" }}
+                    animate={{ opacity: 1, y: 0, height: 'auto' }}
                     exit={{ opacity: 0, y: -10, height: 0 }}
-                    className="text-red-700 text-[13px] text-center bg-red-50 p-3 rounded-xl border border-red-100/50 font-medium"
+                    className='rounded-xl border border-red-100/50 bg-red-50 p-3 text-center text-sm font-medium text-red-700'
                   >
                     {error}
                   </motion.div>
@@ -250,134 +287,134 @@ export default function LoginPage() {
                 {successMessage && (
                   <motion.div
                     initial={{ opacity: 0, y: -10, height: 0 }}
-                    animate={{ opacity: 1, y: 0, height: "auto" }}
+                    animate={{ opacity: 1, y: 0, height: 'auto' }}
                     exit={{ opacity: 0, y: -10, height: 0 }}
-                    className="text-teal-700 text-[13px] text-center bg-teal-50 p-3 rounded-xl border border-teal-100/50 font-medium"
+                    className='rounded-xl border border-teal-100/50 bg-teal-50 p-3 text-center text-sm font-medium text-teal-700'
                   >
                     {successMessage}
                   </motion.div>
                 )}
               </AnimatePresence>
 
-              <div className="flex flex-col gap-4 pt-4">
+              <div className='flex flex-col gap-4 pt-4'>
                 <button
-                  type="submit"
+                  type='submit'
                   disabled={loading}
-                  className="group relative w-full flex justify-center items-center gap-2 py-4 px-4 text-[15px] font-bold rounded-xl text-white bg-stone-900 hover:bg-stone-800 border border-stone-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-stone-900 disabled:opacity-70 disabled:cursor-wait transition-all duration-300 shadow-xl shadow-stone-900/10 hover:shadow-2xl hover:shadow-stone-900/20 hover:-translate-y-0.5"
+                  className='group relative flex w-full items-center justify-center gap-2 rounded-xl border border-stone-800 bg-stone-900 px-4 py-4 text-sm font-medium text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-stone-800 focus:ring-2 focus:ring-stone-900 focus:ring-offset-2 focus:outline-none disabled:cursor-wait disabled:opacity-70'
                 >
                   {loading ? (
-                    <span className="flex items-center gap-2.5">
+                    <span className='flex items-center gap-2.5'>
                       <svg
-                        className="animate-spin -ml-1 h-4 w-4 text-white"
-                        fill="none"
-                        viewBox="0 0 24 24"
+                        className='-ml-1 h-4 w-4 animate-spin text-white'
+                        fill='none'
+                        viewBox='0 0 24 24'
                       >
                         <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
+                          className='opacity-25'
+                          cx='12'
+                          cy='12'
+                          r='10'
+                          stroke='currentColor'
+                          strokeWidth='4'
                         ></circle>
                         <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          className='opacity-75'
+                          fill='currentColor'
+                          d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'
                         ></path>
                       </svg>
-                      Đang gửi...
+                      {t('sending')}
                     </span>
                   ) : (
                     <>
-                      <Mail className="size-4 mr-1" />
-                      Gửi email khôi phục
+                      <Mail className='mr-1 size-4' />
+                      {t('sendRecoveryEmail')}
                     </>
                   )}
                 </button>
 
-                <div className="relative flex items-center py-2 opacity-60">
-                  <div className="grow border-t border-stone-200"></div>
-                  <span className="shrink-0 mx-4 text-stone-400 text-[11px] uppercase tracking-wider font-bold">
-                    Hoặc
+                <div className='relative flex items-center py-2 opacity-60'>
+                  <div className='grow border-t border-stone-200'></div>
+                  <span className='mx-4 shrink-0 text-sm font-medium text-stone-400'>
+                    {t('or')}
                   </span>
-                  <div className="grow border-t border-stone-200"></div>
+                  <div className='grow border-t border-stone-200'></div>
                 </div>
 
                 <button
-                  type="button"
+                  type='button'
                   onClick={() => {
                     setIsForgotPassword(false);
                     setError(null);
                     setSuccessMessage(null);
                   }}
-                  className="w-full text-sm font-semibold text-stone-600 hover:text-stone-900 bg-white hover:bg-stone-50 border border-stone-200/80 py-3.5 rounded-xl shadow-[0_2px_8px_-3px_rgba(0,0,0,0.05)] focus:outline-none transition-all duration-200"
+                  className='w-full rounded-xl border border-stone-200/80 bg-white py-3.5 text-sm font-medium text-stone-600 transition-all duration-200 hover:bg-stone-50 hover:text-stone-900 focus:outline-none'
                 >
-                  ← Quay lại đăng nhập
+                  ← {t('backToLogin')}
                 </button>
               </div>
             </form>
           ) : (
             /* Login / Signup Form */
-            <form className="space-y-5 relative z-10" onSubmit={handleSubmit}>
-              <div className="space-y-4">
-                <div className="relative">
+            <form className='relative z-10 space-y-5' onSubmit={handleSubmit}>
+              <div className='space-y-4'>
+                <div className='relative'>
                   <label
-                    htmlFor="email-address"
-                    className="block text-[13px] font-semibold text-stone-600 mb-1.5 ml-1"
+                    htmlFor='email-address'
+                    className='mb-1.5 ml-1 block text-sm font-medium text-stone-600'
                   >
-                    Email
+                    {t('email')}
                   </label>
-                  <div className="relative flex items-center group">
-                    <Mail className="absolute left-3.5 size-5 text-stone-400 group-focus-within:text-amber-500 transition-colors" />
+                  <div className='group relative flex items-center'>
+                    <Mail className='absolute left-3.5 size-5 text-stone-400 transition-colors group-focus-within:text-amber-500' />
                     <input
-                      id="email-address"
-                      name="email"
-                      type="email"
-                      autoComplete="email"
+                      id='email-address'
+                      name='email'
+                      type='email'
+                      autoComplete='email'
                       required
-                      className="bg-white/50 text-stone-900 placeholder-stone-400 block w-full rounded-xl border border-stone-200/80 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.05)] focus:border-amber-400 focus:ring-amber-400 focus:bg-white pl-11 pr-4 py-3.5 transition-all duration-200 outline-none"
-                      placeholder="name@example.com"
+                      className='block w-full rounded-xl border border-stone-200/80 bg-white/50 py-3.5 pr-4 pl-11 text-stone-900 placeholder-stone-400 transition-all duration-200 outline-none focus:border-amber-400 focus:bg-white focus:ring-amber-400'
+                      placeholder='name@example.example.com'
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                     />
                   </div>
                 </div>
 
-                <div className="relative">
-                  <div className="flex items-center justify-between mb-1.5">
+                <div className='relative'>
+                  <div className='mb-1.5 flex items-center justify-between'>
                     <label
-                      htmlFor="password"
-                      className="block text-[13px] font-semibold text-stone-600 ml-1"
+                      htmlFor='password'
+                      className='ml-1 block text-sm font-medium text-stone-600'
                     >
-                      Mật khẩu
+                      {t('password')}
                     </label>
                     {isLogin && (
                       <button
-                        type="button"
+                        type='button'
                         onClick={() => {
                           setIsForgotPassword(true);
                           setError(null);
                           setSuccessMessage(null);
                         }}
-                        className="text-[12px] font-semibold text-amber-600 hover:text-amber-800 transition-colors"
+                        className='text-xs font-semibold text-amber-600 transition-colors hover:text-amber-800'
                       >
-                        Quên mật khẩu?
+                        {t('forgotPasswordQuestion')}
                       </button>
                     )}
                   </div>
-                  <div className="relative flex items-center group">
-                    <KeyRound className="absolute left-3.5 size-5 text-stone-400 group-focus-within:text-amber-500 transition-colors" />
+                  <div className='group relative flex items-center'>
+                    <KeyRound className='absolute left-3.5 size-5 text-stone-400 transition-colors group-focus-within:text-amber-500' />
                     <input
-                      id="password"
-                      name="password"
-                      type="password"
+                      id='password'
+                      name='password'
+                      type='password'
                       autoComplete={
-                        isLogin ? "current-password" : "new-password"
+                        isLogin ? 'current-password' : 'new-password'
                       }
                       required
-                      className="bg-white/50 text-stone-900 placeholder-stone-400 block w-full rounded-xl border border-stone-200/80 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.05)] focus:border-amber-400 focus:ring-amber-400 focus:bg-white pl-11 pr-4 py-3.5 transition-all duration-200 outline-none"
-                      placeholder="Nhập mật khẩu"
+                      className='block w-full rounded-xl border border-stone-200/80 bg-white/50 py-3.5 pr-4 pl-11 text-stone-900 placeholder-stone-400 transition-all duration-200 outline-none focus:border-amber-400 focus:bg-white focus:ring-amber-400'
+                      placeholder={t('passwordPlaceholder')}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                     />
@@ -388,27 +425,27 @@ export default function LoginPage() {
                   {!isLogin && (
                     <motion.div
                       initial={{ opacity: 0, height: 0, marginTop: 0 }}
-                      animate={{ opacity: 1, height: "auto", marginTop: 16 }}
+                      animate={{ opacity: 1, height: 'auto', marginTop: 16 }}
                       exit={{ opacity: 0, height: 0, marginTop: 0 }}
                       transition={{ duration: 0.3 }}
-                      className="relative overflow-hidden"
+                      className='relative overflow-hidden'
                     >
                       <label
-                        htmlFor="confirmPassword"
-                        className="block text-[13px] font-semibold text-stone-600 mb-1.5 ml-1"
+                        htmlFor='confirmPassword'
+                        className='mb-1.5 ml-1 block text-sm font-medium text-stone-600'
                       >
-                        Xác nhận mật khẩu
+                        {t('confirmPassword')}
                       </label>
-                      <div className="relative flex items-center group">
-                        <KeyRound className="absolute left-3.5 size-5 text-stone-400 group-focus-within:text-amber-500 transition-colors" />
+                      <div className='group relative flex items-center'>
+                        <KeyRound className='absolute left-3.5 size-5 text-stone-400 transition-colors group-focus-within:text-amber-500' />
                         <input
-                          id="confirmPassword"
-                          name="confirmPassword"
-                          type="password"
-                          autoComplete="new-password"
+                          id='confirmPassword'
+                          name='confirmPassword'
+                          type='password'
+                          autoComplete='new-password'
                           required={!isLogin}
-                          className="bg-white/50 text-stone-900 placeholder-stone-400 block w-full rounded-xl border border-stone-200/80 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.05)] focus:border-amber-400 focus:ring-amber-400 focus:bg-white pl-11 pr-4 py-3.5 transition-all duration-200 outline-none"
-                          placeholder="Nhập lại mật khẩu"
+                          className='block w-full rounded-xl border border-stone-200/80 bg-white/50 py-3.5 pr-4 pl-11 text-stone-900 placeholder-stone-400 transition-all duration-200 outline-none focus:border-amber-400 focus:bg-white focus:ring-amber-400'
+                          placeholder={t('confirmPasswordPlaceholder')}
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
                         />
@@ -422,9 +459,9 @@ export default function LoginPage() {
                 {error && (
                   <motion.div
                     initial={{ opacity: 0, y: -10, height: 0 }}
-                    animate={{ opacity: 1, y: 0, height: "auto" }}
+                    animate={{ opacity: 1, y: 0, height: 'auto' }}
                     exit={{ opacity: 0, y: -10, height: 0 }}
-                    className="text-red-700 text-[13px] text-center bg-red-50 p-3 rounded-xl border border-red-100/50 font-medium"
+                    className='rounded-xl border border-red-100/50 bg-red-50 p-3 text-center text-sm font-medium text-red-700'
                   >
                     {error}
                   </motion.div>
@@ -433,78 +470,149 @@ export default function LoginPage() {
                 {successMessage && (
                   <motion.div
                     initial={{ opacity: 0, y: -10, height: 0 }}
-                    animate={{ opacity: 1, y: 0, height: "auto" }}
+                    animate={{ opacity: 1, y: 0, height: 'auto' }}
                     exit={{ opacity: 0, y: -10, height: 0 }}
-                    className="text-teal-700 text-[13px] text-center bg-teal-50 p-3 rounded-xl border border-teal-100/50 font-medium"
+                    className='rounded-xl border border-teal-100/50 bg-teal-50 p-3 text-center text-sm font-medium text-teal-700'
                   >
                     {successMessage}
                   </motion.div>
                 )}
               </AnimatePresence>
 
-              <div className="flex flex-col gap-4 pt-4">
+              {(ssoDisabled || ssoError) && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10, height: 0 }}
+                  animate={{ opacity: 1, y: 0, height: 'auto' }}
+                  className='rounded-xl border border-amber-200/70 bg-amber-50 p-3 text-center text-sm font-medium text-amber-800'
+                >
+                  <p>{ssoError ? t('ssoError') : t('ssoDisabled')}</p>
+                  <a
+                    href={ssoGuideUrl}
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    className='mt-2 inline-block font-medium text-amber-900 underline decoration-amber-400 underline-offset-2 hover:text-amber-700'
+                  >
+                    {t('ssoGuide')}
+                  </a>
+                </motion.div>
+              )}
+
+              <div className='flex flex-col gap-4 pt-4'>
                 <button
-                  type="submit"
+                  type='submit'
                   disabled={loading}
-                  className="group relative w-full flex justify-center items-center gap-2 py-4 px-4 text-[15px] font-bold rounded-xl text-white bg-stone-900 hover:bg-stone-800 border border-stone-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-stone-900 disabled:opacity-70 disabled:cursor-wait transition-all duration-300 shadow-xl shadow-stone-900/10 hover:shadow-2xl hover:shadow-stone-900/20 hover:-translate-y-0.5"
+                  className='group relative flex w-full items-center justify-center gap-2 rounded-xl border border-stone-800 bg-stone-900 px-4 py-4 text-sm font-medium text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-stone-800 focus:ring-2 focus:ring-stone-900 focus:ring-offset-2 focus:outline-none disabled:cursor-wait disabled:opacity-70'
                 >
                   {loading ? (
-                    <span className="flex items-center gap-2.5">
+                    <span className='flex items-center gap-2.5'>
                       <svg
-                        className="animate-spin -ml-1 h-4 w-4 text-white"
-                        fill="none"
-                        viewBox="0 0 24 24"
+                        className='-ml-1 h-4 w-4 animate-spin text-white'
+                        fill='none'
+                        viewBox='0 0 24 24'
                       >
                         <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
+                          className='opacity-25'
+                          cx='12'
+                          cy='12'
+                          r='10'
+                          stroke='currentColor'
+                          strokeWidth='4'
                         ></circle>
                         <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          className='opacity-75'
+                          fill='currentColor'
+                          d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'
                         ></path>
                       </svg>
-                      Đang xử lý...
+                      {t('loading')}
                     </span>
                   ) : (
                     <>
-                      {isLogin ? "Đăng nhập" : "Tạo tài khoản"}
-                      {!isLogin && <UserPlus className="size-4 ml-1" />}
+                      {isLogin ? t('login') : t('createAccount')}
+                      {!isLogin && <UserPlus className='ml-1 size-4' />}
                     </>
                   )}
                 </button>
 
-                <div className="relative flex items-center py-2 opacity-60">
-                  <div className="grow border-t border-stone-200"></div>
-                  <span className="shrink-0 mx-4 text-stone-400 text-[11px] uppercase tracking-wider font-bold">
-                    Hoặc
-                  </span>
-                  <div className="grow border-t border-stone-200"></div>
-                </div>
+                {!ssoDisabled && (
+                  <>
+                    <div className='relative flex items-center py-2 opacity-60'>
+                      <div className='grow border-t border-stone-200'></div>
+                      <span className='mx-4 shrink-0 text-sm font-medium text-stone-400'>
+                        {t('or')}
+                      </span>
+                      <div className='grow border-t border-stone-200'></div>
+                    </div>
+
+                    <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
+                      <button
+                        type='button'
+                        disabled={loading}
+                        onClick={() => handleOAuthLogin('google')}
+                        className='flex w-full items-center justify-center gap-2.5 rounded-xl border border-stone-200/80 bg-white py-3.5 text-sm font-medium text-stone-700 transition-all duration-200 hover:bg-stone-50 hover:text-stone-900 focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 focus:outline-none disabled:cursor-wait disabled:opacity-60'
+                      >
+                        <svg
+                          aria-hidden='true'
+                          className='size-4'
+                          viewBox='0 0 24 24'
+                        >
+                          <path
+                            fill='#4285F4'
+                            d='M21.35 12.27c0-.79-.07-1.55-.23-2.27H12v4.3h5.24a4.48 4.48 0 0 1-1.94 2.94v2.45h3.14c1.84-1.7 2.91-4.2 2.91-7.42Z'
+                          />
+                          <path
+                            fill='#34A853'
+                            d='M12 21.5c2.63 0 4.84-.87 6.45-2.36l-3.14-2.45c-.87.58-1.98.92-3.31.92-2.54 0-4.7-1.72-5.47-4.03H3.28v2.53A9.74 9.74 0 0 0 12 21.5Z'
+                          />
+                          <path
+                            fill='#FBBC05'
+                            d='M6.53 13.58A5.86 5.86 0 0 1 6.22 12c0-.55.1-1.08.31-1.58V7.89H3.28A9.5 9.5 0 0 0 2.25 12c0 1.48.36 2.88 1.03 4.11l3.25-2.53Z'
+                          />
+                          <path
+                            fill='#EA4335'
+                            d='M12 6.39c1.43 0 2.71.49 3.72 1.45l2.79-2.79C16.84 3.48 14.63 2.5 12 2.5a9.74 9.74 0 0 0-8.72 5.39l3.25 2.53C7.3 8.11 9.46 6.39 12 6.39Z'
+                          />
+                        </svg>
+                        Google
+                      </button>
+
+                      <button
+                        type='button'
+                        disabled={loading}
+                        onClick={() => handleOAuthLogin('facebook')}
+                        className='flex w-full items-center justify-center gap-2.5 rounded-xl border border-stone-200/80 bg-white py-3.5 text-sm font-medium text-stone-700 transition-all duration-200 hover:bg-stone-50 hover:text-stone-900 focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 focus:outline-none disabled:cursor-wait disabled:opacity-60'
+                      >
+                        <svg
+                          aria-hidden='true'
+                          className='size-4'
+                          viewBox='0 0 24 24'
+                        >
+                          <path
+                            fill='#1877F2'
+                            d='M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.04 1.8-4.72 4.57-4.72 1.32 0 2.7.24 2.7.24v2.98h-1.52c-1.5 0-1.98.94-1.98 1.9v2.26h3.37l-.54 3.49H13.9V24C19.61 23.1 24 18.1 24 12.07Z'
+                          />
+                        </svg>
+                        Facebook
+                      </button>
+                    </div>
+                  </>
+                )}
 
                 <button
-                  type="button"
+                  type='button'
                   onClick={() => {
                     if (isLogin && isDemo) {
-                      setError(
-                        "Đây là trang demo, bạn không cần phải tạo tài khoản. Hãy sử dụng tài khoản demo để truy cập với toàn bộ quyền.",
-                      );
+                      setError(t('demoLoginNotice'));
                       return;
                     }
                     setIsLogin(!isLogin);
                     setError(null);
                     setSuccessMessage(null);
+                    setSsoError(false);
                   }}
-                  className="w-full text-sm font-semibold text-stone-600 hover:text-stone-900 bg-white hover:bg-stone-50 border border-stone-200/80 py-3.5 rounded-xl shadow-[0_2px_8px_-3px_rgba(0,0,0,0.05)] focus:outline-none transition-all duration-200"
+                  className='w-full rounded-xl border border-stone-200/80 bg-white py-3.5 text-sm font-medium text-stone-600 transition-all duration-200 hover:bg-stone-50 hover:text-stone-900 focus:outline-none'
                 >
-                  {isLogin
-                    ? "Chưa có tài khoản? Đăng ký ngay"
-                    : "Đã có tài khoản? Đăng nhập"}
+                  {isLogin ? t('noAccount') : t('hasAccount')}
                 </button>
               </div>
             </form>
@@ -512,23 +620,7 @@ export default function LoginPage() {
         </motion.div>
       </div>
 
-      <Link
-        href="/"
-        className="absolute top-6 left-6 z-20 flex items-center gap-2 text-stone-500 hover:text-stone-900 font-semibold text-sm transition-all duration-300 group bg-white/60 px-5 py-2.5 rounded-full shadow-sm border border-stone-200 hover:border-stone-300 hover:shadow-md"
-      >
-        <ArrowLeft className="size-4 group-hover:-translate-x-1 transition-transform" />
-        Trang chủ
-      </Link>
-
-      <Link
-        href="/about"
-        className="absolute top-6 right-6 z-20 flex items-center gap-2 text-stone-500 hover:text-stone-900 font-semibold text-sm transition-all duration-300 group bg-white/60 px-5 py-2.5 rounded-full shadow-sm border border-stone-200 hover:border-stone-300 hover:shadow-md"
-      >
-        <Info className="size-4 group-hover:scale-110 transition-transform" />
-        Giới thiệu
-      </Link>
-
-      <Footer className="bg-transparent relative z-10 border-none mt-auto" />
+      <Footer className='relative z-10 mt-auto border-none bg-transparent' />
     </div>
-  );
+  )
 }

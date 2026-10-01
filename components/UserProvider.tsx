@@ -1,46 +1,47 @@
-"use client";
+'use client'
 
-import { Profile } from "@/types";
-import { createClient } from "@/utils/supabase/client";
-import { User, SupabaseClient } from "@supabase/supabase-js";
-import { createContext, useContext, ReactNode, useMemo } from "react";
+import { SupabaseClient, User } from '@supabase/supabase-js'
+import { createContext, ReactNode, useContext, useMemo } from 'react'
+
+import { Profile } from '@/types'
+import { createClient } from '@/utils/supabase/client'
 
 interface UserState {
-  user: User | null;
-  profile: Profile | null;
-  isAdmin: boolean;
-  isEditor: boolean;
-  supabase: SupabaseClient;
+  user: User | null
+  profile: Profile | null
+  isAdmin: boolean
+  isEditor: boolean
+  supabase: SupabaseClient
 }
 
-const UserContext = createContext<UserState | undefined>(undefined);
+const UserContext = createContext<UserState | undefined>(undefined)
 
 export function UserProvider({
   children,
   user,
-  profile,
+  profile
 }: {
-  children: ReactNode;
-  user: User | null;
-  profile: Profile | null;
+  children: ReactNode
+  user: User | null
+  profile: Profile | null
 }) {
-  const supabase = useMemo(() => createClient(), []);
-  const isAdmin = profile?.role === "admin";
-  const isEditor = profile?.role === "editor" || isAdmin;
+  const supabase = useMemo(() => createClient(), [])
+  const isActive = profile?.is_active === true
+  const isAdmin = isActive && profile?.role === 'admin'
+  const isEditor = isActive && (profile?.role === 'editor' || isAdmin)
 
   return (
     <UserContext.Provider
-      value={{ user, profile, isAdmin, isEditor, supabase }}
-    >
+      value={{ user, profile, isAdmin, isEditor, supabase }}>
       {children}
     </UserContext.Provider>
-  );
+  )
 }
 
 export function useUser() {
-  const context = useContext(UserContext);
+  const context = useContext(UserContext)
   if (context === undefined) {
-    throw new Error("useUser must be used within a UserProvider");
+    throw new Error('useUser must be used within a UserProvider')
   }
-  return context;
+  return context
 }

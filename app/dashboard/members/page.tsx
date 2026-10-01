@@ -1,10 +1,10 @@
+import { getDefaultRootId } from "@/app/actions/settings";
 import { MemberListProvider } from "@/context/MemberListContext";
 import MembersViews from "@/components/MembersViews";
 import MemberDetailModal from "@/components/modal/MemberDetailModal";
 import ViewToggle from "@/components/ViewToggle";
 import { getProfile, getSupabase } from "@/utils/supabase/queries";
 
-import { getDefaultRootId } from "@/app/actions/settings";
 import { ViewMode } from "@/components/ViewToggle";
 
 interface PageProps {
@@ -16,7 +16,9 @@ export default async function FamilyTreePage({ searchParams }: PageProps) {
   const initialShowAvatar = avatar !== "hide";
 
   const profile = await getProfile();
-  const canEdit = profile?.role === "admin" || profile?.role === "editor";
+  const canEdit =
+    profile?.is_active === true &&
+    (profile.role === "admin" || profile.role === "editor");
 
   // If view is list, we only need persons, not relationships.
   // We fetch persons for all views to pass down as a prop if we want, or let components fetch.
@@ -49,7 +51,7 @@ export default async function FamilyTreePage({ searchParams }: PageProps) {
 
   let finalRootId = rootId;
 
-  // If no rootId is provided, fallback to default_root_id from family_settings
+  // Respect the configured family root before selecting a fallback root.
   if (!finalRootId || !personsMap.has(finalRootId)) {
     const defaultRootId = await getDefaultRootId();
     if (defaultRootId && personsMap.has(defaultRootId)) {
@@ -59,7 +61,7 @@ export default async function FamilyTreePage({ searchParams }: PageProps) {
       if (rootsFallback.length > 0) {
         finalRootId = rootsFallback[0].id;
       } else if (persons.length > 0) {
-        finalRootId = persons[0].id; // ultimate fallback
+        finalRootId = persons[0].id;
       }
     }
   }
