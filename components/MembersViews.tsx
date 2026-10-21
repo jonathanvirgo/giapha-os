@@ -6,8 +6,8 @@ import { useEffect, useMemo, useRef } from 'react'
 
 import MemberList from '@/components/MemberList'
 import RootSelector from '@/components/RootSelector'
-import { useMemberListView } from '@/context/MemberListContext'
-import { useI18n } from '@/lib/i18n/I18nProvider'
+import { useMemberListView } from '@/context/useMemberListView'
+import { useI18n } from '@/lib/i18n/useI18n'
 import { Person, Relationship } from '@/types'
 
 const FamilyTree = dynamic(() => import('@/components/FamilyTree'))

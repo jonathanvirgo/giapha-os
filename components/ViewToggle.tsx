@@ -1,10 +1,10 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 import { Circle, List, ListTree, Network } from 'lucide-react'
 
-import { useMemberListView } from '@/context/MemberListContext'
-import { useI18n } from '@/lib/i18n/I18nProvider'
+import { useMemberListView } from '@/context/useMemberListView'
+import { useI18n } from '@/lib/i18n/useI18n'
 
 export type ViewMode = 'list' | 'tree' | 'mindmap' | 'bubble'
 
@@ -49,7 +49,7 @@ export default function ViewToggle() {
                 : 'text-stone-500 hover:text-stone-800'
             }`}>
             {isActive && (
-              <motion.div
+              <m.div
                 layoutId='activeTab'
                 className='absolute inset-0 z-[-1] rounded-full border border-stone-200/60 bg-white'
                 transition={{ type: 'spring', stiffness: 450, damping: 30 }}

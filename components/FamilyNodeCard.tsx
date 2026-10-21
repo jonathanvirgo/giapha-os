@@ -1,8 +1,9 @@
 'use client'
 
 import Image from 'next/image'
+import { memo } from 'react'
 
-import { useMemberListView } from '@/context/MemberListContext'
+import { useMemberListView } from '@/context/useMemberListView'
 import { Person } from '@/types'
 import { getAvatarUrl } from '@/utils/avatar'
 import { getAvatarBg } from '@/utils/styleHelprs'
@@ -20,7 +21,79 @@ interface FamilyNodeCardProps {
   level: number
 }
 
-export default function FamilyNodeCard({
+function PersonAvatar({ person }: { person: Person }) {
+  return (
+    <div className='relative z-10 mb-1.5 sm:mb-2'>
+      <div
+        className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm text-white shadow-lg ring-2 ring-white transition-transform duration-300 group-hover:scale-105 sm:h-12 sm:w-12 sm:text-sm md:h-14 md:w-14 md:text-sm ${getAvatarBg(person.gender)} `}>
+        {getAvatarUrl(person.avatar_url) ? (
+          <Image
+            unoptimized
+            src={getAvatarUrl(person.avatar_url)!}
+            alt={person.full_name}
+            className='h-full w-full object-cover'
+            width={64}
+            height={64}
+          />
+        ) : (
+          <DefaultAvatar gender={person.gender} size={64} />
+        )}
+      </div>
+    </div>
+  )
+}
+
+function PersonName({
+  person,
+  showAvatar,
+  onClickName
+}: {
+  person: Person
+  showAvatar: boolean
+  onClickName?: (e: React.MouseEvent) => void
+}) {
+  const nameText = showAvatar
+    ? person.full_name
+    : person.full_name.split(' ').map((word, i) => (
+        <span key={`${word}-${i}`} className='block'>
+          {word}
+        </span>
+      ))
+
+  if (onClickName) {
+    return (
+      <button
+        type='button'
+        className='cursor-pointer text-center text-sm leading-tight font-medium text-stone-800 transition-colors group-hover:text-amber-700 hover:underline sm:text-sm md:text-sm'
+        title={person.full_name}
+        onClick={(e) => {
+          e.stopPropagation()
+          e.preventDefault()
+          onClickName(e)
+        }}>
+        {nameText}
+      </button>
+    )
+  }
+
+  return (
+    <div
+      className='cursor-pointer text-center text-sm leading-tight font-medium text-stone-800 transition-colors group-hover:text-amber-800 sm:text-sm md:text-sm'
+      title={person.full_name}>
+      {nameText}
+    </div>
+  )
+}
+
+function CornerBadge({ symbol }: { symbol: string }) {
+  return (
+    <div className='absolute top-[15%] -left-2.5 z-100 flex size-5 items-center justify-center rounded-full bg-white text-sm font-medium text-stone-500 shadow-sm sm:-left-3.5 sm:size-6 sm:text-sm'>
+      <span className='leading-none'>{symbol}</span>
+    </div>
+  )
+}
+
+function FamilyNodeCard({
   person,
   onClickCard,
   onClickName,
@@ -33,62 +106,28 @@ export default function FamilyNodeCard({
 
   const content = (
     <div
-      onClick={onClickCard}
-      className={`group relative flex h-full flex-col items-center justify-start rounded-3xl px-1 py-2 transition-all duration-300 hover:-translate-y-1 ${isDeceased ? 'opacity-80 grayscale-[0.4]' : ''} ${showAvatar ? 'w-20 bg-surface/70 backdrop-blur-xl hover:shadow-soft-hover sm:w-24 md:w-28' : 'px-3'} `}>
-      {isRingVisible && (
-        <div
-          className={`absolute top-[15%] -left-2.5 z-100 flex size-5 items-center justify-center rounded-full text-sm font-medium text-stone-500 sm:-left-3.5 sm:size-6 sm:text-sm ${showAvatar ? 'bg-white shadow-sm' : ''} `}>
-          <span className='leading-none'>💍</span>
-        </div>
+      className={`group relative flex h-full flex-col items-center justify-start rounded-3xl px-1 py-2 transition-[translate,box-shadow] duration-300 hover:-translate-y-1 ${isDeceased ? 'opacity-80 grayscale-[0.4]' : ''} ${showAvatar ? 'w-20 bg-surface hover:shadow-soft-hover sm:w-24 md:w-28' : 'px-3'} `}>
+      {onClickCard && (
+        <button
+          type='button'
+          aria-label={person.full_name}
+          className='absolute inset-0 z-20 rounded-3xl'
+          onClick={onClickCard}
+        />
       )}
-      {isPlusVisible && (
-        <div
-          className={`absolute top-[15%] -left-2.5 z-100 flex size-5 items-center justify-center rounded-full text-sm font-medium text-stone-500 sm:-left-3.5 sm:size-6 sm:text-sm ${showAvatar ? 'bg-white shadow-sm' : ''} `}>
-          <span className='leading-none'>+</span>
-        </div>
-      )}
+      {isRingVisible && <CornerBadge symbol='💍' />}
+      {isPlusVisible && <CornerBadge symbol='+' />}
 
       {/* 1. Avatar */}
-      {showAvatar && (
-        <div className='relative z-10 mb-1.5 sm:mb-2'>
-          <div
-            className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm text-white shadow-lg ring-2 ring-white transition-transform duration-300 group-hover:scale-105 sm:h-12 sm:w-12 sm:text-sm md:h-14 md:w-14 md:text-sm ${getAvatarBg(person.gender)} `}>
-            {getAvatarUrl(person.avatar_url) ? (
-              <Image
-                unoptimized
-                src={getAvatarUrl(person.avatar_url)!}
-                alt={person.full_name}
-                className='h-full w-full object-cover'
-                width={64}
-                height={64}
-              />
-            ) : (
-              <DefaultAvatar gender={person.gender} size={64} />
-            )}
-          </div>
-        </div>
-      )}
+      {showAvatar && <PersonAvatar person={person} />}
 
       {/* 2. Gender Icon + Name */}
-      <div className='relative z-10 flex w-full flex-col items-center justify-center gap-1 px-0.5 sm:px-1'>
-        <div
-          className={`cursor-pointer text-center text-sm leading-tight font-medium transition-colors sm:text-sm md:text-sm ${onClickName ? 'text-stone-800 group-hover:text-amber-700 hover:underline' : 'text-stone-800 group-hover:text-amber-800'} `}
-          title={person.full_name}
-          onClick={(e) => {
-            if (onClickName) {
-              e.stopPropagation()
-              e.preventDefault()
-              onClickName(e)
-            }
-          }}>
-          {showAvatar
-            ? person.full_name
-            : person.full_name.split(' ').map((word, i) => (
-                <span key={i} className='block'>
-                  {word}
-                </span>
-              ))}
-        </div>
+      <div className='relative z-30 flex w-full flex-col items-center justify-center gap-1 px-0.5 sm:px-1'>
+        <PersonName
+          person={person}
+          showAvatar={showAvatar}
+          onClickName={onClickName}
+        />
       </div>
     </div>
   )
@@ -98,8 +137,13 @@ export default function FamilyNodeCard({
   }
 
   return (
-    <button onClick={() => setMemberModalId(person.id)} className='block w-fit'>
+    <button
+      type='button'
+      onClick={() => setMemberModalId(person.id)}
+      className='block w-fit rounded-3xl'>
       {content}
     </button>
   )
 }
+
+export default memo(FamilyNodeCard)

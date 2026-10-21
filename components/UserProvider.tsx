@@ -30,12 +30,12 @@ export function UserProvider({
   const isAdmin = isActive && profile?.role === 'admin'
   const isEditor = isActive && (profile?.role === 'editor' || isAdmin)
 
-  return (
-    <UserContext.Provider
-      value={{ user, profile, isAdmin, isEditor, supabase }}>
-      {children}
-    </UserContext.Provider>
+  const value = useMemo(
+    () => ({ user, profile, isAdmin, isEditor, supabase }),
+    [user, profile, isAdmin, isEditor, supabase]
   )
+
+  return <UserContext.Provider value={value}>{children}</UserContext.Provider>
 }
 
 export function useUser() {

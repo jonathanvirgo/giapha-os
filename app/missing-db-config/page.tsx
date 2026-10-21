@@ -1,12 +1,12 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 import { ArrowLeft, Database, Settings, Terminal } from 'lucide-react'
 import Link from 'next/link'
 
 import Footer from '@/components/Footer'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
-import { useI18n } from '@/lib/i18n/I18nProvider'
+import { useI18n } from '@/lib/i18n/useI18n'
 
 export default function MissingDBConfigPage() {
   const { t } = useI18n()
@@ -25,7 +25,7 @@ export default function MissingDBConfigPage() {
       </div>
 
       <div className='relative z-10 flex w-full flex-1 items-center justify-center px-4 py-12'>
-        <motion.div
+        <m.div
           className='relative w-full max-w-2xl overflow-hidden rounded-3xl border border-red-100 bg-white p-8 sm:p-10'
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -92,12 +92,12 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=your_supabase_anon_key`}
               </Link>
             </div>
           </div>
-        </motion.div>
+        </m.div>
       </div>
 
       <Link
         href='/'
-        className='absolute top-6 left-6 z-20 flex items-center gap-2 rounded-full border border-stone-200 bg-white/60 px-5 py-2.5 text-sm font-medium text-stone-500 transition-all duration-300 hover:border-stone-300 hover:text-stone-900'>
+        className='absolute top-6 left-6 z-20 flex items-center gap-2 rounded-full border border-stone-200 bg-white/60 px-5 py-2.5 text-sm font-medium text-stone-500 transition-colors duration-300 hover:border-stone-300 hover:text-stone-900'>
         <ArrowLeft className='size-4' />
         {t('home')}
       </Link>

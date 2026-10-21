@@ -2,11 +2,14 @@ import { redirect } from 'next/navigation'
 
 import LineageManager from '@/components/LineageManager'
 import { getServerTranslations } from '@/lib/i18n/server'
+import { fetchAllRows } from '@/utils/supabase/fetchAll'
 import { getProfile, getSupabase } from '@/utils/supabase/queries'
 
 export default async function LineagePage() {
-  const { t } = await getServerTranslations()
-  const profile = await getProfile()
+  const [{ t }, profile] = await Promise.all([
+    getServerTranslations(),
+    getProfile()
+  ])
 
   if (profile?.role !== 'admin' || !profile.is_active) {
     redirect('/dashboard')
@@ -14,12 +17,19 @@ export default async function LineagePage() {
 
   const supabase = await getSupabase()
 
-  const { data: personsData } = await supabase
-    .from('persons')
-    .select('*')
-    .order('birth_year', { ascending: true, nullsFirst: false })
-
-  const { data: relsData } = await supabase.from('relationships').select('*')
+  const [{ data: personsData }, { data: relsData }] = await Promise.all([
+    fetchAllRows((from, to) =>
+      supabase
+        .from('persons')
+        .select('*')
+        .order('birth_year', { ascending: true, nullsFirst: false })
+        .order('id')
+        .range(from, to)
+    ),
+    fetchAllRows((from, to) =>
+      supabase.from('relationships').select('*').order('id').range(from, to)
+    )
+  ])
 
   // Identify "roots" - people with no parents
   const persons = personsData || []

@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import type { TranslationKey, TranslationValues } from '@/lib/i18n/messages'
 import { getServerTranslations } from '@/lib/i18n/server'
 import { Relationship } from '@/types'
+import { fetchAllRows } from '@/utils/supabase/fetchAll'
 import { getIsAdmin, getSupabase } from '@/utils/supabase/queries'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -250,8 +251,10 @@ function sanitizeCustomEvent(
 export async function exportData(
   exportRootId?: string
 ): Promise<BackupPayload | { error: string }> {
-  const { t } = await getServerTranslations()
-  const isAdmin = await getIsAdmin()
+  const [{ t }, isAdmin] = await Promise.all([
+    getServerTranslations(),
+    getIsAdmin()
+  ])
   if (!isAdmin) {
     return { error: t('dataAccessDenied') }
   }
@@ -259,27 +262,26 @@ export async function exportData(
   const supabase = await getSupabase()
 
   // Fetch ALL rows using pagination to avoid the 1000-row Supabase limit.
+  // A unique tie-breaker column keeps the page boundaries stable.
   const fetchAll = async <T>(
     table: string,
     selectCols: string,
-    orderBy: string
+    orderBy: string,
+    tieBreaker = 'id'
   ): Promise<T[]> => {
-    let allData: T[] = []
-    let from = 0
-    const step = 1000
-    while (true) {
-      const { data, error } = await supabase
+    const { data, error } = await fetchAllRows<T>((from, to) => {
+      let query = supabase
         .from(table)
         .select(selectCols)
         .order(orderBy, { ascending: true })
-        .range(from, from + step - 1)
-      if (error) throw error
-      if (!data || data.length === 0) break
-      allData = allData.concat(data as T[])
-      if (data.length < step) break
-      from += step
-    }
-    return allData
+      if (tieBreaker !== orderBy) query = query.order(tieBreaker)
+      return query.range(from, to) as unknown as PromiseLike<{
+        data: T[] | null
+        error: { message: string } | null
+      }>
+    })
+    if (error) throw new Error(error.message)
+    return data
   }
 
   let allPersons: PersonExport[] = []
@@ -302,6 +304,7 @@ export async function exportData(
     allPrivateDetails = await fetchAll<PersonDetailsPrivateExport>(
       'person_details_private',
       'person_id, phone_number, occupation, current_residence',
+      'person_id',
       'person_id'
     )
     allCustomEvents = await fetchAll<CustomEventExport>(
@@ -329,13 +332,17 @@ export async function exportData(
 
     exportRels.forEach((r) => {
       if (r.type === 'biological_child' || r.type === 'adopted_child') {
-        if (!childrenMap.has(r.person_a)) childrenMap.set(r.person_a, [])
-        childrenMap.get(r.person_a)!.push(r.person_b)
+        const children = childrenMap.get(r.person_a) ?? []
+        children.push(r.person_b)
+        childrenMap.set(r.person_a, children)
       } else if (r.type === 'marriage') {
-        if (!spouseMap.has(r.person_a)) spouseMap.set(r.person_a, [])
-        if (!spouseMap.has(r.person_b)) spouseMap.set(r.person_b, [])
-        spouseMap.get(r.person_a)!.push(r.person_b)
-        spouseMap.get(r.person_b)!.push(r.person_a)
+        const spousesA = spouseMap.get(r.person_a) ?? []
+        spousesA.push(r.person_b)
+        spouseMap.set(r.person_a, spousesA)
+
+        const spousesB = spouseMap.get(r.person_b) ?? []
+        spousesB.push(r.person_a)
+        spouseMap.set(r.person_b, spousesB)
       }
     })
 
@@ -394,8 +401,10 @@ export async function importData(
         custom_events?: CustomEventExport[]
       }
 ) {
-  const { t } = await getServerTranslations()
-  const isAdmin = await getIsAdmin()
+  const [{ t }, isAdmin] = await Promise.all([
+    getServerTranslations(),
+    getIsAdmin()
+  ])
   if (!isAdmin) {
     return { error: t('dataAccessDenied') }
   }

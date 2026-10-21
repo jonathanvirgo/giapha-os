@@ -1,6 +1,6 @@
 'use client'
 
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import {
   ArrowUpCircle,
   BarChart2,
@@ -15,7 +15,7 @@ import {
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 
-import { useI18n } from '@/lib/i18n/I18nProvider'
+import { useI18n } from '@/lib/i18n/useI18n'
 
 import LogoutButton from './LogoutButton'
 import { useUser } from './UserProvider'
@@ -99,7 +99,7 @@ export default function HeaderMenu() {
         aria-expanded={isOpen}
         aria-label={t('account')}
         onClick={() => setIsOpen(!isOpen)}
-        className='flex items-center gap-2 rounded-full border border-transparent py-1.5 pr-4 pl-2 transition-all duration-200 hover:border-stone-200 hover:bg-stone-100'>
+        className='flex items-center gap-2 rounded-full border border-transparent py-1.5 pr-4 pl-2 transition-colors duration-200 hover:border-stone-200 hover:bg-stone-100'>
         <div className='flex size-8 items-center justify-center rounded-full bg-linear-to-br from-amber-200 to-amber-100 font-medium text-amber-800 shadow-sm ring-1 ring-amber-300/50'>
           {userEmail ? (
             userEmail.charAt(0).toUpperCase()
@@ -114,7 +114,7 @@ export default function HeaderMenu() {
 
       <AnimatePresence>
         {isOpen && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 10, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
@@ -170,7 +170,7 @@ export default function HeaderMenu() {
               </Link>
               <LogoutButton />
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </div>

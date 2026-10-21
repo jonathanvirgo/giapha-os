@@ -1,26 +1,22 @@
 'use client'
 
 import { useSearchParams } from 'next/navigation'
-import { createContext, useContext, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { ViewMode } from '@/components/ViewToggle'
 
-interface MemberListViewState {
-  memberModalId: string | null
-  setMemberModalId: (id: string | null) => void
-  showCreateMember: boolean
-  setShowCreateMember: (show: boolean) => void
-  showAvatar: boolean
-  setShowAvatar: (show: boolean) => void
-  view: ViewMode
-  setView: (view: ViewMode) => void
-  rootId: string | null
-  setRootId: (id: string | null) => void
-}
+import { MemberListContext, MemberListViewState } from './memberListViewContext'
 
-export const MemberListContext = createContext<MemberListViewState | undefined>(
-  undefined
-)
+function setUrlParam(key: string, value: string | null) {
+  if (typeof window === 'undefined') return
+  const newUrl = new URL(window.location.href)
+  if (value) {
+    newUrl.searchParams.set(key, value)
+  } else {
+    newUrl.searchParams.delete(key)
+  }
+  window.history.replaceState(null, '', newUrl.toString())
+}
 
 export function MemberListProvider({
   children,
@@ -73,91 +69,57 @@ export function MemberListProvider({
     syncFromURL()
   }, [searchParams])
 
-  // Sync to URL silently
-  const updateModalId = (id: string | null) => {
+  // Sync to URL silently. Callbacks are stable so memoized consumers
+  // (tree nodes, person cards) don't re-render when unrelated state changes.
+  const updateModalId = useCallback((id: string | null) => {
     setMemberModalId(id)
-    if (typeof window !== 'undefined') {
-      const newUrl = new URL(window.location.href)
-      if (id) {
-        newUrl.searchParams.set('memberModalId', id)
-      } else {
-        newUrl.searchParams.delete('memberModalId')
-      }
-      window.history.replaceState(null, '', newUrl.toString())
-    }
-  }
+    setUrlParam('memberModalId', id)
+  }, [])
 
-  const updateAvatar = (show: boolean) => {
+  const updateAvatar = useCallback((show: boolean) => {
     setShowAvatar(show)
-    if (typeof window !== 'undefined') {
-      const newUrl = new URL(window.location.href)
-      if (!show) {
-        newUrl.searchParams.set('avatar', 'hide')
-      } else {
-        newUrl.searchParams.delete('avatar')
-      }
-      window.history.replaceState(null, '', newUrl.toString())
-    }
-  }
+    setUrlParam('avatar', show ? null : 'hide')
+  }, [])
 
-  const setView = (v: ViewMode) => {
+  const setView = useCallback((v: ViewMode) => {
     setViewState(v)
-    if (typeof window !== 'undefined') {
-      const newUrl = new URL(window.location.href)
-      newUrl.searchParams.set('view', v)
-      window.history.replaceState(null, '', newUrl.toString())
-    }
-  }
+    setUrlParam('view', v)
+  }, [])
 
-  const setRootId = (id: string | null) => {
+  const setRootId = useCallback((id: string | null) => {
     setRootIdState(id)
-    if (typeof window !== 'undefined') {
-      const newUrl = new URL(window.location.href)
-      if (id) {
-        newUrl.searchParams.set('rootId', id)
-      } else {
-        newUrl.searchParams.delete('rootId')
-      }
-      window.history.replaceState(null, '', newUrl.toString())
-    }
-  }
+    setUrlParam('rootId', id)
+  }, [])
+
+  const value = useMemo(
+    () => ({
+      memberModalId,
+      setMemberModalId: updateModalId,
+      showCreateMember,
+      setShowCreateMember,
+      showAvatar,
+      setShowAvatar: updateAvatar,
+      view,
+      setView,
+      rootId,
+      setRootId
+    }),
+    [
+      memberModalId,
+      updateModalId,
+      showCreateMember,
+      showAvatar,
+      updateAvatar,
+      view,
+      setView,
+      rootId,
+      setRootId
+    ]
+  )
 
   return (
-    <MemberListContext.Provider
-      value={{
-        memberModalId,
-        setMemberModalId: updateModalId,
-        showCreateMember,
-        setShowCreateMember,
-        showAvatar,
-        setShowAvatar: updateAvatar,
-        view,
-        setView,
-        rootId,
-        setRootId
-      }}>
+    <MemberListContext.Provider value={value}>
       {children}
     </MemberListContext.Provider>
   )
-}
-
-export function useMemberListView(): MemberListViewState {
-  const context = useContext(MemberListContext)
-  // Return a safe no-op fallback when used outside MemberListProvider
-  // (e.g., on the /dashboard/members/[id] standalone page)
-  if (context === undefined) {
-    return {
-      memberModalId: null,
-      setMemberModalId: () => {},
-      showCreateMember: false,
-      setShowCreateMember: () => {},
-      showAvatar: true,
-      setShowAvatar: () => {},
-      view: 'list',
-      setView: () => {},
-      rootId: null,
-      setRootId: () => {}
-    }
-  }
-  return context
 }

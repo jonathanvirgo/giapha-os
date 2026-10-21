@@ -67,8 +67,10 @@ export async function parseCsvZip(zipBlob: Blob): Promise<{
     )
   }
 
-  const personsCsvRaw = await personsFile.async('text')
-  const relationshipsCsvRaw = await relationshipsFile.async('text')
+  const [personsCsvRaw, relationshipsCsvRaw] = await Promise.all([
+    personsFile.async('text'),
+    relationshipsFile.async('text')
+  ])
 
   const personsCsvStr = personsCsvRaw.startsWith(UTF8_BOM)
     ? personsCsvRaw.slice(1)

@@ -12,10 +12,11 @@ interface PageProps {
 }
 
 export default async function MemberDetailPage({ params }: PageProps) {
-  const { t } = await getServerTranslations()
-  const { id } = await params
-
-  const profile = await getProfile()
+  const [{ t }, { id }, profile] = await Promise.all([
+    getServerTranslations(),
+    params,
+    getProfile()
+  ])
 
   const isAdmin = profile?.role === 'admin' && profile.is_active
   const canEdit =

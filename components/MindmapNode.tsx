@@ -1,11 +1,11 @@
 'use client'
 
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import Image from 'next/image'
 import { memo, useState } from 'react'
 
-import { useI18n } from '@/lib/i18n/I18nProvider'
+import { useI18n } from '@/lib/i18n/useI18n'
 import { Person, Relationship } from '@/types'
 import { getAvatarUrl } from '@/utils/avatar'
 import { getAvatarBg } from '@/utils/styleHelprs'
@@ -30,7 +30,7 @@ export interface MindmapContextData {
   setMemberModalId: (id: string | null) => void
 }
 
-export const getTreeData = (personId: string, ctx: MindmapContextData) => {
+const getTreeData = (personId: string, ctx: MindmapContextData) => {
   return getFilteredTreeData(personId, ctx.personsMap, ctx.adj, {
     hideDaughtersInLaw: ctx.hideDaughtersInLaw,
     hideSonsInLaw: ctx.hideSonsInLaw,
@@ -39,6 +39,216 @@ export const getTreeData = (personId: string, ctx: MindmapContextData) => {
     hideMales: ctx.hideMales,
     hideFemales: ctx.hideFemales
   })
+}
+
+function NodeAvatar({ person }: { person: Person }) {
+  return (
+    <div className='relative shrink-0'>
+      <div
+        className={`flex size-10 items-center justify-center overflow-hidden rounded-full text-sm font-medium text-white shadow-md ring-2 ring-white transition-transform duration-300 group-hover/card:scale-105 ${getAvatarBg(person.gender)}`}>
+        {getAvatarUrl(person.avatar_url) ? (
+          <Image
+            unoptimized
+            src={getAvatarUrl(person.avatar_url)!}
+            alt={person.full_name}
+            width={40}
+            height={40}
+            className='h-full w-full object-cover'
+          />
+        ) : (
+          <DefaultAvatar gender={person.gender} size={40} />
+        )}
+      </div>
+    </div>
+  )
+}
+
+function InLawBadge({ person }: { person: Person }) {
+  const { t } = useI18n()
+  if (!(person.is_deceased || person.is_in_law)) return null
+  return (
+    <div className='mt-1.5 flex shrink-0 flex-wrap items-center gap-1'>
+      {person.is_in_law && (
+        <span
+          className={`inline-flex items-center rounded border px-1.5 py-0.5 text-sm font-medium ${
+            person.gender === 'male'
+              ? 'border-sky-200/60 bg-sky-50 text-sky-700'
+              : person.gender === 'female'
+                ? 'border-rose-200/60 bg-rose-50 text-rose-700'
+                : 'border-stone-200/60 bg-stone-50 text-stone-700'
+          }`}>
+          {person.gender === 'male'
+            ? t('inLawMale')
+            : person.gender === 'female'
+              ? t('inLawFemale')
+              : t('inLawOther')}
+        </span>
+      )}
+    </div>
+  )
+}
+
+function NodeCard({
+  person,
+  ctx,
+  spouses
+}: {
+  person: Person
+  ctx: MindmapContextData
+  spouses: { person: Person; note?: string | null }[]
+}) {
+  const { t } = useI18n()
+  return (
+    <div
+      className={`group/card relative flex flex-wrap items-center gap-2 overflow-hidden rounded-2xl border border-stone-200/60 bg-white/60 p-2 transition duration-300 hover:border-amber-300 hover:bg-white/90 sm:p-2.5 ${person.is_deceased ? 'opacity-80 grayscale-[0.3]' : ''}`}>
+      <button
+        type='button'
+        aria-label={person.full_name}
+        className='absolute inset-0 z-20 cursor-pointer'
+        onClick={() => ctx.setMemberModalId(person.id)}
+      />
+      <div className='relative z-10 flex w-full items-center gap-2.5'>
+        <div className='flex min-w-0 flex-1 items-center gap-2.5'>
+          {ctx.showAvatar && <NodeAvatar person={person} />}
+          <div className='flex min-w-0 flex-1 flex-col'>
+            <span className='mb-0.5 truncate text-sm leading-tight font-medium text-stone-900 transition-colors group-hover/card:text-amber-700'>
+              {person.full_name}
+            </span>
+            <span className='flex items-center gap-1 truncate text-sm font-medium text-stone-500'>
+              <svg
+                className='size-3 shrink-0 text-stone-400'
+                fill='none'
+                viewBox='0 0 24 24'
+                stroke='currentColor'>
+                <path
+                  strokeLinecap='round'
+                  strokeLinejoin='round'
+                  strokeWidth={2}
+                  d='M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z'
+                />
+              </svg>
+              <span className='truncate'>
+                {person.birth_year || t('unknownDate')}
+                {person.is_deceased &&
+                  ` → ${person.death_lunar_year || person.death_year || t('unknownDate')}`}
+              </span>
+            </span>
+            <InLawBadge person={person} />
+          </div>
+        </div>
+
+        {/* Spouses attached to node */}
+        {spouses.length > 0 && <SpouseChips spouses={spouses} ctx={ctx} />}
+      </div>
+    </div>
+  )
+}
+
+function SpouseChips({
+  spouses,
+  ctx
+}: {
+  spouses: { person: Person; note?: string | null }[]
+  ctx: MindmapContextData
+}) {
+  const { t } = useI18n()
+  return (
+    <div className='relative z-30 ml-1 flex flex-wrap gap-1.5 pl-2 before:absolute before:top-1/2 before:left-0 before:h-[70%] before:w-px before:-translate-y-1/2 before:bg-stone-200/80'>
+      {spouses.map((spouseData) => {
+        return (
+          <button
+            type='button'
+            key={spouseData.person.id}
+            onClick={(e) => {
+              e.stopPropagation()
+              ctx.setMemberModalId(spouseData.person.id)
+            }}
+            className={`group/spouse flex cursor-pointer flex-col items-center gap-1 rounded-xl border border-stone-200/60 bg-stone-50/50 p-1.5 transition hover:border-amber-300 hover:bg-white ${spouseData.person.is_deceased ? 'opacity-80 grayscale-[0.3]' : ''}`}
+            title={
+              spouseData.note ||
+              (spouseData.person.gender === 'male'
+                ? t('inLawMale')
+                : t('inLawFemale'))
+            }>
+            {ctx.showAvatar && (
+              <div
+                className={`flex size-8 items-center justify-center overflow-hidden rounded-full text-sm font-medium text-white shadow-sm ring-2 ring-white transition-transform duration-300 group-hover/spouse:scale-105 ${getAvatarBg(spouseData.person.gender)}`}>
+                {getAvatarUrl(spouseData.person.avatar_url) ? (
+                  <Image
+                    unoptimized
+                    src={getAvatarUrl(spouseData.person.avatar_url)!}
+                    alt={spouseData.person.full_name}
+                    width={32}
+                    height={32}
+                    className='h-full w-full object-cover'
+                  />
+                ) : (
+                  <DefaultAvatar gender={spouseData.person.gender} size={32} />
+                )}
+              </div>
+            )}
+            <span className='max-w-12.5 truncate text-center text-sm font-medium text-stone-600'>
+              {spouseData.person.full_name.split(' ').pop()}
+            </span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function NodeConnectors({ isLast }: { isLast: boolean }) {
+  return (
+    <>
+      <div
+        className='absolute border-l-[1.5px] border-stone-300'
+        style={{
+          left: '0',
+          top: '-16px',
+          bottom: isLast ? 'auto' : '-16px',
+          height: isLast ? '40px' : '100%'
+        }}></div>
+      <div
+        className='absolute rounded-bl-xl border-b-[1.5px] border-l-[1.5px] border-stone-300'
+        style={{
+          left: '0',
+          top: '24px',
+          width: '24px',
+          height: '24px'
+        }}></div>
+    </>
+  )
+}
+
+function ExpandToggle({
+  visible,
+  isExpanded,
+  onToggle
+}: {
+  visible: boolean
+  isExpanded: boolean
+  onToggle: () => void
+}) {
+  const { t } = useI18n()
+  if (!visible) {
+    return (
+      <div className='h-1.5 w-1.5 rounded-full bg-stone-300 ring-2 ring-white'></div>
+    )
+  }
+  return (
+    <button
+      onClick={onToggle}
+      type='button'
+      className='flex size-5 items-center justify-center rounded border border-stone-200 bg-white text-stone-500 transition-colors hover:bg-amber-50 hover:text-amber-600'
+      aria-label={isExpanded ? t('collapse') : t('expand')}
+      aria-expanded={isExpanded}>
+      {isExpanded ? (
+        <ChevronDown strokeWidth={2.5} className='h-3.5 w-3.5' />
+      ) : (
+        <ChevronRight strokeWidth={2.5} className='h-3.5 w-3.5' />
+      )}
+    </button>
+  )
 }
 
 export const MindmapNode = memo(
@@ -84,185 +294,28 @@ export const MindmapNode = memo(
     return (
       <div className={`relative py-1.5 ${level > 0 ? 'pl-6' : 'pl-0'}`}>
         {/* Draw the connecting L-shape line from the parent to this node */}
-        {level > 0 && (
-          <>
-            <div
-              className='absolute border-l-[1.5px] border-stone-300'
-              style={{
-                left: '0',
-                top: isLast ? '-16px' : '-16px',
-                bottom: isLast ? 'auto' : '-16px',
-                height: isLast ? '40px' : '100%'
-              }}></div>
-            <div
-              className='absolute rounded-bl-xl border-b-[1.5px] border-l-[1.5px] border-stone-300'
-              style={{
-                left: '0',
-                top: '24px',
-                width: '24px',
-                height: '24px'
-              }}></div>
-          </>
-        )}
+        {level > 0 && <NodeConnectors isLast={isLast} />}
 
         <div className='group relative z-10 flex items-center gap-2'>
           {/* Expand/Collapse Toggle or spacer */}
           <div className='z-10 flex size-5 shrink-0 items-center justify-center bg-transparent'>
-            {hasChildren && !ctx.hideExpandButtons ? (
-              <button
-                onClick={() => setIsExpanded(!isExpanded)}
-                className='flex size-5 items-center justify-center rounded border border-stone-200 bg-white text-stone-500 transition-colors hover:bg-amber-50 hover:text-amber-600 focus:outline-none'
-                aria-label={isExpanded ? t('collapse') : t('expand')}>
-                {isExpanded ? (
-                  <ChevronDown strokeWidth={2.5} className='h-3.5 w-3.5' />
-                ) : (
-                  <ChevronRight strokeWidth={2.5} className='h-3.5 w-3.5' />
-                )}
-              </button>
-            ) : (
-              <div className='h-1.5 w-1.5 rounded-full bg-stone-300 ring-2 ring-white'></div>
-            )}
+            <ExpandToggle
+              visible={hasChildren && !ctx.hideExpandButtons}
+              isExpanded={isExpanded}
+              onToggle={() => setIsExpanded(!isExpanded)}
+            />
           </div>
 
-          {(() => {
-            return (
-              <motion.div
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3 }}
-                className={`group/card relative flex cursor-pointer flex-wrap items-center gap-2 overflow-hidden rounded-2xl border border-stone-200/60 bg-white/60 p-2 transition-all duration-300 hover:border-amber-300 hover:bg-white/90 sm:p-2.5 ${data.person.is_deceased ? 'opacity-80 grayscale-[0.3]' : ''}`}
-                onClick={() => ctx.setMemberModalId(data.person.id)}>
-                <div className='relative z-10 flex w-full items-center gap-2.5'>
-                  <div className='flex min-w-0 flex-1 items-center gap-2.5'>
-                    {ctx.showAvatar && (
-                      <div className='relative shrink-0'>
-                        <div
-                          className={`flex size-10 items-center justify-center overflow-hidden rounded-full text-sm font-medium text-white shadow-md ring-2 ring-white transition-transform duration-300 group-hover/card:scale-105 ${getAvatarBg(data.person.gender)}`}>
-                          {getAvatarUrl(data.person.avatar_url) ? (
-                            <Image
-                              unoptimized
-                              src={getAvatarUrl(data.person.avatar_url)!}
-                              alt={data.person.full_name}
-                              width={40}
-                              height={40}
-                              className='h-full w-full object-cover'
-                            />
-                          ) : (
-                            <DefaultAvatar
-                              gender={data.person.gender}
-                              size={40}
-                            />
-                          )}
-                        </div>
-                      </div>
-                    )}
-                    <div className='flex min-w-0 flex-1 flex-col'>
-                      <span className='mb-0.5 truncate text-sm leading-tight font-medium text-stone-900 transition-colors group-hover/card:text-amber-700'>
-                        {data.person.full_name}
-                      </span>
-                      <span className='flex items-center gap-1 truncate text-sm font-medium text-stone-500'>
-                        <svg
-                          className='size-3 shrink-0 text-stone-400'
-                          fill='none'
-                          viewBox='0 0 24 24'
-                          stroke='currentColor'>
-                          <path
-                            strokeLinecap='round'
-                            strokeLinejoin='round'
-                            strokeWidth={2}
-                            d='M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z'
-                          />
-                        </svg>
-                        <span className='truncate'>
-                          {data.person.birth_year || t('unknownDate')}
-                          {data.person.is_deceased &&
-                            ` → ${data.person.death_lunar_year || data.person.death_year || t('unknownDate')}`}
-                        </span>
-                      </span>
-                      {(data.person.is_deceased || data.person.is_in_law) && (
-                        <div className='mt-1.5 flex shrink-0 flex-wrap items-center gap-1'>
-                          {data.person.is_in_law && (
-                            <span
-                              className={`inline-flex items-center rounded border px-1.5 py-0.5 text-sm font-medium ${
-                                data.person.gender === 'male'
-                                  ? 'border-sky-200/60 bg-sky-50 text-sky-700'
-                                  : data.person.gender === 'female'
-                                    ? 'border-rose-200/60 bg-rose-50 text-rose-700'
-                                    : 'border-stone-200/60 bg-stone-50 text-stone-700'
-                              }`}>
-                              {data.person.gender === 'male'
-                                ? t('inLawMale')
-                                : data.person.gender === 'female'
-                                  ? t('inLawFemale')
-                                  : t('inLawOther')}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Spouses attached to node */}
-                  {data.spouses.length > 0 && (
-                    <div className='relative ml-1 flex flex-wrap gap-1.5 pl-2 before:absolute before:top-1/2 before:left-0 before:h-[70%] before:w-px before:-translate-y-1/2 before:bg-stone-200/80'>
-                      {data.spouses.map((spouseData) => {
-                        return (
-                          <button
-                            key={spouseData.person.id}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              ctx.setMemberModalId(spouseData.person.id)
-                            }}
-                            className={`group/spouse flex cursor-pointer flex-col items-center gap-1 rounded-xl border border-stone-200/60 bg-stone-50/50 p-1.5 transition-all hover:border-amber-300 hover:bg-white ${spouseData.person.is_deceased ? 'opacity-80 grayscale-[0.3]' : ''}`}
-                            title={
-                              spouseData.note ||
-                              (spouseData.person.gender === 'male'
-                                ? t('inLawMale')
-                                : t('inLawFemale'))
-                            }>
-                            {ctx.showAvatar && (
-                              <div
-                                className={`flex size-8 items-center justify-center overflow-hidden rounded-full text-sm font-medium text-white shadow-sm ring-2 ring-white transition-transform duration-300 group-hover/spouse:scale-105 ${getAvatarBg(spouseData.person.gender)}`}>
-                                {getAvatarUrl(spouseData.person.avatar_url) ? (
-                                  <Image
-                                    unoptimized
-                                    src={getAvatarUrl(
-                                      spouseData.person.avatar_url
-                                    )!}
-                                    alt={spouseData.person.full_name}
-                                    width={32}
-                                    height={32}
-                                    className='h-full w-full object-cover'
-                                  />
-                                ) : (
-                                  <DefaultAvatar
-                                    gender={spouseData.person.gender}
-                                    size={32}
-                                  />
-                                )}
-                              </div>
-                            )}
-                            <span className='max-w-12.5 truncate text-center text-sm font-medium text-stone-600'>
-                              {spouseData.person.full_name.split(' ').pop()}
-                            </span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            )
-          })()}
+          <NodeCard person={data.person} ctx={ctx} spouses={data.spouses} />
         </div>
 
         {/* Children Container */}
         <AnimatePresence initial={false}>
           {hasChildren && isExpanded && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
+            <m.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
               className='relative z-0 -mt-4 origin-top overflow-hidden pt-4'>
               <div className='pb-1'>
@@ -276,7 +329,7 @@ export const MindmapNode = memo(
                   />
                 ))}
               </div>
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
       </div>

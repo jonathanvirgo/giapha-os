@@ -1,12 +1,12 @@
 'use client'
 
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { Filter } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
-import { useMemberListView } from '@/context/MemberListContext'
-import { useI18n } from '@/lib/i18n/I18nProvider'
+import { useMemberListView } from '@/context/useMemberListView'
+import { useI18n } from '@/lib/i18n/useI18n'
 
 import ExportButton from './ExportButton'
 
@@ -95,7 +95,7 @@ export default function BaseToolbar({
       <div className='relative'>
         <button
           onClick={() => setShowFilters(!showFilters)}
-          className={`flex h-10 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-all duration-300 ${
+          className={`flex h-10 items-center gap-2 rounded-full border px-4 text-sm font-medium transition duration-300 ${
             showFilters
               ? 'border-amber-200 bg-amber-100/90 text-amber-800'
               : 'border-stone-200/60 bg-white/80 text-stone-600 backdrop-blur-md hover:bg-white hover:text-stone-900'
@@ -106,7 +106,7 @@ export default function BaseToolbar({
 
         <AnimatePresence>
           {showFilters && (
-            <motion.div
+            <m.div
               initial={{ opacity: 0, y: 10, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.95 }}
@@ -144,8 +144,8 @@ export default function BaseToolbar({
                     max={99}
                     value={autoCollapseLevel ?? 0}
                     onChange={(e) => {
-                      const val = parseInt(e.target.value, 10)
-                      setAutoCollapseLevel(isNaN(val) ? 0 : val)
+                      const val = e.target.valueAsNumber
+                      setAutoCollapseLevel(Number.isFinite(val) ? val : 0)
                     }}
                     className='w-14 rounded-lg border border-stone-200 px-2 py-1 text-center text-sm focus:ring-1 focus:ring-amber-400 focus:outline-none'
                   />
@@ -210,7 +210,7 @@ export default function BaseToolbar({
                 />
                 {t('hideFemales')}
               </label>
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
       </div>

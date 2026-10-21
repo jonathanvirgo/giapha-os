@@ -16,8 +16,7 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const { t } = await getServerTranslations()
-  const user = await getUser()
+  const [{ t }, user] = await Promise.all([getServerTranslations(), getUser()])
 
   if (!user) {
     redirect('/login')
@@ -28,7 +27,7 @@ export default async function DashboardLayout({
   if (!profile?.is_active) {
     return (
       <div className='flex min-h-screen flex-col bg-neutral font-sans text-primary'>
-        <header className='sticky top-0 z-30 border-b border-stone-200 bg-white/80 transition-all duration-200'>
+        <header className='sticky top-0 z-30 border-b border-stone-200 bg-white/80 transition-colors duration-200'>
           <div className='mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8'>
             <div className='flex items-center gap-4'>
               <Link href='/' className='group flex items-center gap-2'>

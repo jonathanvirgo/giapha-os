@@ -1,5 +1,8 @@
+import { Suspense } from 'react'
+
 import KinshipFinder from '@/components/KinshipFinder'
 import { getServerTranslations } from '@/lib/i18n/server'
+import { fetchAllRows } from '@/utils/supabase/fetchAll'
 import { getSupabase } from '@/utils/supabase/queries'
 
 export async function generateMetadata() {
@@ -8,19 +11,30 @@ export async function generateMetadata() {
 }
 
 export default async function KinshipPage() {
-  const { t } = await getServerTranslations()
-  const supabase = await getSupabase()
+  const [{ t }, supabase] = await Promise.all([
+    getServerTranslations(),
+    getSupabase()
+  ])
 
-  const { data: persons } = await supabase
-    .from('persons')
-    .select(
-      'id, full_name, gender, birth_year, birth_order, generation, is_in_law, avatar_url'
+  const [{ data: persons }, { data: relationships }] = await Promise.all([
+    fetchAllRows((from, to) =>
+      supabase
+        .from('persons')
+        .select(
+          'id, full_name, gender, birth_year, birth_order, generation, is_in_law, avatar_url'
+        )
+        .order('birth_year', { ascending: true, nullsFirst: false })
+        .order('id')
+        .range(from, to)
+    ),
+    fetchAllRows((from, to) =>
+      supabase
+        .from('relationships')
+        .select('type, person_a, person_b')
+        .order('id')
+        .range(from, to)
     )
-    .order('birth_year', { ascending: true, nullsFirst: false })
-
-  const { data: relationships } = await supabase
-    .from('relationships')
-    .select('type, person_a, person_b')
+  ])
 
   return (
     <div className='relative flex w-full flex-1 flex-col pb-12'>
@@ -32,10 +46,12 @@ export default async function KinshipPage() {
       </div>
 
       <main className='mx-auto w-full max-w-3xl flex-1 px-4 sm:px-6 lg:px-8'>
-        <KinshipFinder
-          persons={persons ?? []}
-          relationships={relationships ?? []}
-        />
+        <Suspense fallback={null}>
+          <KinshipFinder
+            persons={persons ?? []}
+            relationships={relationships ?? []}
+          />
+        </Suspense>
       </main>
     </div>
   )

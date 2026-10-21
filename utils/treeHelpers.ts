@@ -36,14 +36,14 @@ export function buildAdjacencyLists(
       if (!spouses.has(r.person_b)) spouses.set(r.person_b, [])
 
       const pB = personsMap.get(r.person_b)
-      if (pB) spouses.get(r.person_a)!.push({ person: pB, note: r.note })
+      if (pB) spouses.get(r.person_a)?.push({ person: pB, note: r.note })
 
       const pA = personsMap.get(r.person_a)
-      if (pA) spouses.get(r.person_b)!.push({ person: pA, note: r.note })
+      if (pA) spouses.get(r.person_b)?.push({ person: pA, note: r.note })
     } else if (r.type === 'biological_child' || r.type === 'adopted_child') {
       if (!children.has(r.person_a)) children.set(r.person_a, [])
       const child = personsMap.get(r.person_b)
-      if (child) children.get(r.person_a)!.push(child)
+      if (child) children.get(r.person_a)?.push(child)
     }
   })
 
@@ -103,4 +103,71 @@ export function getFilteredTreeData(
     spouses: spousesList,
     children: childrenList
   }
+}
+
+/** Person IDs whose branches start collapsed for the given auto-collapse level. */
+export function computeAutoCollapsed(
+  roots: { id: string }[],
+  childrenByPersonId: Map<string, { id: string }[]>,
+  autoCollapseLevel: number
+): Set<string> {
+  const collapsed = new Set<string>()
+  if (autoCollapseLevel <= 0) return collapsed
+
+  const visited = new Set<string>()
+  const walk = (personId: string, level: number) => {
+    if (visited.has(personId)) return
+    visited.add(personId)
+
+    const children = childrenByPersonId.get(personId) ?? []
+    if (level >= autoCollapseLevel && children.length > 0) {
+      collapsed.add(personId)
+    }
+    children.forEach((child) => walk(child.id, level + 1))
+  }
+
+  roots.forEach((root) => walk(root.id, 0))
+  return collapsed
+}
+
+/**
+ * Normalizes each tree level's node heights so rows align. The resize/zoom
+ * wiring lives in the component; this is the pure DOM pass.
+ */
+export function equalizeNodeHeights(container: HTMLElement) {
+  const nodes = container.querySelectorAll('.node-container')
+  const levelMap: Record<string, HTMLElement[]> = {}
+
+  nodes.forEach((node) => {
+    const level = node.getAttribute('data-level')
+    if (level != null) {
+      if (!levelMap[level]) levelMap[level] = []
+      levelMap[level].push(node as HTMLElement)
+    }
+  })
+
+  Object.values(levelMap).forEach((levelNodes) => {
+    // Reset min-height first to get natural height
+    levelNodes.forEach((node) => {
+      const innerFlex = node.firstElementChild as HTMLElement
+      if (innerFlex) innerFlex.style.minHeight = '0px'
+    })
+
+    let maxHeight = 0
+    // Find the maximum height in this level
+    levelNodes.forEach((node) => {
+      const innerFlex = node.firstElementChild as HTMLElement
+      if (innerFlex) {
+        maxHeight = Math.max(maxHeight, innerFlex.offsetHeight)
+      }
+    })
+
+    // Apply max height to all nodes in this level
+    levelNodes.forEach((node) => {
+      const innerFlex = node.firstElementChild as HTMLElement
+      if (innerFlex && maxHeight > 0) {
+        innerFlex.style.minHeight = `${maxHeight}px`
+      }
+    })
+  })
 }

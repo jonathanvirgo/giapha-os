@@ -242,4 +242,4 @@ Dự án này là mã nguồn mở, hoan nghênh mọi đóng góp, báo cáo l�
 
 ## Giấy phép (License)
 
-Dự án được phân phối dưới giấy phép MIT.
+Dự án được phân phối dưới [giấy phép MIT](LICENSE). Copyright (c) 2026 HomieLab.

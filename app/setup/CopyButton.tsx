@@ -3,7 +3,7 @@
 import { Check, ClipboardCopy } from 'lucide-react'
 import { useState } from 'react'
 
-import { useI18n } from '@/lib/i18n/I18nProvider'
+import { useI18n } from '@/lib/i18n/useI18n'
 
 export default function CopyButton({ content }: { content: string }) {
   const [copied, setCopied] = useState(false)
@@ -26,7 +26,7 @@ export default function CopyButton({ content }: { content: string }) {
     <div className='w-full'>
       <button
         onClick={handleCopy}
-        className={`flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3 font-medium shadow-sm transition-all duration-300 ${
+        className={`flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3 font-medium shadow-sm transition duration-300 ${
           copied
             ? 'bg-teal-500 text-white hover:bg-teal-600'
             : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-md'

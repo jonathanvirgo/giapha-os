@@ -242,4 +242,4 @@ This is an open-source project. Contributions, issue reports, and pull requests 
 
 ## License
 
-This project is distributed under the MIT License.
+This project is distributed under the [MIT License](LICENSE). Copyright (c) 2026 HomieLab.

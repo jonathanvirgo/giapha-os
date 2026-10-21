@@ -1,0 +1,38 @@
+'use client'
+
+import { AnimatePresence, m } from 'framer-motion'
+import { AlertTriangle, CheckCircle2 } from 'lucide-react'
+
+interface ImportStatus {
+  type: 'success' | 'error'
+  message: string | undefined
+}
+
+export default function ImportStatusMessage({
+  status
+}: {
+  status: ImportStatus | null
+}) {
+  return (
+    <AnimatePresence>
+      {status && (
+        <m.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          className={`flex items-center gap-3 rounded-xl border p-4 ${
+            status.type === 'success'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+              : 'border-rose-200 bg-rose-50 text-rose-800'
+          }`}>
+          {status.type === 'success' ? (
+            <CheckCircle2 className='size-5 shrink-0' />
+          ) : (
+            <AlertTriangle className='size-5 shrink-0' />
+          )}
+          <p className='text-sm font-medium'>{status.message}</p>
+        </m.div>
+      )}
+    </AnimatePresence>
+  )
+}

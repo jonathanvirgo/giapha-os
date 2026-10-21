@@ -1,6 +1,6 @@
 'use client'
 
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { toPng } from 'html-to-image'
 import jsPDF from 'jspdf'
 import {
@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
-import { useI18n } from '@/lib/i18n/I18nProvider'
+import { useI18n } from '@/lib/i18n/useI18n'
 
 export default function ExportButton() {
   const [isExporting, setIsExporting] = useState(false)
@@ -176,7 +176,7 @@ export default function ExportButton() {
       <button
         onClick={() => setShowMenu(!showMenu)}
         disabled={isExporting}
-        className={`flex h-10 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-50 ${
+        className={`flex h-10 items-center gap-2 rounded-full border px-4 text-sm font-medium transition duration-300 disabled:cursor-not-allowed disabled:opacity-50 ${
           showMenu
             ? 'border-amber-200 bg-amber-100/90 text-amber-800'
             : 'border-stone-200/60 bg-white/80 text-stone-600 backdrop-blur-md hover:bg-white hover:text-stone-900'
@@ -193,7 +193,7 @@ export default function ExportButton() {
 
       <AnimatePresence>
         {showMenu && !isExporting && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 10, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
@@ -211,13 +211,13 @@ export default function ExportButton() {
               <FileText className='size-4' />
               {t('saveAsPdf')}
             </button>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 
       <AnimatePresence>
         {error && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, scale: 0.95, y: -10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -10 }}
@@ -231,11 +231,12 @@ export default function ExportButton() {
               </div>
               <button
                 onClick={() => setError(null)}
+                aria-label={t('clearError')}
                 className='shrink-0 text-red-400 transition-colors hover:text-red-600'>
                 <X className='h-4 w-4' />
               </button>
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </div>

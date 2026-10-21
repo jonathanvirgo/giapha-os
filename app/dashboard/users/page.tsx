@@ -6,8 +6,10 @@ import { AdminUserData } from '@/types'
 import { getProfile, getSupabase } from '@/utils/supabase/queries'
 
 export default async function AdminUsersPage() {
-  const { t } = await getServerTranslations()
-  const profile = await getProfile()
+  const [{ t }, profile] = await Promise.all([
+    getServerTranslations(),
+    getProfile()
+  ])
   const isAdmin = profile?.role === 'admin' && profile.is_active
 
   if (!isAdmin) {

@@ -2,7 +2,7 @@
 
 import { Crosshair, ZoomIn, ZoomOut } from 'lucide-react'
 
-import { useI18n } from '@/lib/i18n/I18nProvider'
+import { useI18n } from '@/lib/i18n/useI18n'
 
 import BaseToolbar, { type BaseToolbarProps } from './BaseToolbar'
 
@@ -53,7 +53,7 @@ export default function TreeToolbar({
       {/* Center Button */}
       <button
         onClick={handleCenter}
-        className='flex size-10 items-center justify-center rounded-full border border-stone-200/60 bg-white/80 text-stone-600 backdrop-blur-md transition-all hover:bg-white hover:text-stone-900'
+        className='flex size-10 items-center justify-center rounded-full border border-stone-200/60 bg-white/80 text-stone-600 backdrop-blur-md transition-colors hover:bg-white hover:text-stone-900'
         title={t('centerTree')}>
         <Crosshair className='size-4' />
       </button>

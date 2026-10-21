@@ -2,8 +2,8 @@
 
 import { Languages } from 'lucide-react'
 
-import { useI18n } from '@/lib/i18n/I18nProvider'
 import { locales } from '@/lib/i18n/messages'
+import { useI18n } from '@/lib/i18n/useI18n'
 
 export default function LanguageSwitcher() {
   const { locale, setLocale, t } = useI18n()

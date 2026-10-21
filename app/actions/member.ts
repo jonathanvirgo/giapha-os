@@ -4,19 +4,24 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import { getServerTranslations } from '@/lib/i18n/server'
-import { getProfile, getSupabase } from '@/utils/supabase/queries'
+import { fetchAllRows, fetchInChunks } from '@/utils/supabase/fetchAll'
+import { getProfile, getSupabase, getUser } from '@/utils/supabase/queries'
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 export async function deleteMemberProfile(memberId: string) {
-  const { t } = await getServerTranslations()
+  const [user, { t }] = await Promise.all([getUser(), getServerTranslations()])
+
+  if (!user) {
+    return { error: t('memberDeleteAccessDenied') }
+  }
+
   if (!UUID_PATTERN.test(memberId)) {
     return { error: t('invalidProfile') }
   }
 
-  const profile = await getProfile()
-  const supabase = await getSupabase()
+  const [profile, supabase] = await Promise.all([getProfile(), getSupabase()])
 
   if (
     !profile?.is_active ||
@@ -65,7 +70,12 @@ export async function updateDescendantGenerationsAction(
   personId: string,
   generationDelta: number
 ) {
-  const { t } = await getServerTranslations()
+  const [user, { t }] = await Promise.all([getUser(), getServerTranslations()])
+
+  if (!user) {
+    return { error: t('memberEditAccessDenied') }
+  }
+
   if (!UUID_PATTERN.test(personId)) {
     return { error: t('invalidProfile') }
   }
@@ -80,8 +90,7 @@ export async function updateDescendantGenerationsAction(
       : { error: t('invalidGenerationDelta') }
   }
 
-  const profile = await getProfile()
-  const supabase = await getSupabase()
+  const [profile, supabase] = await Promise.all([getProfile(), getSupabase()])
 
   if (
     !profile?.is_active ||
@@ -93,10 +102,18 @@ export async function updateDescendantGenerationsAction(
   }
 
   // 1. Fetch all parent-child relationships
-  const { data: relationships, error: relError } = await supabase
-    .from('relationships')
-    .select('person_a, person_b, type')
-    .in('type', ['biological_child', 'adopted_child'])
+  const { data: relationships, error: relError } = await fetchAllRows<{
+    person_a: string
+    person_b: string
+    type: string
+  }>((from, to) =>
+    supabase
+      .from('relationships')
+      .select('person_a, person_b, type')
+      .in('type', ['biological_child', 'adopted_child'])
+      .order('id')
+      .range(from, to)
+  )
 
   if (relError) {
     console.error('Error fetching relationships:', relError)
@@ -106,8 +123,9 @@ export async function updateDescendantGenerationsAction(
   // Build children map (person_a is parent, person_b is child)
   const childrenMap = new Map<string, string[]>()
   relationships.forEach((r) => {
-    if (!childrenMap.has(r.person_a)) childrenMap.set(r.person_a, [])
-    childrenMap.get(r.person_a)!.push(r.person_b)
+    const children = childrenMap.get(r.person_a) ?? []
+    children.push(r.person_b)
+    childrenMap.set(r.person_a, children)
   })
 
   // 2. Find all descendants using BFS
@@ -128,32 +146,46 @@ export async function updateDescendantGenerationsAction(
   const descendantIds = Array.from(descendants)
 
   // 3. Fetch current generations of descendants
-  const { data: persons, error: personsError } = await supabase
-    .from('persons')
-    .select('id, generation')
-    .in('id', descendantIds)
+  const { data: persons, error: personsError } = await fetchInChunks<
+    string,
+    { id: string; generation: number | null }
+  >(descendantIds, (ids) =>
+    supabase.from('persons').select('id, generation').in('id', ids)
+  )
 
   if (personsError) {
     console.error('Error fetching persons:', personsError)
     return { error: t('generationsFetchError') }
   }
 
-  // 4. Update each descendant's generation
+  // 4. Update each descendant's generation, in bounded batches so a large
+  // subtree doesn't open hundreds of concurrent requests at once.
+  const BATCH_SIZE = 10
   let hasError = false
-  // Batch processing can be done by looping
-  for (const person of persons) {
-    if (person.generation !== null && person.generation !== undefined) {
-      const newGen = Math.max(1, person.generation + generationDelta)
-      const { error: updateError } = await supabase
-        .from('persons')
-        .update({ generation: newGen })
-        .eq('id', person.id)
 
-      if (updateError) {
-        console.error(`Error updating person ${person.id}:`, updateError)
-        hasError = true
-      }
-    }
+  for (let i = 0; i < persons.length; i += BATCH_SIZE) {
+    const batch = persons.slice(i, i + BATCH_SIZE)
+    const failedIds = await Promise.all(
+      batch.map(async (person) => {
+        if (person.generation === null || person.generation === undefined) {
+          return false
+        }
+
+        const newGen = Math.max(1, person.generation + generationDelta)
+        const { error: updateError } = await supabase
+          .from('persons')
+          .update({ generation: newGen })
+          .eq('id', person.id)
+
+        if (updateError) {
+          console.error(`Error updating person ${person.id}:`, updateError)
+          return true
+        }
+        return false
+      })
+    )
+
+    if (failedIds.some(Boolean)) hasError = true
   }
 
   if (hasError) {

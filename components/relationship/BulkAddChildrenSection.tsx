@@ -1,0 +1,125 @@
+'use client'
+
+import { useRouter } from 'next/navigation'
+import { useState } from 'react'
+
+import BulkAddChildrenForm from '@/components/relationship/BulkAddChildrenForm'
+import {
+  BulkChildRow,
+  emptyBulkChildRow,
+  EnrichedRelationship
+} from '@/components/relationship/relationshipTypes'
+import { useI18n } from '@/lib/i18n/useI18n'
+import { Person } from '@/types'
+import { bulkCreateChildren } from '@/utils/relationshipMutations'
+import { createClient } from '@/utils/supabase/client'
+
+interface BulkAddChildrenSectionProps {
+  person: Person
+  spouseOptions: EnrichedRelationship[]
+  open: boolean
+  onClose: () => void
+  onSaved: () => void
+}
+
+export default function BulkAddChildrenSection({
+  person,
+  spouseOptions,
+  open,
+  onClose,
+  onSaved
+}: BulkAddChildrenSectionProps) {
+  const { t } = useI18n()
+  const supabase = createClient()
+  const router = useRouter()
+  const personId = person.id
+
+  const [selectedSpouseId, setSelectedSpouseId] = useState<string>('')
+  const [bulkChildren, setBulkChildren] = useState<BulkChildRow[]>([
+    emptyBulkChildRow()
+  ])
+  const [processing, setProcessing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const showError = (message: string) => {
+    setError(message)
+    setTimeout(() => setError(null), 5000)
+  }
+
+  const handleSave = async () => {
+    // Filter out rows without a name
+    const validChildren = bulkChildren.filter((c) => c.name.trim() !== '')
+    if (validChildren.length === 0) {
+      showError(t('childNameRequired'))
+      return
+    }
+
+    setProcessing(true)
+    setError(null)
+
+    try {
+      const successCount = await bulkCreateChildren(supabase, {
+        children: validChildren,
+        parentId: personId,
+        otherParentId: selectedSpouseId,
+        parentGeneration: person.generation
+      })
+
+      if (successCount === validChildren.length) {
+        onClose()
+        onSaved()
+      } else {
+        showError(
+          t('bulkAddPartial', {
+            success: successCount,
+            total: validChildren.length
+          })
+        )
+        onSaved()
+      }
+    } catch (err: unknown) {
+      const e = err as Error
+      showError(t('bulkAddError', { error: e.message }))
+    } finally {
+      setProcessing(false)
+    }
+  }
+
+  if (!open) return null
+
+  return (
+    <>
+      {error && (
+        <div className='animate-in fade-in slide-in-from-top-1 mt-2 flex items-center gap-2 rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-600'>
+          <svg
+            className='h-4 w-4 shrink-0'
+            fill='none'
+            viewBox='0 0 24 24'
+            stroke='currentColor'>
+            <path
+              strokeLinecap='round'
+              strokeLinejoin='round'
+              strokeWidth={2}
+              d='M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
+            />
+          </svg>
+          {error}
+        </div>
+      )}
+      <BulkAddChildrenForm
+        spouseOptions={spouseOptions}
+        bulkChildren={bulkChildren}
+        onBulkChildrenChange={setBulkChildren}
+        selectedSpouseId={selectedSpouseId}
+        onSpouseChange={setSelectedSpouseId}
+        processing={processing}
+        onSave={handleSave}
+        onCancel={() => {
+          onClose()
+          setBulkChildren([emptyBulkChildRow()])
+          setSelectedSpouseId('')
+        }}
+      />
+    </>
+  )
+}

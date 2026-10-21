@@ -1,24 +1,9 @@
 'use client'
 
-import { createContext, ReactNode, useContext, useMemo, useState } from 'react'
+import { ReactNode, useMemo, useState } from 'react'
 
-import {
-  getLocale,
-  getMessages,
-  Locale,
-  messages,
-  TranslationKey,
-  TranslationValues
-} from './messages'
-
-interface I18nContextValue {
-  locale: Locale
-  messages: (typeof messages)[Locale]
-  setLocale: (locale: Locale) => void
-  t: (key: TranslationKey, values?: TranslationValues) => string
-}
-
-const I18nContext = createContext<I18nContextValue | undefined>(undefined)
+import { getLocale, getMessages, Locale } from './messages'
+import { I18nContext, I18nContextValue } from './useI18n'
 
 export function I18nProvider({
   children,
@@ -55,16 +40,4 @@ export function I18nProvider({
   )
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>
-}
-
-export function useI18n() {
-  const context = useContext(I18nContext)
-  if (!context) {
-    throw new Error('useI18n must be used within an I18nProvider')
-  }
-  return context
-}
-
-export function getInitialLocale(value?: string | null) {
-  return getLocale(value)
 }

@@ -1,12 +1,12 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 import { ArrowLeft, Info, Mail, ShieldAlert } from 'lucide-react'
 import Link from 'next/link'
 
 import Footer from '@/components/Footer'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
-import { useI18n } from '@/lib/i18n/I18nProvider'
+import { useI18n } from '@/lib/i18n/useI18n'
 
 export default function AboutPage() {
   const { t } = useI18n()
@@ -25,7 +25,7 @@ export default function AboutPage() {
       </Link>
 
       <div className='relative z-10 mb-10 flex w-full flex-1 flex-col items-center justify-center px-4 py-20'>
-        <motion.div
+        <m.div
           initial={{ opacity: 0, scale: 0.98, y: 10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           className='w-full max-w-3xl'>
@@ -103,7 +103,7 @@ export default function AboutPage() {
               </p>
             </div>
           </div>
-        </motion.div>
+        </m.div>
       </div>
       <Footer className='relative z-10 border-none bg-transparent' />
     </div>

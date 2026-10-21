@@ -1,6 +1,6 @@
 'use client'
 
-import { useI18n } from '@/lib/i18n/I18nProvider'
+import { useI18n } from '@/lib/i18n/useI18n'
 
 export interface FooterProps {
   className?: string

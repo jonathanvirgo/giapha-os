@@ -1,0 +1,164 @@
+'use client'
+
+import { AnimatePresence, m } from 'framer-motion'
+import { AlertCircle } from 'lucide-react'
+
+import { inputClasses } from '@/components/member/memberFormStyles'
+import { CheckboxIcon } from '@/components/member/MemberGeneralFields'
+import { useI18n } from '@/lib/i18n/useI18n'
+
+interface MemberDeathFieldsProps {
+  isDeceased: boolean
+  onDeceasedChange: (checked: boolean) => void
+  deathDay: number | ''
+  deathMonth: number | ''
+  deathYear: number | ''
+  deathLunarDay: number | ''
+  deathLunarMonth: number | ''
+  deathLunarYear: number | ''
+  onSolarChange: (field: 'day' | 'month' | 'year', value: string) => void
+  onLunarChange: (field: 'day' | 'month' | 'year', value: string) => void
+}
+
+export default function MemberDeathFields({
+  isDeceased,
+  onDeceasedChange,
+  deathDay,
+  deathMonth,
+  deathYear,
+  deathLunarDay,
+  deathLunarMonth,
+  deathLunarYear,
+  onSolarChange,
+  onLunarChange
+}: MemberDeathFieldsProps) {
+  const { t } = useI18n()
+  return (
+    <div className='rounded-2xl border border-stone-200/60 bg-stone-50/50 p-5 md:col-span-2'>
+      <div className='flex flex-col gap-4'>
+        <label className='group flex items-center gap-3'>
+          <div className='relative flex items-center'>
+            <input
+              type='checkbox'
+              checked={isDeceased}
+              onChange={(e) => onDeceasedChange(e.target.checked)}
+              className='peer sr-only'
+            />
+            <div className='flex size-5 items-center justify-center rounded border-2 border-stone-300 transition-colors peer-checked:border-stone-600 peer-checked:bg-stone-600'>
+              <CheckboxIcon checked={isDeceased} />
+            </div>
+          </div>
+          <span className='text-sm font-medium text-stone-700 transition-colors group-hover:text-stone-900'>
+            {t('deceasedStatus')}
+          </span>
+        </label>
+      </div>
+
+      <AnimatePresence>
+        {isDeceased && (
+          <m.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className='mt-5 overflow-hidden'>
+            <p className='mb-4 text-sm text-stone-500 italic'>
+              {t('dateHint')}
+            </p>
+
+            <div className='flex flex-col gap-5'>
+              {/* Lunar Date */}
+              <div>
+                <label
+                  htmlFor='member-lunar-death-day'
+                  className='mb-2 block text-sm font-medium text-stone-700'>
+                  {t('lunarDeathDate')}
+                </label>
+                <div className='grid grid-cols-3 gap-3'>
+                  <input
+                    id='member-lunar-death-day'
+                    type='number'
+                    aria-label={t('day')}
+                    placeholder={t('day')}
+                    min='1'
+                    max='31'
+                    value={deathLunarDay}
+                    onChange={(e) => onLunarChange('day', e.target.value)}
+                    className={inputClasses}
+                  />
+                  <input
+                    type='number'
+                    aria-label={t('month')}
+                    placeholder={t('month')}
+                    min='1'
+                    max='12'
+                    value={deathLunarMonth}
+                    onChange={(e) => onLunarChange('month', e.target.value)}
+                    className={inputClasses}
+                  />
+                  <input
+                    type='number'
+                    aria-label={t('year')}
+                    placeholder={t('year')}
+                    value={deathLunarYear}
+                    onChange={(e) => onLunarChange('year', e.target.value)}
+                    className={inputClasses}
+                  />
+                </div>
+              </div>
+
+              {/* Solar Date */}
+              <div>
+                <label
+                  htmlFor='member-death-day'
+                  className='mb-2 block text-sm font-medium text-stone-700'>
+                  {t('solarDeathDate')}
+                </label>
+                <div className='grid grid-cols-3 gap-3'>
+                  <input
+                    id='member-death-day'
+                    type='number'
+                    aria-label={t('day')}
+                    placeholder={t('day')}
+                    min='1'
+                    max='31'
+                    value={deathDay}
+                    onChange={(e) => onSolarChange('day', e.target.value)}
+                    className={inputClasses}
+                  />
+                  <input
+                    type='number'
+                    aria-label={t('month')}
+                    placeholder={t('month')}
+                    min='1'
+                    max='12'
+                    value={deathMonth}
+                    onChange={(e) => onSolarChange('month', e.target.value)}
+                    className={inputClasses}
+                  />
+                  <input
+                    type='number'
+                    aria-label={t('year')}
+                    placeholder={t('year')}
+                    value={deathYear}
+                    onChange={(e) => onSolarChange('year', e.target.value)}
+                    className={inputClasses}
+                  />
+                </div>
+              </div>
+            </div>
+          </m.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+export function DeceasedPhoneWarning() {
+  const { t } = useI18n()
+  return (
+    <p className='mt-1.5 flex items-center gap-1 text-sm font-medium text-rose-500'>
+      <AlertCircle className='size-3' />
+      {t('deceasedPhone')}
+    </p>
+  )
+}

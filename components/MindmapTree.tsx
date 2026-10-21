@@ -3,8 +3,8 @@
 import { Share2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
-import { useMemberListView } from '@/context/MemberListContext'
-import { useI18n } from '@/lib/i18n/I18nProvider'
+import { useMemberListView } from '@/context/useMemberListView'
+import { useI18n } from '@/lib/i18n/useI18n'
 import { Person, Relationship } from '@/types'
 import { buildAdjacencyLists } from '@/utils/treeHelpers'
 
@@ -43,9 +43,13 @@ export default function MindmapTree({
     ts: number
   } | null>(null)
 
-  const ctx: MindmapContextData = useMemo(() => {
-    const adj = buildAdjacencyLists(relationships, personsMap)
+  // Adjacency lists only depend on the data, not on the view filters
+  const adj = useMemo(
+    () => buildAdjacencyLists(relationships, personsMap),
+    [relationships, personsMap]
+  )
 
+  const ctx: MindmapContextData = useMemo(() => {
     return {
       personsMap,
       relationships,
@@ -65,6 +69,7 @@ export default function MindmapTree({
   }, [
     personsMap,
     relationships,
+    adj,
     hideDaughtersInLaw,
     hideSonsInLaw,
     hideDaughters,

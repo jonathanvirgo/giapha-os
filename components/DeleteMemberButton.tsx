@@ -5,7 +5,7 @@ import { isRedirectError } from 'next/dist/client/components/redirect-error'
 import { useState } from 'react'
 
 import { deleteMemberProfile } from '@/app/actions/member'
-import { useI18n } from '@/lib/i18n/I18nProvider'
+import { useI18n } from '@/lib/i18n/useI18n'
 
 interface DeleteMemberButtonProps {
   memberId: string
@@ -31,7 +31,6 @@ export default function DeleteMemberButton({
       const result = await deleteMemberProfile(memberId)
       if (result?.error) {
         setError(result.error)
-        setIsDeleting(false)
         return
       }
       // Note: the server action will redirect on success
@@ -41,6 +40,7 @@ export default function DeleteMemberButton({
       }
       console.error('Delete failed:', err)
       setError(err instanceof Error ? err.message : t('deleteProfileError'))
+    } finally {
       setIsDeleting(false)
     }
   }
@@ -50,7 +50,7 @@ export default function DeleteMemberButton({
       <button
         onClick={handleDelete}
         disabled={isDeleting}
-        className='inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-red-100 px-4 py-4 text-sm font-medium text-red-800 transition-all duration-300 hover:-translate-y-1 hover:bg-red-200 hover:shadow-soft-hover disabled:cursor-not-allowed disabled:opacity-50'>
+        className='inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-red-100 px-4 py-4 text-sm font-medium text-red-800 transition duration-300 hover:-translate-y-1 hover:bg-red-200 hover:shadow-soft-hover disabled:cursor-not-allowed disabled:opacity-50'>
         {isDeleting ? t('deletingProfile') : t('deleteProfile')}
       </button>
 
@@ -61,6 +61,7 @@ export default function DeleteMemberButton({
             <div className='flex-1 pr-4'>{error}</div>
             <button
               onClick={() => setError(null)}
+              aria-label={t('clearError')}
               className='absolute top-2 right-2 text-red-400 transition-colors hover:text-red-600'>
               <X className='h-4 w-4' />
             </button>

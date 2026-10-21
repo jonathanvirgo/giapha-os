@@ -3,16 +3,23 @@
 import { Minus, Plus } from 'lucide-react'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import { useMemberListView } from '@/context/MemberListContext'
+import FamilyTreeNodeRenderer from '@/components/FamilyTreeNodeRenderer'
+import TreeLinesStyle from '@/components/TreeLinesStyle'
+import { useMemberListView } from '@/context/useMemberListView'
 import { usePanZoom } from '@/hooks/usePanZoom'
-import { useI18n } from '@/lib/i18n/I18nProvider'
+import { useI18n } from '@/lib/i18n/useI18n'
 import { Person, Relationship } from '@/types'
-import { buildAdjacencyLists, getFilteredTreeData } from '@/utils/treeHelpers'
+import {
+  buildAdjacencyLists,
+  computeAutoCollapsed,
+  equalizeNodeHeights,
+  getFilteredTreeData
+} from '@/utils/treeHelpers'
 
 import FamilyNodeCard from './FamilyNodeCard'
 import TreeToolbar from './TreeToolbar'
 
-const DEFAULT_AUTO_COLLAPSE_LEVEL = 2
+const DEFAULT_AUTO_COLLAPSE_LEVEL = 4
 
 export default function FamilyTree({
   personsMap,
@@ -33,8 +40,6 @@ export default function FamilyTree({
   const [hideMales, setHideMales] = useState(false)
   const [hideFemales, setHideFemales] = useState(false)
 
-  // Tập hợp các personId đang bị đóng (collapsed)
-  const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set())
   const [hideExpandButtons, setHideExpandButtons] = useState(false)
   const [autoCollapseLevel, setAutoCollapseLevel] = useState(
     DEFAULT_AUTO_COLLAPSE_LEVEL
@@ -75,59 +80,100 @@ export default function FamilyTree({
     }
   }, [])
 
+  const adj = useMemo(
+    () => buildAdjacencyLists(relationships, personsMap),
+    [relationships, personsMap]
+  )
+
+  const filters = useMemo(
+    () => ({
+      hideDaughtersInLaw,
+      hideSonsInLaw,
+      hideDaughters,
+      hideSons,
+      hideMales,
+      hideFemales
+    }),
+    [
+      hideDaughtersInLaw,
+      hideSonsInLaw,
+      hideDaughters,
+      hideSons,
+      hideMales,
+      hideFemales
+    ]
+  )
+
+  const getTreeData = useCallback(
+    (personId: string) =>
+      getFilteredTreeData(personId, personsMap, adj, filters),
+    [personsMap, adj, filters]
+  )
+
+  // Branches from `autoCollapseLevel` down start collapsed. This is computed
+  // synchronously so the first paint never renders the whole (possibly huge)
+  // tree before collapsing it.
+  const autoCollapsed = useMemo(
+    () =>
+      computeAutoCollapsed(roots, adj.childrenByPersonId, autoCollapseLevel),
+    [roots, adj, autoCollapseLevel]
+  )
+
+  // Manual expand/collapse toggles, reset whenever the automatic baseline changes
+  const [collapseState, setCollapseState] = useState({
+    base: autoCollapsed,
+    nodes: autoCollapsed
+  })
+  const collapsedNodes =
+    collapseState.base === autoCollapsed ? collapseState.nodes : autoCollapsed
+
+  const toggleCollapse = useCallback(
+    (personId: string) => {
+      setCollapseState((prev) => {
+        const current = prev.base === autoCollapsed ? prev.nodes : autoCollapsed
+        const next = new Set(current)
+        if (next.has(personId)) {
+          next.delete(personId)
+        } else {
+          next.add(personId)
+        }
+        return { base: autoCollapsed, nodes: next }
+      })
+    },
+    [autoCollapsed]
+  )
+
+  // Center once the new layout has been committed
+  useEffect(() => {
+    const raf = requestAnimationFrame(centerTree)
+    return () => cancelAnimationFrame(raf)
+  }, [autoCollapsed, centerTree])
+
   useEffect(() => {
     const equalizeHeights = () => {
-      if (!containerRef.current) return
-      const nodes = containerRef.current.querySelectorAll('.node-container')
-      const levelMap: Record<string, HTMLElement[]> = {}
-
-      nodes.forEach((node) => {
-        const level = node.getAttribute('data-level')
-        if (level != null) {
-          if (!levelMap[level]) levelMap[level] = []
-          levelMap[level].push(node as HTMLElement)
-        }
-      })
-
-      Object.values(levelMap).forEach((levelNodes) => {
-        // Reset min-height first to get natural height
-        levelNodes.forEach((node) => {
-          const innerFlex = node.firstElementChild as HTMLElement
-          if (innerFlex) innerFlex.style.minHeight = '0px'
-        })
-
-        let maxHeight = 0
-        // Find the maximum height in this level
-        levelNodes.forEach((node) => {
-          const innerFlex = node.firstElementChild as HTMLElement
-          if (innerFlex) {
-            maxHeight = Math.max(maxHeight, innerFlex.offsetHeight)
-          }
-        })
-
-        // Apply max height to all nodes in this level
-        levelNodes.forEach((node) => {
-          const innerFlex = node.firstElementChild as HTMLElement
-          if (innerFlex && maxHeight > 0) {
-            innerFlex.style.minHeight = `${maxHeight}px`
-          }
-        })
-      })
+      if (containerRef.current) equalizeNodeHeights(containerRef.current)
     }
 
-    const timeoutId = setTimeout(equalizeHeights, 50)
-    window.addEventListener('resize', equalizeHeights)
+    let frame = 0
+    const scheduleEqualize = () => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(equalizeHeights)
+    }
+
+    scheduleEqualize()
+    window.addEventListener('resize', scheduleEqualize)
 
     return () => {
-      clearTimeout(timeoutId)
-      window.removeEventListener('resize', equalizeHeights)
+      cancelAnimationFrame(frame)
+      window.removeEventListener('resize', scheduleEqualize)
     }
+    // `scale` is intentionally not a dependency: CSS transforms don't change
+    // layout heights, so zooming never needs a re-measure.
   }, [
     roots,
     personsMap,
     relationships,
     showAvatar,
-    scale,
     hideDaughtersInLaw,
     hideSonsInLaw,
     hideDaughters,
@@ -137,157 +183,7 @@ export default function FamilyTree({
     collapsedNodes
   ])
 
-  const adj = useMemo(
-    () => buildAdjacencyLists(relationships, personsMap),
-    [relationships, personsMap]
-  )
-
-  const getTreeData = (personId: string) =>
-    getFilteredTreeData(personId, personsMap, adj, {
-      hideDaughtersInLaw,
-      hideSonsInLaw,
-      hideDaughters,
-      hideSons,
-      hideMales,
-      hideFemales
-    })
-
-  // Tự động đóng các nhánh từ đời autoCollapseLevel trở đi + căn giữa sau khi layout ổn định
-  useEffect(() => {
-    const autoCollapsed = new Set<string>()
-
-    const walk = (personId: string, visited: Set<string>, level: number) => {
-      if (visited.has(personId)) return
-      visited.add(personId)
-
-      const data = getTreeData(personId)
-      if (!data.person) return
-
-      if (
-        autoCollapseLevel > 0 &&
-        level >= autoCollapseLevel &&
-        data.children.length > 0
-      ) {
-        autoCollapsed.add(personId)
-      }
-
-      data.children.forEach((child) =>
-        walk(child.id, new Set(visited), level + 1)
-      )
-    }
-
-    roots.forEach((root) => walk(root.id, new Set(), 0))
-
-    // Wait for the browser frame before applying the new layout state, then
-    // center after React has committed it.
-    const raf = requestAnimationFrame(() => {
-      setCollapsedNodes(autoCollapsed)
-      requestAnimationFrame(centerTree)
-    })
-    return () => cancelAnimationFrame(raf)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roots, personsMap, relationships, autoCollapseLevel])
-
-  const toggleCollapse = useCallback((personId: string) => {
-    setCollapsedNodes((prev) => {
-      const next = new Set(prev)
-      if (next.has(personId)) {
-        next.delete(personId)
-      } else {
-        next.add(personId)
-      }
-      return next
-    })
-  }, [])
-
   const handleCenter = centerTree
-
-  // Recursive function for rendering nodes
-  // Tracks visited IDs to prevent infinite loops from circular relationships
-  const renderTreeNode = (
-    personId: string,
-    visited: Set<string> = new Set(),
-    level: number = 0
-  ): React.ReactNode => {
-    if (visited.has(personId)) return null // cycle guard
-    visited.add(personId)
-
-    const data = getTreeData(personId)
-    if (!data.person) return null
-
-    const hasChildren = data.children.length > 0
-    const isCollapsed = collapsedNodes.has(personId)
-
-    return (
-      <li>
-        <div
-          className='node-container inline-flex flex-col items-center'
-          data-level={level}>
-          {/* Main Person & Spouses Row */}
-          <div
-            className={`relative z-10 flex items-stretch h-full${showAvatar ? 'rounded-2xl border border-stone-200/80 bg-white transition-opacity' : ''}`}>
-            <FamilyNodeCard person={data.person} level={level} />
-
-            {data.spouses.length > 0 &&
-              data.spouses.map((spouseData, idx) => (
-                <div key={spouseData.person.id} className='relative flex'>
-                  <FamilyNodeCard
-                    isRingVisible={idx === 0}
-                    isPlusVisible={idx > 0}
-                    person={spouseData.person}
-                    role={
-                      spouseData.person.gender === 'male'
-                        ? t('inLawMale')
-                        : t('inLawFemale')
-                    }
-                    note={spouseData.note}
-                    level={level}
-                  />
-                </div>
-              ))}
-
-            {/* Expand/Collapse Toggle – centered on the row */}
-            {!hideExpandButtons && hasChildren && (
-              <div
-                role='button'
-                tabIndex={0}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  e.preventDefault()
-                  toggleCollapse(personId)
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.stopPropagation()
-                    e.preventDefault()
-                    toggleCollapse(personId)
-                  }
-                }}
-                className='absolute -bottom-3 left-1/2 z-100 flex size-6 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-stone-200/80 bg-white text-stone-500 transition-colors hover:border-amber-300 hover:text-amber-600'
-                title={isCollapsed ? t('expand') : t('collapse')}>
-                {isCollapsed ? (
-                  <Plus className='h-3.5 w-3.5' />
-                ) : (
-                  <Minus className='h-3.5 w-3.5' />
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Render Children (if any and not collapsed) */}
-        {hasChildren && !isCollapsed && (
-          <ul>
-            {data.children.map((child) => (
-              <React.Fragment key={child.id}>
-                {renderTreeNode(child.id, new Set(visited), level + 1)}
-              </React.Fragment>
-            ))}
-          </ul>
-        )}
-      </li>
-    )
-  }
 
   if (roots.length === 0)
     return (
@@ -323,7 +219,15 @@ export default function FamilyTree({
 
       <div
         ref={containerRef}
+        role='group'
+        aria-label='Family tree canvas'
         className={`h-full w-full overflow-auto bg-stone-50 ${isPressed ? 'cursor-grabbing' : 'cursor-grab'}`}
+        tabIndex={0}
+        onKeyDown={(e) => {
+          // Keyboard users get the same "release" affordance as mouse users:
+          // Escape cancels a grab/drag state on the canvas.
+          if (e.key === 'Escape') handleMouseUpOrLeave()
+        }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUpOrLeave}
@@ -331,84 +235,7 @@ export default function FamilyTree({
         onClickCapture={handleClickCapture}
         onDragStart={(e) => e.preventDefault()} // Prevent browser default dragging of links/images
       >
-        {/* We use a style block to inject the CSS logic for the family tree lines */}
-        <style
-          dangerouslySetInnerHTML={{
-            __html: `
-        .css-tree ul {
-          padding-top: 30px; 
-          position: relative;
-          display: flex;
-          justify-content: center;
-          padding-left: 0;
-          user-select: none;
-        }
-
-        .css-tree li {
-          float: left; text-align: center;
-          list-style-type: none;
-          position: relative;
-          padding: 30px 5px 0 5px;
-        }
-
-        /* Connecting lines */
-        .css-tree li::before, .css-tree li::after {
-          content: '';
-          position: absolute; top: 0; right: 50%;
-          border-top: 2px solid #d6d3d1;
-          width: 50%; height: 30px;
-        }
-        .css-tree li::after {
-          right: auto; left: 50%;
-          border-left: 2px solid #d6d3d1;
-        }
-
-        /* Remove left-right connectors from elements without siblings */
-        .css-tree li:only-child::after {
-          display: none;
-        }
-        .css-tree li:only-child::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: 50%;
-          border-left: 2px solid #d6d3d1;
-          width: 0;
-          height: 30px;
-        }
-
-        /* Remove top connector from first child */
-        .css-tree ul:first-child > li {
-          padding-top: 0px;
-        }
-        .css-tree ul:first-child > li::before {
-          display: none;
-        }
-
-        /* Remove left connector from first child and right connector from last child */
-        .css-tree li:first-child::before, .css-tree li:last-child::after {
-          border: 0 none;
-        }
-
-        /* Add back the vertical connector to the last nodes */
-        .css-tree li:last-child::before {
-          border-right: 2px solid #d6d3d1;
-          border-radius: 0 12px 0 0;
-        }
-        .css-tree li:first-child::after {
-          border-radius: 12px 0 0 0;
-        }
-
-        /* Downward connectors from parents */
-        .css-tree ul ul::before {
-          content: '';
-          position: absolute; top: 0; left: 50%;
-          border-left: 2px solid #d6d3d1;
-          width: 0; height: 30px;
-        }
-      `
-          }}
-        />
+        <TreeLinesStyle />
 
         {/* 
         Use w-max to prevent wrapping and allow scrolling. 
@@ -417,20 +244,65 @@ export default function FamilyTree({
       */}
         <div
           id='export-container'
-          className={`css-tree mx-auto w-max min-w-full p-4 transition-all duration-200 ${isDragging ? 'opacity-90' : ''}`}
+          className={`css-tree mx-auto w-max min-w-full p-4 transition-[transform,opacity] duration-200 ${isDragging ? 'opacity-90' : ''}`}
           style={{
             transform: `scale(${scale})`,
             transformOrigin: 'top center'
           }}>
           <ul>
-            {roots.map((root) => (
-              <React.Fragment key={root.id}>
-                {renderTreeNode(root.id)}
-              </React.Fragment>
-            ))}
+            <MemoizedNodeTree
+              roots={roots}
+              getTreeData={getTreeData}
+              collapsedNodes={collapsedNodes}
+              showAvatar={showAvatar}
+              hideExpandButtons={hideExpandButtons}
+              toggleCollapse={toggleCollapse}
+            />
           </ul>
         </div>
       </div>
     </div>
   )
+}
+
+// The node tree is memoized so zooming and panning (which only change
+// `scale` / drag state) never re-render thousands of nodes. It lives in its
+// own component so the memo is not re-evaluated on renders that early-return
+// to the empty state.
+function MemoizedNodeTree({
+  roots,
+  getTreeData,
+  collapsedNodes,
+  showAvatar,
+  hideExpandButtons,
+  toggleCollapse
+}: {
+  roots: Person[]
+  getTreeData: (personId: string) => ReturnType<typeof getFilteredTreeData>
+  collapsedNodes: Set<string>
+  showAvatar: boolean
+  hideExpandButtons: boolean
+  toggleCollapse: (personId: string) => void
+}) {
+  const treeContent = useMemo(
+    () => (
+      <FamilyTreeNodeRenderer
+        roots={roots}
+        getTreeData={getTreeData}
+        collapsedNodes={collapsedNodes}
+        showAvatar={showAvatar}
+        hideExpandButtons={hideExpandButtons}
+        toggleCollapse={toggleCollapse}
+      />
+    ),
+    [
+      roots,
+      getTreeData,
+      collapsedNodes,
+      showAvatar,
+      hideExpandButtons,
+      toggleCollapse
+    ]
+  )
+  return treeContent
 }

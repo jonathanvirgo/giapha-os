@@ -5,8 +5,10 @@ import { getServerTranslations } from '@/lib/i18n/server'
 import { getProfile } from '@/utils/supabase/queries'
 
 export default async function DataManagementPage() {
-  const { t } = await getServerTranslations()
-  const profile = await getProfile()
+  const [{ t }, profile] = await Promise.all([
+    getServerTranslations(),
+    getProfile()
+  ])
 
   if (profile?.role !== 'admin' || !profile.is_active) {
     redirect('/dashboard')

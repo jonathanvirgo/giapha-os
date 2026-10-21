@@ -5,7 +5,8 @@ import { CalendarDays, Clock, Maximize2, X } from 'lucide-react'
 import Image from 'next/image'
 import { useMemo, useState } from 'react'
 
-import { useI18n } from '@/lib/i18n/I18nProvider'
+import GalleryLightbox from '@/components/GalleryLightbox'
+import { useI18n } from '@/lib/i18n/useI18n'
 import { GalleryItem } from '@/types'
 import { createClient } from '@/utils/supabase/client'
 import { getGalleryStoragePath } from '@/utils/supabase/storage-path'
@@ -21,7 +22,7 @@ interface GalleryGridProps {
 export default function GalleryGrid({
   items,
   isAdmin,
-  viewMode = 'grid',
+  viewMode = 'timeline',
   onEdit,
   onDeleteSuccess
 }: GalleryGridProps) {
@@ -133,7 +134,15 @@ export default function GalleryGrid({
           {items.map((item) => (
             <div
               key={item.id}
-              className='group relative cursor-pointer break-inside-avoid overflow-hidden rounded-2xl bg-stone-100 shadow-sm transition-all duration-500 hover:shadow-xl'
+              className='group relative cursor-pointer break-inside-avoid overflow-hidden rounded-2xl bg-stone-100 shadow-sm transition duration-500 hover:shadow-xl'
+              role='button'
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  setSelectedItem(item)
+                }
+              }}
               onClick={() => setSelectedItem(item)}>
               {/* Image */}
               <Image
@@ -191,7 +200,15 @@ export default function GalleryGrid({
                   <div
                     key={item.id}
                     onClick={() => setSelectedItem(item)}
-                    className='group flex cursor-pointer flex-col justify-between rounded-2xl border border-stone-200/80 bg-white/80 p-4 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1'>
+                    role='button'
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setSelectedItem(item)
+                      }
+                    }}
+                    className='group flex cursor-pointer flex-col justify-between rounded-2xl border border-stone-200/80 bg-white/80 p-4 backdrop-blur-xl transition-colors duration-300 hover:-translate-y-1'>
                     <div>
                       <div className='relative mb-4 aspect-16/10 overflow-hidden rounded-xl bg-stone-100'>
                         <Image
@@ -235,81 +252,14 @@ export default function GalleryGrid({
 
       {/* Lightbox Modal */}
       {selectedItem && (
-        <div className='animate-in fade-in fixed inset-0 z-60 flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm duration-200'>
-          <button
-            onClick={() => setSelectedItem(null)}
-            className='absolute top-4 right-4 z-10 rounded-full p-3 text-white/70 transition-colors hover:bg-white/10 hover:text-white sm:top-8 sm:right-8'>
-            <X className='size-6' />
-          </button>
-
-          <div className='flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-stone-950 shadow-2xl lg:flex-row'>
-            {/* Image Section */}
-            <div className='relative flex min-h-[50vh] flex-1 items-center justify-center bg-black/50 p-4 lg:min-h-0'>
-              <Image
-                unoptimized
-                src={selectedItem.image_url}
-                alt={selectedItem.title}
-                width={1200}
-                height={800}
-                className='max-h-[80vh] max-w-full rounded-lg object-contain'
-              />
-            </div>
-
-            {/* Content Section */}
-            <div className='flex max-h-[40vh] w-full flex-col overflow-y-auto bg-white lg:max-h-none lg:w-96'>
-              <div className='flex-1 p-6 sm:p-8'>
-                <h2 className='mb-4 text-2xl leading-tight font-semibold text-stone-800'>
-                  {selectedItem.title}
-                </h2>
-
-                {selectedItem.event_date && (
-                  <div className='mb-6 flex items-center gap-2 border-b border-stone-100 pb-6 font-medium text-stone-500'>
-                    <CalendarDays className='size-4' />
-                    <span>
-                      {dayjs(selectedItem.event_date).format('DD/MM/YYYY')}
-                    </span>
-                  </div>
-                )}
-
-                {selectedItem.description ? (
-                  <div className='prose prose-stone text-stone-600'>
-                    <p className='leading-relaxed whitespace-pre-wrap'>
-                      {selectedItem.description}
-                    </p>
-                  </div>
-                ) : (
-                  <p className='text-stone-400 italic'>{t('noDescription')}</p>
-                )}
-              </div>
-
-              <div className='flex items-center justify-between border-t border-stone-100 bg-stone-50 p-6 text-sm font-medium text-stone-400'>
-                <span>
-                  {t('addedOn')}{' '}
-                  {dayjs(selectedItem.created_at).format('DD/MM/YYYY')}
-                </span>
-
-                {isAdmin && (
-                  <div className='flex gap-2'>
-                    <button
-                      onClick={() => {
-                        setSelectedItem(null)
-                        if (onEdit) onEdit(selectedItem)
-                      }}
-                      className='rounded-lg bg-stone-100/80 px-4 py-2 text-sm font-medium text-stone-700 shadow-sm transition-all hover:bg-stone-200 hover:text-stone-900'>
-                      {t('edit')}
-                    </button>
-                    <button
-                      onClick={() => handleDelete(selectedItem)}
-                      disabled={isDeleting}
-                      className='rounded-md bg-red-100 px-4 py-2 text-sm font-medium text-red-800 transition-colors hover:bg-red-200 disabled:cursor-not-allowed disabled:opacity-50'>
-                      {isDeleting ? t('deleting') : t('delete')}
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+        <GalleryLightbox
+          item={selectedItem}
+          isAdmin={isAdmin}
+          isDeleting={isDeleting}
+          onClose={() => setSelectedItem(null)}
+          onEdit={onEdit}
+          onDelete={handleDelete}
+        />
       )}
     </>
   )

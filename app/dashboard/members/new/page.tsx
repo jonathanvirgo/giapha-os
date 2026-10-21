@@ -6,8 +6,10 @@ import { getServerTranslations } from '@/lib/i18n/server'
 import { getProfile } from '@/utils/supabase/queries'
 
 export default async function NewMemberPage() {
-  const { t } = await getServerTranslations()
-  const profile = await getProfile()
+  const [{ t }, profile] = await Promise.all([
+    getServerTranslations(),
+    getProfile()
+  ])
 
   const isAdmin = profile?.role === 'admin' && profile.is_active
   const canEdit =
@@ -46,7 +48,7 @@ export default async function NewMemberPage() {
         </div>
         <Link
           href='/dashboard/members'
-          className='rounded-lg bg-stone-100/80 px-4 py-2 text-sm font-medium text-stone-700 shadow-sm transition-all hover:bg-stone-200 hover:text-stone-900'>
+          className='rounded-lg bg-stone-100/80 px-4 py-2 text-sm font-medium text-stone-700 shadow-sm transition-colors hover:bg-stone-200 hover:text-stone-900'>
           {t('cancel')}
         </Link>
       </div>

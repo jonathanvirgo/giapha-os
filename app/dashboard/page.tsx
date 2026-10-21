@@ -18,6 +18,7 @@ import Link from 'next/link'
 import { getServerTranslations } from '@/lib/i18n/server'
 import { getTodayLunar } from '@/utils/dateHelpers'
 import { computeEvents } from '@/utils/eventHelpers'
+import { fetchAllRows } from '@/utils/supabase/fetchAll'
 import { getIsAdmin, getSupabase } from '@/utils/supabase/queries'
 
 /* ── Event type helpers ───────────────────────────────────────────── */
@@ -40,20 +41,31 @@ const eventTypeConfig = {
 }
 
 export default async function DashboardLaunchpad() {
-  const { t } = await getServerTranslations()
-  const isAdmin = await getIsAdmin()
-  const supabase = await getSupabase()
+  const [{ t }, isAdmin, supabase] = await Promise.all([
+    getServerTranslations(),
+    getIsAdmin(),
+    getSupabase()
+  ])
 
   /* ── Fetch events data ────────────────────────────────────────── */
-  const { data: persons } = await supabase
-    .from('persons')
-    .select(
-      'id, full_name, birth_year, birth_month, birth_day, death_year, death_month, death_day, death_lunar_year, death_lunar_month, death_lunar_day, is_deceased'
+  const [{ data: persons }, { data: customEvents }] = await Promise.all([
+    fetchAllRows((from, to) =>
+      supabase
+        .from('persons')
+        .select(
+          'id, full_name, birth_year, birth_month, birth_day, death_year, death_month, death_day, death_lunar_year, death_lunar_month, death_lunar_day, is_deceased'
+        )
+        .order('id')
+        .range(from, to)
+    ),
+    fetchAllRows((from, to) =>
+      supabase
+        .from('custom_events')
+        .select('id, name, content, event_date, location, created_by')
+        .order('id')
+        .range(from, to)
     )
-
-  const { data: customEvents } = await supabase
-    .from('custom_events')
-    .select('id, name, content, event_date, location, created_by')
+  ])
 
   const allEvents = computeEvents(persons ?? [], customEvents ?? [])
   const upcomingEvents = allEvents.filter(
@@ -155,7 +167,7 @@ export default async function DashboardLaunchpad() {
       {/* ── Today's Date & Upcoming Events ─────────────────── */}
       <Link
         href='/dashboard/events'
-        className='group relative mb-10 block overflow-hidden rounded-3xl border border-stone-200/60 bg-white transition-all duration-300 hover:-translate-y-1 hover:border-stone-400'>
+        className='group relative mb-10 block overflow-hidden rounded-3xl border border-stone-200/60 bg-white transition-colors duration-300 hover:-translate-y-1 hover:border-stone-400'>
         {/* Subtle background flair */}
         <div className='pointer-events-none absolute top-0 right-0 h-64 w-64 translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-50/50 opacity-50 blur-3xl'></div>
 
@@ -195,16 +207,16 @@ export default async function DashboardLaunchpad() {
                     </span>
                     {t('upcomingEvents', { count: upcomingEvents.length })}
                   </p>
-                  <ArrowRight className='size-5 text-stone-300 transition-all duration-300 group-hover:translate-x-1 group-hover:text-stone-500' />
+                  <ArrowRight className='size-5 text-stone-300 transition duration-300 group-hover:translate-x-1 group-hover:text-stone-500' />
                 </div>
                 <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
-                  {upcomingEvents.slice(0, 4).map((evt, i) => {
+                  {upcomingEvents.slice(0, 4).map((evt) => {
                     const cfg = eventTypeConfig[evt.type]
                     const Icon = cfg.icon
                     return (
                       <div
-                        key={i}
-                        className='flex cursor-pointer items-center gap-3.5 rounded-2xl border border-transparent bg-stone-50/50 p-3 transition-all duration-300 hover:border-stone-100 hover:bg-stone-50'>
+                        key={`${evt.type}-${evt.personId}-${evt.eventDateLabel}`}
+                        className='flex cursor-pointer items-center gap-3.5 rounded-2xl border border-transparent bg-stone-50/50 p-3 transition-colors duration-300 hover:border-stone-100 hover:bg-stone-50'>
                         <div
                           className={`size-10 rounded-xl ${cfg.bg} flex shrink-0 items-center justify-center border border-white`}>
                           <Icon className={`size-4 ${cfg.color}`} />
@@ -262,7 +274,7 @@ export default async function DashboardLaunchpad() {
               <Link
                 key={feat.href}
                 href={feat.href}
-                className={`group flex flex-col rounded-2xl border bg-white p-6 ${feat.borderColor} ${feat.hoverColor} transition-all duration-300 hover:-translate-y-1`}>
+                className={`group flex flex-col rounded-2xl border bg-white p-6 ${feat.borderColor} ${feat.hoverColor} transition duration-300 hover:-translate-y-1`}>
                 <div
                   className={`mb-5 flex size-14 items-center justify-center rounded-xl ${feat.bgColor} border border-transparent transition-colors duration-300 group-hover:bg-white group-hover:${feat.borderColor}`}>
                   {feat.icon}
@@ -289,7 +301,7 @@ export default async function DashboardLaunchpad() {
                 <Link
                   key={feat.href}
                   href={feat.href}
-                  className={`group flex flex-col rounded-2xl border bg-white p-6 ${feat.borderColor} ${feat.hoverColor} transition-all duration-300 hover:-translate-y-1`}>
+                  className={`group flex flex-col rounded-2xl border bg-white p-6 ${feat.borderColor} ${feat.hoverColor} transition duration-300 hover:-translate-y-1`}>
                   <div
                     className={`mb-5 flex size-14 items-center justify-center rounded-xl ${feat.bgColor} border border-transparent transition-colors duration-300 group-hover:bg-white group-hover:${feat.borderColor}`}>
                     {feat.icon}

@@ -12,8 +12,7 @@ export async function generateMetadata() {
 }
 
 export default async function GalleryPage() {
-  const supabase = await getSupabase()
-  const isAdmin = await getIsAdmin()
+  const [supabase, isAdmin] = await Promise.all([getSupabase(), getIsAdmin()])
 
   const { data: items } = await supabase
     .from('gallery_items')

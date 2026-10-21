@@ -1,11 +1,14 @@
 'use client'
 
-import { AnimatePresence, motion } from 'framer-motion'
-import { Loader2, UploadCloud, X } from 'lucide-react'
+import { AnimatePresence, m } from 'framer-motion'
+import { Loader2, X } from 'lucide-react'
 import Image from 'next/image'
 import { useEffect, useRef, useState } from 'react'
 
-import { useI18n } from '@/lib/i18n/I18nProvider'
+import UploadDropzone from '@/components/modal/UploadDropzone'
+import UploadFormFields from '@/components/modal/UploadFormFields'
+import UploadModalActions from '@/components/modal/UploadModalActions'
+import { useI18n } from '@/lib/i18n/useI18n'
 import type { GalleryItem } from '@/types'
 import { createClient } from '@/utils/supabase/client'
 import { uploadGalleryImage } from '@/utils/supabase/storage'
@@ -29,11 +32,24 @@ export default function UploadModal({
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [eventDate, setEventDate] = useState('')
-  const [preview, setPreview] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const [preview, setPreview] = useState<string | null>(null)
+
+  // Object URLs are browser resources, so they are created here (outside
+  // render) and revoked when the file changes or the modal closes.
+  useEffect(() => {
+    if (!file) {
+      setPreview(null)
+      return
+    }
+    const url = URL.createObjectURL(file)
+    setPreview(url)
+    return () => URL.revokeObjectURL(url)
+  }, [file])
 
   // Prevent background scrolling when modal is open
   useEffect(() => {
@@ -55,8 +71,6 @@ export default function UploadModal({
         return
       }
       setFile(selected)
-      const url = URL.createObjectURL(selected)
-      setPreview(url)
       setError(null)
     }
   }
@@ -70,7 +84,6 @@ export default function UploadModal({
     const dropped = e.dataTransfer.files?.[0]
     if (dropped && dropped.type.startsWith('image/')) {
       setFile(dropped)
-      setPreview(URL.createObjectURL(dropped))
       setError(null)
     }
   }
@@ -145,7 +158,6 @@ export default function UploadModal({
 
   const resetForm = () => {
     setFile(null)
-    setPreview(null)
     setTitle('')
     setDescription('')
     setEventDate('')
@@ -160,25 +172,25 @@ export default function UploadModal({
     onClose()
   }
 
-  const inputClasses =
-    'bg-white text-stone-900 placeholder-stone-500 block w-full rounded-xl border border-stone-300  focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 focus:bg-white text-sm px-4 py-3 transition-all outline-none!'
-
   return (
     <AnimatePresence>
       {isOpen && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
           className='fixed inset-0 z-100 flex items-center justify-center bg-stone-900/40 p-4 backdrop-blur-sm sm:p-6'>
           {/* Click-away backdrop */}
-          <div
+          <button
+            type='button'
+            aria-label={t('close')}
+            disabled={isUploading}
             className='absolute inset-0 cursor-pointer'
-            onClick={!isUploading ? handleClose : undefined}
+            onClick={handleClose}
           />
 
-          <motion.div
+          <m.div
             layout
             initial={{ scale: 0.96, opacity: 0, y: 15 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
@@ -205,56 +217,14 @@ export default function UploadModal({
                 id='upload-form'
                 onSubmit={handleSubmit}
                 className='space-y-6'>
-                {/* Image Upload Area */}
-                <div
-                  className={`cursor-pointer rounded-2xl border-2 border-dashed p-8 text-center transition-colors ${preview ? 'border-stone-200 bg-stone-50' : 'border-stone-300 hover:border-pink-400 hover:bg-pink-50/50'}`}
-                  onClick={() => !preview && fileInputRef.current?.click()}
+                <UploadDropzone
+                  preview={preview}
+                  fileInputRef={fileInputRef}
+                  onRemovePreview={() => setFile(null)}
+                  onFileChange={handleFileChange}
                   onDragOver={handleDragOver}
-                  onDrop={handleDrop}>
-                  {preview ? (
-                    <div className='relative inline-block w-full'>
-                      <Image
-                        unoptimized
-                        src={preview}
-                        alt={t('imagePreview')}
-                        width={800}
-                        height={600}
-                        className='mx-auto max-h-64 rounded-lg object-contain shadow-sm'
-                      />
-                      <button
-                        type='button'
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setFile(null)
-                          setPreview(null)
-                        }}
-                        className='absolute top-2 right-2 rounded-full bg-white/90 p-1.5 text-stone-700 shadow-md backdrop-blur-sm hover:text-rose-600'>
-                        <X className='size-4' />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className='flex flex-col items-center justify-center space-y-3'>
-                      <div className='rounded-full bg-stone-100 p-4 text-stone-400'>
-                        <UploadCloud className='size-8' />
-                      </div>
-                      <div>
-                        <p className='text-sm font-medium text-stone-700'>
-                          {t('chooseImage')}
-                        </p>
-                        <p className='mt-1 text-sm text-stone-500'>
-                          {t('imageUploadHint')}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                  <input
-                    ref={fileInputRef}
-                    type='file'
-                    accept='image/*'
-                    className='hidden'
-                    onChange={handleFileChange}
-                  />
-                </div>
+                  onDrop={handleDrop}
+                />
 
                 {error && (
                   <div className='rounded-xl border border-rose-100 bg-rose-50 p-3 text-sm text-rose-600'>
@@ -262,77 +232,27 @@ export default function UploadModal({
                   </div>
                 )}
 
-                {/* Fields */}
-                <div className='space-y-4'>
-                  <div>
-                    <label className='mb-1.5 block text-sm font-medium text-stone-700'>
-                      {t('imageTitle')} <span className='text-red-500'>*</span>
-                    </label>
-                    <input
-                      type='text'
-                      required
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      className={inputClasses}
-                      placeholder={t('imageTitlePlaceholder')}
-                    />
-                  </div>
+                <UploadFormFields
+                  title={title}
+                  eventDate={eventDate}
+                  description={description}
+                  onTitleChange={setTitle}
+                  onEventDateChange={setEventDate}
+                  onDescriptionChange={setDescription}
+                />
 
-                  <div>
-                    <label className='mb-1.5 block text-sm font-medium text-stone-700'>
-                      {t('eventDate')}
-                    </label>
-                    <input
-                      type='date'
-                      value={eventDate}
-                      onChange={(e) => setEventDate(e.target.value)}
-                      className={inputClasses}
-                    />
-                  </div>
-
-                  <div>
-                    <label className='mb-1.5 block text-sm font-medium text-stone-700'>
-                      {t('eventDescription')}
-                    </label>
-                    <textarea
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      rows={3}
-                      className={`${inputClasses} resize-none`}
-                      placeholder={t('descriptionPlaceholder')}
-                    />
-                  </div>
-                </div>
-
-                <div className='flex justify-end gap-3 border-t border-stone-100 pt-4'>
-                  <button
-                    type='button'
-                    onClick={handleClose}
-                    disabled={isUploading}
-                    className='btn'>
-                    {t('restoreCancel')}
-                  </button>
-                  <button
-                    type='submit'
-                    form='upload-form'
-                    disabled={isUploading || (!initialData && !file) || !title}
-                    className='btn-primary flex items-center gap-2'>
-                    {isUploading ? (
-                      <>
-                        <Loader2 className='size-4 animate-spin' />
-                        {t('savingEvent')}
-                      </>
-                    ) : initialData ? (
-                      t('saveChanges')
-                    ) : (
-                      t('saveImage')
-                    )}
-                  </button>
-                </div>
+                <UploadModalActions
+                  isUploading={isUploading}
+                  canSubmit={
+                    (Boolean(initialData) || Boolean(file)) && Boolean(title)
+                  }
+                  isEdit={Boolean(initialData)}
+                  onClose={handleClose}
+                />
               </form>
             </div>
-          </motion.div>
-        </motion.div>
+          </m.div>
+        </m.div>
       )}
     </AnimatePresence>
   )

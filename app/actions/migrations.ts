@@ -25,8 +25,6 @@ const MIGRATION_FILES = [
   'docs/migrations/20260904000000_add_data_api_table_grants.sql'
 ] as const
 
-const MIGRATION_TABLE = 'public.app_migrations'
-
 interface MigrationDefinition {
   id: string
   file: string
@@ -195,16 +193,16 @@ function createDatabaseClient() {
 
 async function ensureMigrationTable(sql: ReturnType<typeof postgres>) {
   await sql.unsafe(`
-    CREATE TABLE IF NOT EXISTS ${MIGRATION_TABLE} (
+    CREATE TABLE IF NOT EXISTS public.app_migrations (
       migration_id TEXT PRIMARY KEY,
       file_name TEXT NOT NULL,
       applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
-    ALTER TABLE ${MIGRATION_TABLE} ENABLE ROW LEVEL SECURITY;
-    REVOKE ALL ON ${MIGRATION_TABLE} FROM PUBLIC, anon, authenticated;
-    DROP POLICY IF EXISTS "No client access to app migrations" ON ${MIGRATION_TABLE};
+    ALTER TABLE public.app_migrations ENABLE ROW LEVEL SECURITY;
+    REVOKE ALL ON public.app_migrations FROM PUBLIC, anon, authenticated;
+    DROP POLICY IF EXISTS "No client access to app migrations" ON public.app_migrations;
     CREATE POLICY "No client access to app migrations"
-      ON ${MIGRATION_TABLE}
+      ON public.app_migrations
       FOR ALL TO anon, authenticated
       USING (false)
       WITH CHECK (false);
@@ -262,7 +260,7 @@ export async function getMigrationStatus(): Promise<MigrationStatus> {
         applied_at: string
       }>
     >(
-      `SELECT migration_id, applied_at FROM ${MIGRATION_TABLE} ORDER BY applied_at ASC`
+      `SELECT migration_id, applied_at FROM public.app_migrations ORDER BY applied_at ASC`
     )
     const applied = new Map(
       rows.map((row) => [
@@ -300,8 +298,10 @@ export async function getMigrationStatus(): Promise<MigrationStatus> {
 }
 
 export async function runPendingMigrations() {
-  const { t } = await getServerTranslations()
-  const isAdmin = await getIsAdmin()
+  const [{ t }, isAdmin] = await Promise.all([
+    getServerTranslations(),
+    getIsAdmin()
+  ])
   if (!isAdmin) return { success: false, error: t('migrationAccessDenied') }
 
   const source = await getSourceVersionStatus()
@@ -327,16 +327,16 @@ export async function runPendingMigrations() {
     const definitions = await getMigrationDefinitions()
     const result = await sql.begin(async (transaction) => {
       await transaction.unsafe(`
-        CREATE TABLE IF NOT EXISTS ${MIGRATION_TABLE} (
+        CREATE TABLE IF NOT EXISTS public.app_migrations (
           migration_id TEXT PRIMARY KEY,
           file_name TEXT NOT NULL,
           applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
-        ALTER TABLE ${MIGRATION_TABLE} ENABLE ROW LEVEL SECURITY;
-        REVOKE ALL ON ${MIGRATION_TABLE} FROM PUBLIC, anon, authenticated;
-        DROP POLICY IF EXISTS "No client access to app migrations" ON ${MIGRATION_TABLE};
+        ALTER TABLE public.app_migrations ENABLE ROW LEVEL SECURITY;
+        REVOKE ALL ON public.app_migrations FROM PUBLIC, anon, authenticated;
+        DROP POLICY IF EXISTS "No client access to app migrations" ON public.app_migrations;
         CREATE POLICY "No client access to app migrations"
-          ON ${MIGRATION_TABLE}
+          ON public.app_migrations
           FOR ALL TO anon, authenticated
           USING (false)
           WITH CHECK (false);
@@ -345,7 +345,7 @@ export async function runPendingMigrations() {
 
       const rows = await transaction.unsafe<
         Array<{ migration_id: string; applied_at: string }>
-      >(`SELECT migration_id, applied_at FROM ${MIGRATION_TABLE}`)
+      >(`SELECT migration_id, applied_at FROM public.app_migrations`)
       const applied = new Map(
         rows.map((row) => [row.migration_id, row.applied_at])
       )

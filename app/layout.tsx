@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Inter, Playfair_Display } from 'next/font/google'
 
+import MotionProvider from '@/components/MotionProvider'
 import { I18nProvider } from '@/lib/i18n/I18nProvider'
 import { getServerLocale } from '@/lib/i18n/server'
 
@@ -32,7 +33,9 @@ export default async function RootLayout({
     <html lang={locale}>
       <body
         className={`${inter.variable} ${playfair.variable} relative font-sans antialiased`}>
-        <I18nProvider initialLocale={locale}>{children}</I18nProvider>
+        <MotionProvider>
+          <I18nProvider initialLocale={locale}>{children}</I18nProvider>
+        </MotionProvider>
       </body>
     </html>
   )

@@ -123,7 +123,7 @@ export default async function SetupPage() {
 
       <Link
         href='/login'
-        className='absolute top-6 left-6 z-20 flex items-center gap-2 rounded-full border border-stone-200 bg-white/60 px-5 py-2.5 text-sm font-medium text-stone-500 transition-all duration-300 hover:border-stone-300 hover:text-stone-900'>
+        className='absolute top-6 left-6 z-20 flex items-center gap-2 rounded-full border border-stone-200 bg-white/60 px-5 py-2.5 text-sm font-medium text-stone-500 transition-colors duration-300 hover:border-stone-300 hover:text-stone-900'>
         <ArrowLeft className='size-4' />
         {t('backToLogin')}
       </Link>
