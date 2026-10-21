@@ -14,34 +14,39 @@ export function useMemberAvatar(initialData?: Person) {
   const [removeExistingAvatar, setRemoveExistingAvatar] = useState(false)
   const [processingAvatar, setProcessingAvatar] = useState(false)
 
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(
-    initialData?.avatar_url || null
-  )
+  const [objectUrl, setObjectUrl] = useState<string | null>(null)
 
-  // Blob object URLs are browser resources: create them in an effect (not
-  // during render) and revoke the previous one whenever the source changes.
+  // Revoke object URL on cleanup / unmount
   useEffect(() => {
-    if (!avatarFile) {
-      setAvatarPreview(
-        removeExistingAvatar ? null : initialData?.avatar_url || null
-      )
-      return
+    return () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
-    const url = URL.createObjectURL(avatarFile)
-    setAvatarPreview(url)
-    return () => URL.revokeObjectURL(url)
-  }, [avatarFile, removeExistingAvatar, initialData])
+  }, [objectUrl])
+
+  const avatarPreview = avatarFile
+    ? objectUrl
+    : removeExistingAvatar
+      ? null
+      : initialData?.avatar_url || null
 
   const handleAvatarSelected = (file: File) => {
     if (initialData?.avatar_url) {
       setRemoveExistingAvatar(true)
     }
+    if (objectUrl) {
+      URL.revokeObjectURL(objectUrl)
+    }
+    setObjectUrl(URL.createObjectURL(file))
     setAvatarFile(file)
   }
 
   const handleAvatarRemove = () => {
     if (initialData?.avatar_url) {
       setRemoveExistingAvatar(true)
+    }
+    if (objectUrl) {
+      URL.revokeObjectURL(objectUrl)
+      setObjectUrl(null)
     }
     avatarUrlRef.current = ''
     setAvatarFile(null)
