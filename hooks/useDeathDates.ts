@@ -3,10 +3,15 @@
 import { useState } from 'react'
 
 import {
-  DeathDateValues,
-  lunarToSolarSafe,
-  solarToLunarSafe
-} from '@/utils/memberFormHelpers'
+  applyLeapToggle,
+  applyLunarEdit,
+  applySolarEdit,
+  DateField,
+  DatePart,
+  emptyDeathDates,
+  initialDeathDates
+} from '@/utils/deathDates'
+import { DeathDateValues } from '@/utils/memberFormHelpers'
 
 export interface DeathDateState {
   deathDay: number | ''
@@ -15,6 +20,9 @@ export interface DeathDateState {
   deathLunarDay: number | ''
   deathLunarMonth: number | ''
   deathLunarYear: number | ''
+  // Only used to convert lunar -> solar; not stored.
+  deathLunarLeap: boolean
+  setLunarLeap: (leap: boolean) => void
   setSolarField: (field: 'day' | 'month' | 'year', value: number | '') => void
   setLunarField: (field: 'day' | 'month' | 'year', value: number | '') => void
   clearAll: () => void
@@ -31,81 +39,35 @@ export function useDeathDates(initial: {
   lunarMonth: number | ''
   lunarYear: number | ''
 }): DeathDateState {
-  const [deathDay, setDeathDay] = useState(initial.day)
-  const [deathMonth, setDeathMonth] = useState(initial.month)
-  const [deathYear, setDeathYear] = useState(initial.year)
-  const [deathLunarDay, setDeathLunarDay] = useState(initial.lunarDay)
-  const [deathLunarMonth, setDeathLunarMonth] = useState(initial.lunarMonth)
-  const [deathLunarYear, setDeathLunarYear] = useState(initial.lunarYear)
+  const [state, setState] = useState(() => initialDeathDates(initial))
 
-  const setSolarField = (
-    field: 'day' | 'month' | 'year',
-    value: number | ''
-  ) => {
-    const next = {
-      day: field === 'day' ? value : deathDay,
-      month: field === 'month' ? value : deathMonth,
-      year: field === 'year' ? value : deathYear
-    }
-    if (field === 'day') setDeathDay(value)
-    else if (field === 'month') setDeathMonth(value)
-    else setDeathYear(value)
-
-    const lunar = solarToLunarSafe(next.day, next.month, next.year)
-    if (lunar) {
-      setDeathLunarDay(lunar.day)
-      setDeathLunarMonth(lunar.month)
-      setDeathLunarYear(lunar.year)
-    }
-  }
-
-  const setLunarField = (
-    field: 'day' | 'month' | 'year',
-    value: number | ''
-  ) => {
-    const next = {
-      day: field === 'day' ? value : deathLunarDay,
-      month: field === 'month' ? value : deathLunarMonth,
-      year: field === 'year' ? value : deathLunarYear
-    }
-    if (field === 'day') setDeathLunarDay(value)
-    else if (field === 'month') setDeathLunarMonth(value)
-    else setDeathLunarYear(value)
-
-    const solar = lunarToSolarSafe(next.day, next.month, next.year)
-    if (solar) {
-      setDeathDay(solar.day)
-      setDeathMonth(solar.month)
-      setDeathYear(solar.year)
-    }
-  }
-
-  const clearAll = () => {
-    setDeathDay('')
-    setDeathMonth('')
-    setDeathYear('')
-    setDeathLunarDay('')
-    setDeathLunarMonth('')
-    setDeathLunarYear('')
-  }
+  const setSolarField = (field: DateField, value: DatePart) =>
+    setState((prev) => applySolarEdit(prev, field, value))
+  const setLunarField = (field: DateField, value: DatePart) =>
+    setState((prev) => applyLunarEdit(prev, field, value))
+  const setLunarLeap = (leap: boolean) =>
+    setState((prev) => applyLeapToggle(prev, leap))
+  const clearAll = () => setState(emptyDeathDates())
 
   return {
-    deathDay,
-    deathMonth,
-    deathYear,
-    deathLunarDay,
-    deathLunarMonth,
-    deathLunarYear,
+    deathDay: state.day,
+    deathMonth: state.month,
+    deathYear: state.year,
+    deathLunarDay: state.lunarDay,
+    deathLunarMonth: state.lunarMonth,
+    deathLunarYear: state.lunarYear,
+    deathLunarLeap: state.lunarLeap,
+    setLunarLeap,
     setSolarField,
     setLunarField,
     clearAll,
     currentValues: {
-      day: deathDay,
-      month: deathMonth,
-      year: deathYear,
-      lunarDay: deathLunarDay,
-      lunarMonth: deathLunarMonth,
-      lunarYear: deathLunarYear
+      day: state.day,
+      month: state.month,
+      year: state.year,
+      lunarDay: state.lunarDay,
+      lunarMonth: state.lunarMonth,
+      lunarYear: state.lunarYear
     }
   }
 }

@@ -9,6 +9,11 @@ import RootSelector from '@/components/RootSelector'
 import { useMemberListView } from '@/context/useMemberListView'
 import { useI18n } from '@/lib/i18n/useI18n'
 import { Person, Relationship } from '@/types'
+import {
+  pickDefaultRootId,
+  resolveRootId,
+  ROOT_STORAGE_KEY
+} from '@/utils/treeRoot'
 
 const FamilyTree = dynamic(() => import('@/components/FamilyTree'))
 const MindmapTree = dynamic(() => import('@/components/MindmapTree'))
@@ -51,35 +56,11 @@ export default function MembersViews({
     const pMap = new Map<string, Person>()
     persons.forEach((p) => pMap.set(p.id, p))
 
-    const childIds = new Set(
-      relationships
-        .filter(
-          (r) => r.type === 'biological_child' || r.type === 'adopted_child'
-        )
-        .map((r) => r.person_b)
-    )
-
     let finalRootId = rootId
 
-    // If no rootId is provided, fallback to generation 1 or earliest birth year
+    // If no rootId is provided, open on the earliest ancestor
     if (!finalRootId || !pMap.has(finalRootId)) {
-      const rootsFallback = persons.filter((p) => !childIds.has(p.id))
-      if (rootsFallback.length > 0) {
-        const gen1 = rootsFallback.filter((p) => p.generation === 1)
-        const sortByBirthYear = (a: Person, b: Person) => {
-          const ya = a.birth_year ?? Infinity
-          const yb = b.birth_year ?? Infinity
-          return ya - yb
-        }
-
-        if (gen1.length > 0) {
-          finalRootId = gen1.sort(sortByBirthYear)[0].id
-        } else {
-          finalRootId = rootsFallback.sort(sortByBirthYear)[0].id
-        }
-      } else if (persons.length > 0) {
-        finalRootId = persons[0].id // ultimate fallback
-      }
+      finalRootId = pickDefaultRootId(persons, relationships) ?? null
     }
 
     let calculatedRoots: Person[] = []
@@ -94,7 +75,7 @@ export default function MembersViews({
     }
   }, [persons, relationships, rootId])
 
-  const activeRootId = rootId || defaultRootId
+  const activeRootId = resolveRootId(rootId, personsMap, defaultRootId)
 
   // Khôi phục lựa chọn từ localStorage
   useEffect(() => {
@@ -104,10 +85,12 @@ export default function MembersViews({
 
     if (!urlRootId) {
       try {
-        const savedRootId = localStorage.getItem('members_rootId')
+        const savedRootId = localStorage.getItem(ROOT_STORAGE_KEY)
 
-        if (!urlRootId && savedRootId && savedRootId !== rootId) {
-          setRootId(savedRootId)
+        if (savedRootId && personsMap.has(savedRootId)) {
+          if (savedRootId !== rootId) setRootId(savedRootId)
+        } else if (savedRootId) {
+          localStorage.removeItem(ROOT_STORAGE_KEY)
         }
       } catch (e) {
         console.warn('Failed to read from localStorage:', e)
@@ -115,23 +98,7 @@ export default function MembersViews({
     }
 
     hasRestored.current = true
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // Lưu lựa chọn vào localStorage
-  useEffect(() => {
-    if (!hasRestored.current) return
-
-    const timeout = setTimeout(() => {
-      try {
-        if (activeRootId) localStorage.setItem('members_rootId', activeRootId)
-      } catch (e) {
-        console.warn('Failed to write to localStorage:', e)
-      }
-    }, 100)
-
-    return () => clearTimeout(timeout)
-  }, [currentView, activeRootId])
+  }, [rootId, personsMap, searchParams, setRootId])
 
   return (
     <>

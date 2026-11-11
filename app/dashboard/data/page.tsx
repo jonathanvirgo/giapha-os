@@ -1,8 +1,19 @@
+import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 
+import DataCheck from '@/components/DataCheck'
 import DataImportExport from '@/components/DataImportExport'
+import DuplicateScan from '@/components/DuplicateScan'
+import LunarRecompute from '@/components/LunarRecompute'
 import { getServerTranslations } from '@/lib/i18n/server'
+import { restoreMaxBytes } from '@/utils/restoreLimit'
 import { getProfile } from '@/utils/supabase/queries'
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getServerTranslations()
+
+  return { title: t('backupTitle') }
+}
 
 export default async function DataManagementPage() {
   const [{ t }, profile] = await Promise.all([
@@ -30,7 +41,12 @@ export default async function DataManagementPage() {
           </div>
         </div>
 
-        <DataImportExport />
+        <div className='space-y-6'>
+          <DataImportExport restoreMaxBytes={restoreMaxBytes()} />
+          <LunarRecompute />
+          <DuplicateScan />
+          <DataCheck />
+        </div>
       </div>
     </main>
   )

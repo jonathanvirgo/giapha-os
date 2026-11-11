@@ -4,11 +4,16 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import { getServerTranslations } from '@/lib/i18n/server'
+import { deleteMember } from '@/utils/deleteMember'
+import {
+  applyGenerationUpdates,
+  buildDescendantGenerationUpdates,
+  collectDescendants
+} from '@/utils/generationUpdates'
 import { fetchAllRows, fetchInChunks } from '@/utils/supabase/fetchAll'
 import { getProfile, getSupabase, getUser } from '@/utils/supabase/queries'
-
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+import { isUuid } from '@/utils/uuid'
+import { PersonNotDeletedError } from '@/utils/writeErrors'
 
 export async function deleteMemberProfile(memberId: string) {
   const [user, { t }] = await Promise.all([getUser(), getServerTranslations()])
@@ -17,7 +22,7 @@ export async function deleteMemberProfile(memberId: string) {
     return { error: t('memberDeleteAccessDenied') }
   }
 
-  if (!UUID_PATTERN.test(memberId)) {
+  if (!isUuid(memberId)) {
     return { error: t('invalidProfile') }
   }
 
@@ -50,14 +55,14 @@ export async function deleteMemberProfile(memberId: string) {
     }
   }
 
-  // 3. Delete the member
-  const { error: deleteError } = await supabase
-    .from('persons')
-    .delete()
-    .eq('id', memberId)
-
-  if (deleteError) {
-    console.error('Error deleting person:', deleteError)
+  // 3. Delete the member row, then its avatar file
+  try {
+    await deleteMember(supabase, memberId)
+  } catch (err) {
+    if (err instanceof PersonNotDeletedError) {
+      return { error: t('memberDeleteAccessDenied') }
+    }
+    console.error('Error deleting person:', err)
     return { error: t('memberDeleteError') }
   }
 
@@ -76,7 +81,7 @@ export async function updateDescendantGenerationsAction(
     return { error: t('memberEditAccessDenied') }
   }
 
-  if (!UUID_PATTERN.test(personId)) {
+  if (!isUuid(personId)) {
     return { error: t('invalidProfile') }
   }
 
@@ -120,30 +125,9 @@ export async function updateDescendantGenerationsAction(
     return { error: t('relationshipsFetchError') }
   }
 
-  // Build children map (person_a is parent, person_b is child)
-  const childrenMap = new Map<string, string[]>()
-  relationships.forEach((r) => {
-    const children = childrenMap.get(r.person_a) ?? []
-    children.push(r.person_b)
-    childrenMap.set(r.person_a, children)
-  })
-
-  // 2. Find all descendants using BFS
-  const descendants = new Set<string>()
-  const queue = [personId]
-  while (queue.length > 0) {
-    const current = queue.shift()!
-    const children = childrenMap.get(current) || []
-    for (const child of children) {
-      if (!descendants.has(child)) {
-        descendants.add(child)
-        queue.push(child)
-      }
-    }
-  }
-
-  if (descendants.size === 0) return { success: true }
-  const descendantIds = Array.from(descendants)
+  // 2. Find all descendants
+  const descendantIds = collectDescendants(relationships, personId)
+  if (descendantIds.length === 0) return { success: true }
 
   // 3. Fetch current generations of descendants
   const { data: persons, error: personsError } = await fetchInChunks<
@@ -158,38 +142,23 @@ export async function updateDescendantGenerationsAction(
     return { error: t('generationsFetchError') }
   }
 
-  // 4. Update each descendant's generation, in bounded batches so a large
-  // subtree doesn't open hundreds of concurrent requests at once.
-  const BATCH_SIZE = 10
-  let hasError = false
+  // 4. Save all new generations at once, in one transaction.
+  const result = await applyGenerationUpdates(
+    supabase,
+    buildDescendantGenerationUpdates(persons, generationDelta)
+  )
 
-  for (let i = 0; i < persons.length; i += BATCH_SIZE) {
-    const batch = persons.slice(i, i + BATCH_SIZE)
-    const failedIds = await Promise.all(
-      batch.map(async (person) => {
-        if (person.generation === null || person.generation === undefined) {
-          return false
-        }
-
-        const newGen = Math.max(1, person.generation + generationDelta)
-        const { error: updateError } = await supabase
-          .from('persons')
-          .update({ generation: newGen })
-          .eq('id', person.id)
-
-        if (updateError) {
-          console.error(`Error updating person ${person.id}:`, updateError)
-          return true
-        }
-        return false
-      })
-    )
-
-    if (failedIds.some(Boolean)) hasError = true
+  if (!result.ok) {
+    console.error('Error updating descendant generations:', result.error)
+    return {
+      error: result.legacy
+        ? `${t('descendantGenerationUpdateError')} ${t('generationUpgradeDatabase')}`
+        : t('generationTransactionError', { error: result.error })
+    }
   }
 
-  if (hasError) {
-    return { error: t('descendantGenerationUpdateError') }
+  if (result.legacy) {
+    return { success: true, warning: t('generationUpgradeDatabase') }
   }
 
   return { success: true }

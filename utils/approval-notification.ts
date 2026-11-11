@@ -1,4 +1,7 @@
+import { defaultLocale, translate } from '@/lib/i18n/messages'
+import { parseSiteOrigin } from '@/lib/siteUrl'
 import {
+  APPROVAL_TOKEN_TTL_DAYS,
   createApprovalToken,
   getApprovalTokenExpiry,
   hashApprovalToken
@@ -8,6 +11,16 @@ import { getAdminSupabase } from '@/utils/supabase/admin'
 interface PendingUser {
   id: string
   email: string
+}
+
+interface SignedInUser {
+  id: string
+  email?: string | null
+}
+
+interface ProfileStatus {
+  role: string
+  is_active: boolean
 }
 
 interface NotificationResult {
@@ -61,6 +74,22 @@ async function getAdminEmails(supabase: ReturnType<typeof getAdminSupabase>) {
     .filter((email): email is string => Boolean(email))
 }
 
+// Mails the administrators when a signed-in user still waits for approval:
+// a member whose account is not active yet and not locked by an administrator
+// (notifyAdminOfPendingUser checks profiles.locked_at). Called after every way an account
+// can sign in (email confirmation or SSO callback, password sign-in, sign-up
+// without email confirmation); notifyAdminOfPendingUser keeps it to one email
+// per open approval request.
+export async function notifyAdminIfPending(
+  user: SignedInUser | null,
+  profile: ProfileStatus | null
+): Promise<NotificationResult> {
+  if (!user?.email || profile?.role !== 'member' || profile.is_active) {
+    return { sent: false, configured: true, reason: 'not_pending' }
+  }
+  return notifyAdminOfPendingUser({ id: user.id, email: user.email })
+}
+
 export async function notifyAdminOfPendingUser({
   id,
   email
@@ -69,21 +98,8 @@ export async function notifyAdminOfPendingUser({
   const from = process.env.RESEND_FROM_EMAIL
   // Never derive an approval URL from the request Host header. APP_URL must be
   // an explicitly configured trusted origin to prevent poisoned email links.
-  const configuredAppUrl = process.env.APP_URL?.trim()
-  let appUrl: string | null = null
-  if (configuredAppUrl) {
-    try {
-      const parsedAppUrl = new URL(configuredAppUrl)
-      if (
-        parsedAppUrl.protocol === 'https:' ||
-        parsedAppUrl.protocol === 'http:'
-      ) {
-        appUrl = parsedAppUrl.origin
-      }
-    } catch {
-      appUrl = null
-    }
-  }
+  // A bare host gets https://; anything that is not http(s) is ignored.
+  const appUrl = parseSiteOrigin(process.env.APP_URL)
 
   if (!apiKey || !from || !appUrl) {
     console.warn(
@@ -98,6 +114,24 @@ export async function notifyAdminOfPendingUser({
   } catch (error) {
     console.error('Cannot create the Supabase admin client:', error)
     return { sent: false, configured: false, reason: 'missing_service_key' }
+  }
+
+  // A locked account is not waiting for approval: signing in again must not
+  // open a new request or mail the administrators.
+  const { data: lockState, error: lockError } = await supabase
+    .from('profiles')
+    .select('locked_at')
+    .eq('id', id)
+    .maybeSingle()
+
+  // 42703: the database has no locked_at column yet (migration
+  // 20261031180000 not run), so it cannot tell a locked account apart.
+  if (lockError && lockError.code !== '42703') {
+    console.error('Cannot read the account lock state:', lockError)
+    return { sent: false, configured: true, reason: 'database_lookup_failed' }
+  }
+  if (!lockError && lockState?.locked_at) {
+    return { sent: false, configured: true, reason: 'locked' }
   }
 
   const adminEmails = await getAdminEmails(supabase)
@@ -157,21 +191,25 @@ export async function notifyAdminOfPendingUser({
 
   const approveUrl = `${appUrl}/api/admin/approve/${token}`
   const safeEmail = escapeHtml(email)
-  const subject = `Có tài khoản mới đang chờ duyệt: ${email}`
+  const t = (
+    key: Parameters<typeof translate>[1],
+    values?: Record<string, string | number>
+  ) => translate(defaultLocale, key, values)
+  const subject = t('approvalEmailSubject', { email })
   const html = `
     <div style="font-family:Arial,sans-serif;line-height:1.6;color:#292524;max-width:640px">
-      <h2 style="color:#b45309">Tài khoản mới chờ duyệt</h2>
-      <p>Có người dùng vừa xác nhận email và đang chờ được duyệt để truy cập dữ liệu gia phả:</p>
+      <h2 style="color:#b45309">${escapeHtml(t('approvalEmailTitle'))}</h2>
+      <p>${escapeHtml(t('approvalEmailIntro'))}</p>
       <p><strong>${safeEmail}</strong></p>
       <p>
         <a href="${escapeHtml(approveUrl)}" style="display:inline-block;background:#d97706;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none">
-          Xem và duyệt tài khoản
+          ${escapeHtml(t('approvalEmailButton'))}
         </a>
       </p>
-      <p style="color:#78716c;font-size:13px">Liên kết có hiệu lực trong ${7} ngày. Bạn cũng có thể đăng nhập ứng dụng và duyệt trong mục Quản lý người dùng.</p>
+      <p style="color:#78716c;font-size:13px">${escapeHtml(t('approvalEmailExpiry', { days: APPROVAL_TOKEN_TTL_DAYS }))}</p>
     </div>
   `
-  const text = `Tài khoản ${email} đang chờ duyệt. Duyệt tại: ${approveUrl}\n\nBạn cũng có thể đăng nhập ứng dụng và duyệt trong mục Quản lý người dùng.`
+  const text = t('approvalEmailText', { email, url: approveUrl })
 
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',

@@ -1,6 +1,5 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 import BulkAddChildrenForm from '@/components/relationship/BulkAddChildrenForm'
@@ -11,7 +10,12 @@ import {
 } from '@/components/relationship/relationshipTypes'
 import { useI18n } from '@/lib/i18n/useI18n'
 import { Person } from '@/types'
+import { TextTooLongError } from '@/utils/limits'
 import { bulkCreateChildren } from '@/utils/relationshipMutations'
+import {
+  relationshipErrorKey,
+  RelationshipValidationError
+} from '@/utils/relationshipValidation'
 import { createClient } from '@/utils/supabase/client'
 
 interface BulkAddChildrenSectionProps {
@@ -31,7 +35,6 @@ export default function BulkAddChildrenSection({
 }: BulkAddChildrenSectionProps) {
   const { t } = useI18n()
   const supabase = createClient()
-  const router = useRouter()
   const personId = person.id
 
   const [selectedSpouseId, setSelectedSpouseId] = useState<string>('')
@@ -58,26 +61,55 @@ export default function BulkAddChildrenSection({
     setError(null)
 
     try {
-      const successCount = await bulkCreateChildren(supabase, {
+      const { created, failures } = await bulkCreateChildren(supabase, {
         children: validChildren,
         parentId: personId,
         otherParentId: selectedSpouseId,
-        parentGeneration: person.generation
+        parentGeneration: person.generation,
+        parents: [
+          person,
+          ...spouseOptions
+            .filter((s) => s.targetPerson.id === selectedSpouseId)
+            .map((s) => s.targetPerson)
+        ]
       })
 
-      if (successCount === validChildren.length) {
+      if (failures.length === 0) {
         onClose()
         onSaved()
-      } else {
-        showError(
-          t('bulkAddPartial', {
-            success: successCount,
-            total: validChildren.length
-          })
-        )
-        onSaved()
+        return
       }
+
+      // Keep only the rows that can be retried: saved rows and rows whose
+      // person exists without parents would be added twice.
+      const retryRows = failures.filter((f) => !f.orphaned).map((f) => f.child)
+      setBulkChildren(retryRows.length > 0 ? retryRows : [emptyBulkChildRow()])
+      setError(
+        [
+          t('bulkAddPartial', {
+            success: created,
+            total: validChildren.length
+          }),
+          ...failures.map(
+            (f) =>
+              `${f.child.name.trim()}: ${
+                f.orphaned ? t('bulkAddChildOrphaned') : f.error
+              }`
+          ),
+          ...(retryRows.length > 0 ? [t('bulkAddFailedRowsKept')] : [])
+        ].join('\n')
+      )
+      if (created > 0 || failures.some((f) => f.orphaned)) onSaved()
     } catch (err: unknown) {
+      if (err instanceof TextTooLongError) {
+        showError(t('textTooLong', { field: t(err.label), max: err.max }))
+        return
+      }
+      if (err instanceof RelationshipValidationError) {
+        const message = t(relationshipErrorKey(err.code))
+        showError(err.subject ? `${err.subject}: ${message}` : message)
+        return
+      }
       const e = err as Error
       showError(t('bulkAddError', { error: e.message }))
     } finally {
@@ -90,9 +122,11 @@ export default function BulkAddChildrenSection({
   return (
     <>
       {error && (
-        <div className='animate-in fade-in slide-in-from-top-1 mt-2 flex items-center gap-2 rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-600'>
+        <div
+          role='alert'
+          className='animate-in fade-in slide-in-from-top-1 mt-2 flex items-start gap-2 rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-600'>
           <svg
-            className='h-4 w-4 shrink-0'
+            className='mt-0.5 h-4 w-4 shrink-0'
             fill='none'
             viewBox='0 0 24 24'
             stroke='currentColor'>
@@ -103,7 +137,7 @@ export default function BulkAddChildrenSection({
               d='M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
             />
           </svg>
-          {error}
+          <span className='whitespace-pre-line'>{error}</span>
         </div>
       )}
       <BulkAddChildrenForm

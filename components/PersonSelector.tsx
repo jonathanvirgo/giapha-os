@@ -1,15 +1,15 @@
 'use client'
 
 import { AnimatePresence } from 'framer-motion'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 
 import {
-  PersonAvatarBadge,
   SelectorDropdown,
   SelectorTrigger
 } from '@/components/PersonSelectorParts'
 import { useI18n } from '@/lib/i18n/useI18n'
 import { Person } from '@/types'
+import { filterRootPersons } from '@/utils/pickerNavigation'
 
 export default function PersonSelector({
   persons,
@@ -37,20 +37,18 @@ export default function PersonSelector({
   const [isOpen, setIsOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const listId = useId()
 
   const currentPerson = persons.find((p) => p.id === selectedId)
 
-  const filteredPersons = persons
-    .filter((p) => {
-      const searchStr = `${p.full_name} ${p.birth_year || ''}`.toLowerCase()
-      return searchStr.includes(searchTerm.toLowerCase())
-    })
-    .slice(0, 20)
+  const filteredPersons = filterRootPersons(persons, searchTerm)
 
   const handleSelect = (personId: string | null) => {
     onSelect(personId)
     setIsOpen(false)
     setSearchTerm('')
+    buttonRef.current?.focus()
   }
 
   useEffect(() => {
@@ -78,6 +76,8 @@ export default function PersonSelector({
         resolvedPlaceholder={resolvedPlaceholder}
         label={label}
         isOpen={isOpen}
+        listId={listId}
+        buttonRef={buttonRef}
         onToggle={() => setIsOpen(!isOpen)}
       />
 
@@ -90,6 +90,12 @@ export default function PersonSelector({
             resolvedAllOptionLabel={resolvedAllOptionLabel}
             selectedId={selectedId}
             onSelect={handleSelect}
+            onClose={() => {
+              setIsOpen(false)
+              setSearchTerm('')
+              buttonRef.current?.focus()
+            }}
+            listId={listId}
             filteredPersons={filteredPersons}
           />
         )}

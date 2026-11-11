@@ -20,11 +20,16 @@ import {
   LoadingPanel
 } from '@/components/modal/MemberDetailModalPanels'
 import { useUser } from '@/components/UserProvider'
+import ViewOnTreeLink from '@/components/ViewOnTreeLink'
 import { useMemberListView } from '@/context/useMemberListView'
+import { useModalA11y } from '@/hooks/useModalA11y'
 import { useI18n } from '@/lib/i18n/useI18n'
 import { Person } from '@/types'
+import { createLatestGuard } from '@/utils/latestOnly'
+import { shouldCloseMemberModalOnEscape } from '@/utils/memberModalEscape'
+import { fetchPrivateDetails } from '@/utils/privateDetails'
 
-function ModalHeaderActions({
+export function ModalHeaderActions({
   isEditing,
   canEdit,
   person,
@@ -51,19 +56,28 @@ function ModalHeaderActions({
           <span className='hidden sm:inline'>{t('backToPrevious')}</span>
         </button>
       ) : (
-        canEdit &&
         person && (
           <>
-            <Link
-              href={`/dashboard/members/${person.id}`}
-              className='btn-amber text-sm'>
-              <ExternalLink className='size-4' />
-              <span className='hidden sm:inline'>{t('view')}</span>
-            </Link>
-            <button onClick={onStartEdit} className='btn-amber text-sm'>
-              <Edit2 className='size-4' />
-              <span className='hidden sm:inline'>{t('editMember')}</span>
-            </button>
+            {/* Every role; the new URL has no memberModalId, so the modal closes */}
+            <ViewOnTreeLink
+              personId={person.id}
+              className='btn-amber text-sm'
+              compact
+            />
+            {canEdit && (
+              <>
+                <Link
+                  href={`/dashboard/members/${person.id}`}
+                  className='btn-amber text-sm'>
+                  <ExternalLink className='size-4' />
+                  <span className='hidden sm:inline'>{t('view')}</span>
+                </Link>
+                <button onClick={onStartEdit} className='btn-amber text-sm'>
+                  <Edit2 className='size-4' />
+                  <span className='hidden sm:inline'>{t('editMember')}</span>
+                </button>
+              </>
+            )}
           </>
         )
       )}
@@ -84,6 +98,7 @@ function ModalBody({
   showCreateMember,
   person,
   privateData,
+  privateLoaded,
   formInitialData,
   isAdmin,
   canEdit,
@@ -98,6 +113,7 @@ function ModalBody({
   showCreateMember: boolean
   person: Person | null
   privateData: Record<string, unknown> | null
+  privateLoaded: boolean
   formInitialData: Person | undefined
   isAdmin: boolean
   canEdit: boolean
@@ -117,6 +133,7 @@ function ModalBody({
       <EditPanel
         formInitialData={formInitialData}
         isAdmin={isAdmin}
+        privateLoaded={privateLoaded}
         onSuccess={onEditSuccess}
         onCancel={onEditCancel}
       />
@@ -163,7 +180,17 @@ export default function MemberDetailModal() {
     string,
     unknown
   > | null>(null)
+  // False when an admin's read of the private details failed: the edit form
+  // locks those fields and never deletes the stored row.
+  const [privateLoaded, setPrivateLoaded] = useState(true)
   const isOpen = Boolean(memberId || showCreateMember)
+  // Only the latest member fetch may update the modal: opening A then B
+  // quickly must not let a slow response for A replace B.
+  const [fetchGuard] = useState(createLatestGuard)
+  // The loaded person, only while it is the member the modal is open for, so
+  // View/Edit never act on the previous member while the next one loads
+  // (kept while closing so the exit animation still shows it).
+  const shownPerson = !memberId || person?.id === memberId ? person : null
 
   const closeModal = useCallback(() => {
     setMemberModalId(null)
@@ -171,21 +198,20 @@ export default function MemberDetailModal() {
     setIsEditing(false)
   }, [setMemberModalId, setShowCreateMember])
 
-  // Escape closes the detail view (not the form, to avoid losing edits)
-  const handleEscapeClose = useEffectEvent((e: KeyboardEvent) => {
-    if (e.key === 'Escape') closeModal()
-  })
-  useEffect(() => {
-    if (!isOpen || isEditing || showCreateMember) return
-    const onKeyDown = (e: KeyboardEvent) => {
-      handleEscapeClose(e)
+  // Escape closes the detail view, not a form being edited (see the helper)
+  const dialogRef = useModalA11y<HTMLDivElement>(() => {
+    if (shouldCloseMemberModalOnEscape({ isEditing, showCreateMember })) {
+      closeModal()
     }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [isOpen, isEditing, showCreateMember])
+  }, isOpen)
+  let dialogLabel = t('memberDetails')
+  if (showCreateMember) dialogLabel = t('addMember')
+  else if (isEditing) dialogLabel = t('editMember')
+  else if (shownPerson) dialogLabel = shownPerson.full_name
 
   const fetchData = useCallback(
     async (id: string) => {
+      const token = fetchGuard.begin()
       setLoading(true)
       setError(null)
       try {
@@ -193,33 +219,41 @@ export default function MemberDetailModal() {
         const [personRes, privateRes] = await Promise.all([
           supabase.from('persons').select('*').eq('id', id).single(),
           isAdmin
-            ? supabase
-                .from('person_details_private')
-                .select('*')
-                .eq('person_id', id)
-                .maybeSingle()
+            ? fetchPrivateDetails(supabase, id).then(
+                (data) => ({ data, failed: false }),
+                (err: unknown) => {
+                  console.error('Error fetching private details:', err)
+                  return { data: null, failed: true }
+                }
+              )
             : Promise.resolve(null)
         ])
 
+        if (!fetchGuard.isCurrent(token)) return
         if (personRes.error || !personRes.data) {
           throw new Error(t('memberLoadError'))
         }
         setPerson(personRes.data)
-        setPrivateData(isAdmin ? privateRes?.data || {} : null)
+        setPrivateData(isAdmin ? (privateRes?.data ?? {}) : null)
+        setPrivateLoaded(!privateRes?.failed)
       } catch (err) {
+        if (!fetchGuard.isCurrent(token)) return
         console.error('Error fetching member details:', err)
-        // @ts-expect-error - err is caught as unknown, but we check for message
-        setError(err?.message || t('systemError'))
+        setError(
+          err instanceof Error && err.message ? err.message : t('systemError')
+        )
       } finally {
-        setLoading(false)
+        if (fetchGuard.isCurrent(token)) setLoading(false)
       }
     },
-    [isAdmin, supabase, t]
+    [fetchGuard, isAdmin, supabase, t]
   )
 
   // Sync state with URL parameter or create mode
   const syncModalState = useEffectEvent((memberId: string | null) => {
     let timeoutId: NodeJS.Timeout | null = null
+    // The member changed or the modal closed: drop any fetch still running
+    fetchGuard.invalidate()
 
     if (memberId) {
       timeoutId = setTimeout(() => {
@@ -287,8 +321,8 @@ export default function MemberDetailModal() {
   }
 
   // initialData for MemberForm — merge public + private
-  const formInitialData = person
-    ? { ...person, ...(privateData ?? {}) }
+  const formInitialData = shownPerson
+    ? { ...shownPerson, ...(privateData ?? {}) }
     : undefined
 
   return (
@@ -299,8 +333,11 @@ export default function MemberDetailModal() {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
+          ref={dialogRef}
           role='dialog'
           aria-modal='true'
+          aria-label={dialogLabel}
+          tabIndex={-1}
           className='fixed inset-0 z-100 flex items-center justify-center bg-stone-900/40 backdrop-blur-sm sm:p-6'>
           {/* Click-away backdrop (disabled while editing/creating to avoid accidental close) */}
           {!isEditing && !showCreateMember && (
@@ -324,7 +361,7 @@ export default function MemberDetailModal() {
             <ModalHeaderActions
               isEditing={isEditing}
               canEdit={canEdit}
-              person={person}
+              person={shownPerson}
               onBack={() => setIsEditing(false)}
               onStartEdit={() => setIsEditing(true)}
               onClose={closeModal}
@@ -335,8 +372,9 @@ export default function MemberDetailModal() {
               error={error}
               isEditing={isEditing}
               showCreateMember={showCreateMember}
-              person={person}
+              person={shownPerson}
               privateData={privateData}
+              privateLoaded={privateLoaded}
               formInitialData={formInitialData}
               isAdmin={isAdmin}
               canEdit={canEdit}

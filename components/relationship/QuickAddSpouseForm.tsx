@@ -1,6 +1,7 @@
 'use client'
 
 import { useI18n } from '@/lib/i18n/useI18n'
+import { MAX_NAME, MAX_NOTE } from '@/utils/limits'
 
 interface QuickAddSpouseFormProps {
   personGender: 'male' | 'female' | 'other'
@@ -48,6 +49,7 @@ export default function QuickAddSpouseForm({
             name='spouse-name'
             type='text'
             placeholder={t('fullNamePlaceholder')}
+            maxLength={MAX_NAME}
             value={newSpouseName}
             onChange={(e) => onNameChange(e.target.value)}
             className='block w-full rounded-lg border border-stone-300 bg-white p-2 text-sm text-stone-900 placeholder-stone-400 transition-colors focus:border-rose-500 focus:ring-rose-500 sm:p-2.5'
@@ -82,6 +84,7 @@ export default function QuickAddSpouseForm({
             name='spouse-note'
             type='text'
             placeholder={t('optional')}
+            maxLength={MAX_NOTE}
             value={newSpouseNote}
             onChange={(e) => onNoteChange(e.target.value)}
             className='block w-full rounded-lg border border-stone-300 bg-white p-2 text-sm text-stone-900 placeholder-stone-400 transition-colors focus:border-rose-500 focus:ring-rose-500 sm:p-2.5'
@@ -113,7 +116,9 @@ export default function QuickAddSpouseForm({
           </button>
         </div>
         {error && (
-          <div className='animate-in fade-in slide-in-from-top-1 mt-2 flex items-center gap-2 rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-600'>
+          <div
+            role='alert'
+            className='animate-in fade-in slide-in-from-top-1 mt-2 flex items-center gap-2 rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-600'>
             <svg
               className='h-4 w-4 shrink-0'
               fill='none'

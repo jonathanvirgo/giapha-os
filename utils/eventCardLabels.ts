@@ -1,5 +1,6 @@
 import type { TranslationKey, TranslationValues } from '@/lib/i18n/messages'
-import { FamilyEvent } from '@/utils/eventHelpers'
+import { FamilyEvent, formatLunarDateLabel } from '@/utils/eventHelpers'
+import { solarToLunar } from '@/utils/lunarCalendar'
 
 const SPECIAL_DAY_OFFSETS = new Set([-1, 0, 1])
 
@@ -43,10 +44,17 @@ export function formatEventDateLabel(event: FamilyEvent, t: Translate): string {
     event.type === 'custom_event' ? 'calendarDateWithYear' : 'calendarDate',
     { weekday: dayOfWeek, day, month, year }
   )
-  if (event.type === 'death_anniversary') {
+  if (
+    event.type === 'death_anniversary' ||
+    (event.type === 'custom_event' && event.recurrence === 'yearly_lunar')
+  ) {
     label += t('lunarDateSuffix', {
-      date: event.eventDateLabel.replace(' ÂL', '').replace(' L', '')
+      date: formatLunarDateLabel(event, t, false)
     })
+  }
+  if (event.approximate) label += t('approximateDateSuffix')
+  if (event.recurrence && event.recurrence !== 'none') {
+    label += t('recurringYearlySuffix')
   }
   return label
 }
@@ -57,8 +65,16 @@ export function getEventYearsInfo(
   t: Translate
 ): string | null {
   if (!event.originYear) return null
-  const now = new Date().getFullYear()
-  const diff = now - event.originYear
+  // Count to the year of the occurrence shown, not to the current year: an
+  // event in early January is the next year's. Anniversaries use the lunar
+  // year (a 12th-month anniversary in January still belongs to the old year).
+  const d = event.nextOccurrence
+  const isAnniversary = event.type === 'death_anniversary'
+  const year = isAnniversary
+    ? solarToLunar(d.getFullYear(), d.getMonth() + 1, d.getDate())?.year
+    : d.getFullYear()
+  if (!year) return null
+  const diff = year - event.originYear
   if (diff <= 0) return null
   if (isBirthday) return t('yearsOld', { count: diff })
   if (event.type === 'death_anniversary')

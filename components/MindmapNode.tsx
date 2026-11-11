@@ -3,13 +3,20 @@
 import { AnimatePresence, m } from 'framer-motion'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import Image from 'next/image'
-import { memo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 
+import { useAvatarUrl } from '@/context/AvatarUrlContext'
 import { useI18n } from '@/lib/i18n/useI18n'
 import { Person, Relationship } from '@/types'
-import { getAvatarUrl } from '@/utils/avatar'
-import { getAvatarBg } from '@/utils/styleHelprs'
-import { AdjacencyLists, getFilteredTreeData } from '@/utils/treeHelpers'
+import { EXPORT_IGNORE_PROPS } from '@/utils/exportFilter'
+import { lifeYearsLabel } from '@/utils/memberSearch'
+import { getAvatarBg } from '@/utils/styleHelpers'
+import {
+  AdjacencyLists,
+  childrenOffPath,
+  extendPath,
+  getFilteredTreeData
+} from '@/utils/treeHelpers'
 
 import DefaultAvatar from './DefaultAvatar'
 
@@ -30,6 +37,8 @@ export interface MindmapContextData {
   setMemberModalId: (id: string | null) => void
 }
 
+const NO_ANCESTORS: ReadonlySet<string> = new Set()
+
 const getTreeData = (personId: string, ctx: MindmapContextData) => {
   return getFilteredTreeData(personId, ctx.personsMap, ctx.adj, {
     hideDaughtersInLaw: ctx.hideDaughtersInLaw,
@@ -42,15 +51,16 @@ const getTreeData = (personId: string, ctx: MindmapContextData) => {
 }
 
 function NodeAvatar({ person }: { person: Person }) {
+  const avatarUrl = useAvatarUrl()
   return (
     <div className='relative shrink-0'>
       <div
         className={`flex size-10 items-center justify-center overflow-hidden rounded-full text-sm font-medium text-white shadow-md ring-2 ring-white transition-transform duration-300 group-hover/card:scale-105 ${getAvatarBg(person.gender)}`}>
-        {getAvatarUrl(person.avatar_url) ? (
+        {avatarUrl(person.avatar_url) ? (
           <Image
             unoptimized
-            src={getAvatarUrl(person.avatar_url)!}
-            alt={person.full_name}
+            src={avatarUrl(person.avatar_url)!}
+            alt=''
             width={40}
             height={40}
             className='h-full w-full object-cover'
@@ -128,9 +138,7 @@ function NodeCard({
                 />
               </svg>
               <span className='truncate'>
-                {person.birth_year || t('unknownDate')}
-                {person.is_deceased &&
-                  ` → ${person.death_lunar_year || person.death_year || t('unknownDate')}`}
+                {lifeYearsLabel(person, t('unknownDate'))}
               </span>
             </span>
             <InLawBadge person={person} />
@@ -151,6 +159,7 @@ function SpouseChips({
   spouses: { person: Person; note?: string | null }[]
   ctx: MindmapContextData
 }) {
+  const avatarUrl = useAvatarUrl()
   const { t } = useI18n()
   return (
     <div className='relative z-30 ml-1 flex flex-wrap gap-1.5 pl-2 before:absolute before:top-1/2 before:left-0 before:h-[70%] before:w-px before:-translate-y-1/2 before:bg-stone-200/80'>
@@ -173,11 +182,11 @@ function SpouseChips({
             {ctx.showAvatar && (
               <div
                 className={`flex size-8 items-center justify-center overflow-hidden rounded-full text-sm font-medium text-white shadow-sm ring-2 ring-white transition-transform duration-300 group-hover/spouse:scale-105 ${getAvatarBg(spouseData.person.gender)}`}>
-                {getAvatarUrl(spouseData.person.avatar_url) ? (
+                {avatarUrl(spouseData.person.avatar_url) ? (
                   <Image
                     unoptimized
-                    src={getAvatarUrl(spouseData.person.avatar_url)!}
-                    alt={spouseData.person.full_name}
+                    src={avatarUrl(spouseData.person.avatar_url)!}
+                    alt=''
                     width={32}
                     height={32}
                     className='h-full w-full object-cover'
@@ -220,11 +229,17 @@ function NodeConnectors({ isLast }: { isLast: boolean }) {
   )
 }
 
-function ExpandToggle({
+/**
+ * The chevron before a mind map node. The label names the person so a screen
+ * reader can tell the buttons apart; `aria-expanded` carries the state.
+ */
+export function ExpandToggle({
+  name,
   visible,
   isExpanded,
   onToggle
 }: {
+  name: string
   visible: boolean
   isExpanded: boolean
   onToggle: () => void
@@ -239,8 +254,10 @@ function ExpandToggle({
     <button
       onClick={onToggle}
       type='button'
+      {...EXPORT_IGNORE_PROPS}
       className='flex size-5 items-center justify-center rounded border border-stone-200 bg-white text-stone-500 transition-colors hover:bg-amber-50 hover:text-amber-600'
-      aria-label={isExpanded ? t('collapse') : t('expand')}
+      title={isExpanded ? t('collapse') : t('expand')}
+      aria-label={t('branchOf', { name })}
       aria-expanded={isExpanded}>
       {isExpanded ? (
         <ChevronDown strokeWidth={2.5} className='h-3.5 w-3.5' />
@@ -256,15 +273,22 @@ export const MindmapNode = memo(
     personId,
     level = 0,
     isLast = false,
+    ancestors = NO_ANCESTORS,
     ctx
   }: {
     personId: string
     level?: number
     isLast?: boolean
+    /** People above this node on its path; they are never drawn again below it. */
+    ancestors?: ReadonlySet<string>
     ctx: MindmapContextData
   }) => {
-    const { t } = useI18n()
     const data = getTreeData(personId, ctx)
+    const path = useMemo(
+      () => extendPath(ancestors, personId),
+      [ancestors, personId]
+    )
+    const children = childrenOffPath(data.children, path)
     const [isExpanded, setIsExpanded] = useState(
       ctx.autoCollapseLevel > 0 ? level < ctx.autoCollapseLevel : level < 2
     )
@@ -289,7 +313,7 @@ export const MindmapNode = memo(
 
     if (!data.person) return null
 
-    const hasChildren = data.children.length > 0
+    const hasChildren = children.length > 0
 
     return (
       <div className={`relative py-1.5 ${level > 0 ? 'pl-6' : 'pl-0'}`}>
@@ -300,6 +324,7 @@ export const MindmapNode = memo(
           {/* Expand/Collapse Toggle or spacer */}
           <div className='z-10 flex size-5 shrink-0 items-center justify-center bg-transparent'>
             <ExpandToggle
+              name={data.person.full_name}
               visible={hasChildren && !ctx.hideExpandButtons}
               isExpanded={isExpanded}
               onToggle={() => setIsExpanded(!isExpanded)}
@@ -319,12 +344,13 @@ export const MindmapNode = memo(
               transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
               className='relative z-0 -mt-4 origin-top overflow-hidden pt-4'>
               <div className='pb-1'>
-                {data.children.map((child, index) => (
+                {children.map((child, index) => (
                   <MindmapNode
                     key={child.id}
                     personId={child.id}
                     level={level + 1}
-                    isLast={index === data.children.length - 1}
+                    isLast={index === children.length - 1}
+                    ancestors={path}
                     ctx={ctx}
                   />
                 ))}

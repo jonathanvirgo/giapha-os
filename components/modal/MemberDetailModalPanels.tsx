@@ -43,7 +43,9 @@ export function ErrorPanel({
       <div className='mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-red-50 text-red-500 shadow-inner'>
         <AlertCircle className='size-8' />
       </div>
-      <p className='text-sm font-medium text-red-600'>{error}</p>
+      <p role='alert' className='text-sm font-medium text-red-600'>
+        {error}
+      </p>
       <button onClick={onClose} className='btn mt-2 rounded-full'>
         {t('close')}
       </button>
@@ -54,11 +56,13 @@ export function ErrorPanel({
 export function EditPanel({
   formInitialData,
   isAdmin,
+  privateLoaded = true,
   onSuccess,
   onCancel
 }: {
   formInitialData: Person
   isAdmin: boolean
+  privateLoaded?: boolean
   onSuccess: (personId: string) => void
   onCancel: () => void
 }) {
@@ -78,6 +82,7 @@ export function EditPanel({
         initialData={formInitialData}
         isEditing={true}
         isAdmin={isAdmin}
+        privateLoaded={privateLoaded}
         onSuccess={onSuccess}
         onCancel={onCancel}
       />

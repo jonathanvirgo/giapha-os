@@ -1,17 +1,14 @@
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
-import { notifyAdminOfPendingUser } from '@/utils/approval-notification'
+import { notifyAdminIfPending } from '@/utils/approval-notification'
+import { safeNextPath } from '@/utils/safeNextPath'
 import { createClient } from '@/utils/supabase/server'
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
   const type = requestUrl.searchParams.get('type')
-  const rawNext = requestUrl.searchParams.get('next')
-  const isRelative =
-    rawNext && rawNext.startsWith('/') && !rawNext.startsWith('//')
-  const next = isRelative ? rawNext : '/dashboard'
   const authError = requestUrl.searchParams.get('error')
 
   if (authError) {
@@ -21,7 +18,8 @@ export async function GET(request: Request) {
   }
 
   if (code) {
-    const supabase = createClient(await cookies())
+    const cookieStore = await cookies()
+    const supabase = createClient(cookieStore)
     const { error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (error) {
@@ -30,7 +28,7 @@ export async function GET(request: Request) {
       )
     }
 
-    if (type === "recovery") {
+    if (type === 'recovery') {
       return NextResponse.redirect(
         new URL('/auth/reset-password', requestUrl.origin)
       )
@@ -47,18 +45,12 @@ export async function GET(request: Request) {
         .eq('id', user.id)
         .maybeSingle()
 
-      if (profile?.role === 'member' && !profile.is_active) {
-        await notifyAdminOfPendingUser({
-          id: user.id,
-          email: user.email
-        })
-      }
+      await notifyAdminIfPending(user, profile)
     }
-
-    return NextResponse.redirect(new URL(next, requestUrl.origin))
   }
 
-  return NextResponse.redirect(
-    new URL('/login?error=auth_callback_error', requestUrl.origin)
-  )
+  // The page a shared link pointed to (?next= set by /login), same-site
+  // dashboard pages only; otherwise /dashboard.
+  const next = safeNextPath(requestUrl.searchParams.get('next'))
+  return NextResponse.redirect(new URL(next, requestUrl.origin))
 }

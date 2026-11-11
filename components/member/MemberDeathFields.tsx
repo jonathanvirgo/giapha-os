@@ -6,6 +6,8 @@ import { AlertCircle } from 'lucide-react'
 import { inputClasses } from '@/components/member/memberFormStyles'
 import { CheckboxIcon } from '@/components/member/MemberGeneralFields'
 import { useI18n } from '@/lib/i18n/useI18n'
+import { MAX_NOTE } from '@/utils/limits'
+import { hasLeapMonth } from '@/utils/memberFormHelpers'
 
 interface MemberDeathFieldsProps {
   isDeceased: boolean
@@ -16,8 +18,12 @@ interface MemberDeathFieldsProps {
   deathLunarDay: number | ''
   deathLunarMonth: number | ''
   deathLunarYear: number | ''
+  deathLunarLeap: boolean
+  onLunarLeapChange: (leap: boolean) => void
   onSolarChange: (field: 'day' | 'month' | 'year', value: string) => void
   onLunarChange: (field: 'day' | 'month' | 'year', value: string) => void
+  burialPlace: string
+  onBurialPlaceChange: (value: string) => void
 }
 
 export default function MemberDeathFields({
@@ -29,8 +35,12 @@ export default function MemberDeathFields({
   deathLunarDay,
   deathLunarMonth,
   deathLunarYear,
+  deathLunarLeap,
+  onLunarLeapChange,
   onSolarChange,
-  onLunarChange
+  onLunarChange,
+  burialPlace,
+  onBurialPlaceChange
 }: MemberDeathFieldsProps) {
   const { t } = useI18n()
   return (
@@ -69,24 +79,30 @@ export default function MemberDeathFields({
               {/* Lunar Date */}
               <div>
                 <label
+                  id='member-lunar-death-date-label'
                   htmlFor='member-lunar-death-day'
                   className='mb-2 block text-sm font-medium text-stone-700'>
                   {t('lunarDeathDate')}
                 </label>
-                <div className='grid grid-cols-3 gap-3'>
+                <div
+                  role='group'
+                  aria-labelledby='member-lunar-death-date-label'
+                  className='grid grid-cols-3 gap-3'>
                   <input
                     id='member-lunar-death-day'
                     type='number'
+                    step='1'
                     aria-label={t('day')}
                     placeholder={t('day')}
                     min='1'
-                    max='31'
+                    max='30'
                     value={deathLunarDay}
                     onChange={(e) => onLunarChange('day', e.target.value)}
                     className={inputClasses}
                   />
                   <input
                     type='number'
+                    step='1'
                     aria-label={t('month')}
                     placeholder={t('month')}
                     min='1'
@@ -97,26 +113,45 @@ export default function MemberDeathFields({
                   />
                   <input
                     type='number'
+                    step='1'
                     aria-label={t('year')}
+                    min='1000'
+                    max='9999'
                     placeholder={t('year')}
                     value={deathLunarYear}
                     onChange={(e) => onLunarChange('year', e.target.value)}
                     className={inputClasses}
                   />
                 </div>
+                {hasLeapMonth(deathLunarMonth, deathLunarYear) && (
+                  <label className='mt-2 flex items-center gap-2 text-sm text-stone-600'>
+                    <input
+                      type='checkbox'
+                      checked={deathLunarLeap}
+                      onChange={(e) => onLunarLeapChange(e.target.checked)}
+                      className='size-4 rounded border-stone-300'
+                    />
+                    {t('lunarLeapMonth')}
+                  </label>
+                )}
               </div>
 
               {/* Solar Date */}
               <div>
                 <label
+                  id='member-death-date-label'
                   htmlFor='member-death-day'
                   className='mb-2 block text-sm font-medium text-stone-700'>
                   {t('solarDeathDate')}
                 </label>
-                <div className='grid grid-cols-3 gap-3'>
+                <div
+                  role='group'
+                  aria-labelledby='member-death-date-label'
+                  className='grid grid-cols-3 gap-3'>
                   <input
                     id='member-death-day'
                     type='number'
+                    step='1'
                     aria-label={t('day')}
                     placeholder={t('day')}
                     min='1'
@@ -127,6 +162,7 @@ export default function MemberDeathFields({
                   />
                   <input
                     type='number'
+                    step='1'
                     aria-label={t('month')}
                     placeholder={t('month')}
                     min='1'
@@ -137,13 +173,34 @@ export default function MemberDeathFields({
                   />
                   <input
                     type='number'
+                    step='1'
                     aria-label={t('year')}
+                    min='1000'
+                    max='9999'
                     placeholder={t('year')}
                     value={deathYear}
                     onChange={(e) => onSolarChange('year', e.target.value)}
                     className={inputClasses}
                   />
                 </div>
+              </div>
+
+              {/* Burial place */}
+              <div>
+                <label
+                  htmlFor='member-burial-place'
+                  className='mb-2 block text-sm font-medium text-stone-700'>
+                  {t('burialPlace')}
+                </label>
+                <input
+                  id='member-burial-place'
+                  type='text'
+                  placeholder={t('burialPlacePlaceholder')}
+                  maxLength={MAX_NOTE}
+                  value={burialPlace}
+                  onChange={(e) => onBurialPlaceChange(e.target.value)}
+                  className={inputClasses}
+                />
               </div>
             </div>
           </m.div>

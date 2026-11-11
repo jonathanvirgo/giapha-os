@@ -1,11 +1,24 @@
-import { Lunar, Solar } from 'lunar-javascript'
+import type { TranslationKey, TranslationValues } from '@/lib/i18n/messages'
+import {
+  lunarToSolar,
+  lunarYearName,
+  solarToLunar
+} from '@/utils/lunarCalendar'
+
+export type Translate = (
+  key: TranslationKey,
+  values?: TranslationValues
+) => string
 
 export function formatDisplayDate(
   year: number | null,
   month: number | null,
-  day: number | null
+  day: number | null,
+  t: Translate
 ): string {
-  if (!year && !month && !day) return 'Chưa rõ'
+  // A day without its month (older data) would read as a month: drop it.
+  if (day && !month) day = null
+  if (!year && !month && !day) return t('unknownDate')
 
   const parts = []
   if (day) parts.push(day.toString().padStart(2, '0'))
@@ -18,56 +31,41 @@ export function formatDisplayDate(
 export function getLunarDateString(
   year: number | null,
   month: number | null,
-  day: number | null
+  day: number | null,
+  t: Translate
 ): string | null {
   if (!year || !month || !day) return null
 
-  try {
-    const solar = Solar.fromYmd(
-      year,
-      parseInt(month.toString()),
-      parseInt(day.toString())
-    )
-    const lunar = solar.getLunar()
+  const lunar = solarToLunar(
+    year,
+    parseInt(month.toString()),
+    parseInt(day.toString())
+  )
+  if (!lunar) return null
 
-    const lDay = lunar.getDay().toString().padStart(2, '0')
-    const lMonthRaw = lunar.getMonth()
-    const isLeap = lMonthRaw < 0
-    const lMonth = Math.abs(lMonthRaw).toString().padStart(2, '0')
-    const lYear = lunar.getYear()
-
-    return `${lDay}/${lMonth}${isLeap ? ' nhuận' : ''}/${lYear}`
-  } catch (error) {
-    console.error('Lunar conversion error:', error)
-    return null
-  }
+  const lDay = lunar.day.toString().padStart(2, '0')
+  const lMonth = lunar.month.toString().padStart(2, '0')
+  return `${lDay}/${lMonth}${lunar.leap ? t('leapMonth') : ''}/${lunar.year}`
 }
 
 export function getSolarDateString(
   year: number | null,
   month: number | null,
-  day: number | null
+  day: number | null,
+  t: Translate
 ): string | null {
-  if (!year || !month || !day) return 'Chưa rõ'
+  if (!year || !month || !day) return t('unknownDate')
 
-  try {
-    const lunar = Lunar.fromYmd(
-      year,
-      parseInt(month.toString()),
-      parseInt(day.toString())
-    )
-    const solar = lunar.getSolar()
+  const solar = lunarToSolar(
+    year,
+    parseInt(month.toString()),
+    parseInt(day.toString())
+  )
+  if (!solar) return null
 
-    const sDay = solar.getDay().toString().padStart(2, '0')
-    const sMonthRaw = solar.getMonth()
-    const sMonth = Math.abs(sMonthRaw).toString().padStart(2, '0')
-    const sYear = solar.getYear()
-
-    return `${sDay}/${sMonth}/${sYear}`
-  } catch (error) {
-    console.error('Solar conversion error:', error)
-    return null
-  }
+  const sDay = solar.day.toString().padStart(2, '0')
+  const sMonth = solar.month.toString().padStart(2, '0')
+  return `${sDay}/${sMonth}/${solar.year}`
 }
 
 export function calculateAge(
@@ -77,9 +75,33 @@ export function calculateAge(
   deathYear: number | null,
   deathMonth: number | null,
   deathDay: number | null,
-  isDeceased: boolean = false
+  isDeceased: boolean = false,
+  now: Date = new Date(),
+  deathLunar?: {
+    year: number | null
+    month: number | null
+    day: number | null
+  } | null
 ): { age: number; isDeceased: boolean } | null {
   if (!birthYear) return null
+
+  if (!deathYear && deathLunar?.year) {
+    // Only a lunar death date: convert it so the age still shows.
+    const solar =
+      deathLunar.month && deathLunar.day
+        ? lunarToSolar(deathLunar.year, deathLunar.month, deathLunar.day)
+        : null
+    if (solar) {
+      deathYear = solar.year
+      deathMonth = solar.month
+      deathDay = solar.day
+    } else {
+      // Lunar year N mostly falls in solar year N; month/day unknown.
+      deathYear = deathLunar.year
+      deathMonth = null
+      deathDay = null
+    }
+  }
 
   if (isDeceased || deathYear) {
     if (deathYear) {
@@ -92,16 +114,12 @@ export function calculateAge(
           age--
         }
       }
-      return { age, isDeceased: true }
+      return age < 0 ? null : { age, isDeceased: true }
     }
     return null
   }
 
-  const now = new Date()
-  const vnTimeStr = now.toLocaleString('en-US', {
-    timeZone: 'Asia/Ho_Chi_Minh'
-  })
-  const vnDate = new Date(vnTimeStr)
+  const vnDate = vnToday(now)
   const currentYear = vnDate.getFullYear()
 
   let age = currentYear - birthYear
@@ -117,138 +135,129 @@ export function calculateAge(
     }
   }
 
-  return { age, isDeceased: false }
+  return age < 0 ? null : { age, isDeceased: false }
 }
 
+// Returns a translation key (zodiacAries …); the caller translates it.
 export function getZodiacSign(
   day: number | null,
   month: number | null
-): string | null {
+): TranslationKey | null {
   if (!day || !month) return null
   const d = day
   const m = month
 
-  if ((m === 3 && d >= 21) || (m === 4 && d <= 19)) return 'Bạch Dương'
-  if ((m === 4 && d >= 20) || (m === 5 && d <= 20)) return 'Kim Ngưu'
-  if ((m === 5 && d >= 21) || (m === 6 && d <= 21)) return 'Song Tử'
-  if ((m === 6 && d >= 22) || (m === 7 && d <= 22)) return 'Cự Giải'
-  if ((m === 7 && d >= 23) || (m === 8 && d <= 22)) return 'Sư Tử'
-  if ((m === 8 && d >= 23) || (m === 9 && d <= 22)) return 'Xử Nữ'
-  if ((m === 9 && d >= 23) || (m === 10 && d <= 23)) return 'Thiên Bình'
-  if ((m === 10 && d >= 24) || (m === 11 && d <= 21)) return 'Thiên Yết'
-  if ((m === 11 && d >= 22) || (m === 12 && d <= 21)) return 'Nhân Mã'
-  if ((m === 12 && d >= 22) || (m === 1 && d <= 19)) return 'Ma Kết'
-  if ((m === 1 && d >= 20) || (m === 2 && d <= 18)) return 'Bảo Bình'
-  if ((m === 2 && d >= 19) || (m === 3 && d <= 20)) return 'Song Ngư'
+  if ((m === 3 && d >= 21) || (m === 4 && d <= 19)) return 'zodiacAries'
+  if ((m === 4 && d >= 20) || (m === 5 && d <= 20)) return 'zodiacTaurus'
+  if ((m === 5 && d >= 21) || (m === 6 && d <= 21)) return 'zodiacGemini'
+  if ((m === 6 && d >= 22) || (m === 7 && d <= 22)) return 'zodiacCancer'
+  if ((m === 7 && d >= 23) || (m === 8 && d <= 22)) return 'zodiacLeo'
+  if ((m === 8 && d >= 23) || (m === 9 && d <= 22)) return 'zodiacVirgo'
+  if ((m === 9 && d >= 23) || (m === 10 && d <= 23)) return 'zodiacLibra'
+  if ((m === 10 && d >= 24) || (m === 11 && d <= 21)) return 'zodiacScorpio'
+  if ((m === 11 && d >= 22) || (m === 12 && d <= 21)) return 'zodiacSagittarius'
+  if ((m === 12 && d >= 22) || (m === 1 && d <= 19)) return 'zodiacCapricorn'
+  if ((m === 1 && d >= 20) || (m === 2 && d <= 18)) return 'zodiacAquarius'
+  if ((m === 2 && d >= 19) || (m === 3 && d <= 20)) return 'zodiacPisces'
 
   return null
 }
 
+// Returns a translation key (animalRat …); the caller translates it.
 export function getZodiacAnimal(
   year: number | null,
   month: number | null = null,
   day: number | null = null
-): string | null {
+): TranslationKey | null {
   if (!year) return null
   const animals = [
-    'Thân',
-    'Dậu',
-    'Tuất',
-    'Hợi',
-    'Tý',
-    'Sửu',
-    'Dần',
-    'Mão',
-    'Thìn',
-    'Tỵ',
-    'Ngọ',
-    'Mùi'
-  ]
+    'animalMonkey',
+    'animalRooster',
+    'animalDog',
+    'animalPig',
+    'animalRat',
+    'animalOx',
+    'animalTiger',
+    'animalCat',
+    'animalDragon',
+    'animalSnake',
+    'animalHorse',
+    'animalGoat'
+  ] as const
 
   let targetYear = year
 
   if (month && day) {
-    try {
-      const solar = Solar.fromYmd(
-        year,
-        parseInt(month.toString()),
-        parseInt(day.toString())
-      )
-      targetYear = solar.getLunar().getYear()
-    } catch (error) {
-      console.error('Lunar conversion error in zodiac:', error)
-    }
+    const lunar = solarToLunar(
+      year,
+      parseInt(month.toString()),
+      parseInt(day.toString())
+    )
+    if (lunar) targetYear = lunar.year
   }
 
   return animals[targetYear % 12]
 }
 
-/* ── Thiên Can & Địa Chi (Vietnamese Can Chi) ─────────────────────── */
-const THIEN_CAN: Record<string, string> = {
-  甲: 'Giáp',
-  乙: 'Ất',
-  丙: 'Bính',
-  丁: 'Đinh',
-  戊: 'Mậu',
-  己: 'Kỷ',
-  庚: 'Canh',
-  辛: 'Tân',
-  壬: 'Nhâm',
-  癸: 'Quý'
-}
-
-const DIA_CHI: Record<string, string> = {
-  子: 'Tý',
-  丑: 'Sửu',
-  寅: 'Dần',
-  卯: 'Mão',
-  辰: 'Thìn',
-  巳: 'Tỵ',
-  午: 'Ngọ',
-  未: 'Mùi',
-  申: 'Thân',
-  酉: 'Dậu',
-  戌: 'Tuất',
-  亥: 'Hợi'
-}
+const WEEKDAY_KEYS = [
+  'weekdaySunday',
+  'weekdayMonday',
+  'weekdayTuesday',
+  'weekdayWednesday',
+  'weekdayThursday',
+  'weekdayFriday',
+  'weekdaySaturday'
+] as const
 
 /**
- * Convert a Chinese Gan-Zhi string (e.g. "丙午") to Vietnamese (e.g. "Bính Ngọ").
+ * Today's calendar date in Vietnam (Asia/Ho_Chi_Minh) as a Date at local
+ * midnight, so it can be compared with other dates built from year/month/day.
+ * The server (UTC on Vercel) and the browser (any zone) then agree on "today".
  */
-function ganZhiToVietnamese(ganZhi: string): string {
-  if (!ganZhi || ganZhi.length < 2) return ganZhi
-  const can = THIEN_CAN[ganZhi[0]] ?? ganZhi[0]
-  const chi = DIA_CHI[ganZhi[1]] ?? ganZhi[1]
-  return `${can} ${chi}`
+export function vnToday(now: Date = new Date()): Date {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric'
+  }).formatToParts(now)
+  const get = (type: string) =>
+    Number(parts.find((p) => p.type === type)?.value)
+  return new Date(get('year'), get('month') - 1, get('day'))
+}
+
+/** `YYYY-MM-DD` of the Vietnamese calendar day (default: today), for file names. */
+export function formatIsoDay(date: Date = vnToday()): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
 }
 
 /**
  * Get today's solar and lunar date info for display.
  */
-export function getTodayLunar() {
-  const now = new Date()
-  const vnTimeStr = now.toLocaleString('en-US', {
-    timeZone: 'Asia/Ho_Chi_Minh'
-  })
-  const vnDate = new Date(vnTimeStr)
+export function getTodayLunar(t: Translate, now: Date = new Date()) {
+  const vnDate = vnToday(now)
 
-  const solar = Solar.fromYmd(
+  const lunar = solarToLunar(
     vnDate.getFullYear(),
     vnDate.getMonth() + 1,
     vnDate.getDate()
-  )
-  const lunar = solar.getLunar()
+  )!
 
   return {
-    solarStr: vnDate.toLocaleDateString('vi-VN', {
-      weekday: 'long',
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric'
+    solarStr: t('todaySolarDate', {
+      weekday: t(WEEKDAY_KEYS[vnDate.getDay()]),
+      day: vnDate.getDate(),
+      month: vnDate.getMonth() + 1,
+      year: vnDate.getFullYear()
     }),
-    lunarDay: lunar.getDay(),
-    lunarMonth: Math.abs(lunar.getMonth()),
-    lunarYear: ganZhiToVietnamese(lunar.getYearInGanZhi()),
-    lunarDayStr: `${lunar.getDay()} tháng ${Math.abs(lunar.getMonth())}`
+    lunarDay: lunar.day,
+    lunarMonth: lunar.month,
+    lunarYear: lunarYearName(lunar.year),
+    lunarDayStr:
+      t('lunarDayMonth', { day: lunar.day, month: lunar.month }) +
+      (lunar.leap ? t('leapMonth') : '')
   }
 }

@@ -9,8 +9,18 @@ import PersonCard from '@/components/PersonCard'
 import { useMemberListView } from '@/context/useMemberListView'
 import { useI18n } from '@/lib/i18n/useI18n'
 import { Person, Relationship } from '@/types'
+import {
+  MEMBER_BATCH_SIZE,
+  nextVisibleCount,
+  takeBatch
+} from '@/utils/batchedList'
+import { listGenerations, matchesPersonFilter } from '@/utils/memberFilters'
 import { sortPersonsByGeneration, sortPersonsFlat } from '@/utils/memberSorting'
-import { normalizeSearchText } from '@/utils/search'
+import {
+  buildPersonSearchIndex,
+  matchesPersonSearch,
+  type PersonSearchIndex
+} from '@/utils/search'
 
 const EMPTY_RELATIONSHIPS: Relationship[] = []
 
@@ -45,55 +55,30 @@ export default function MemberList({
     return map
   }, [initialPersons])
 
-  // Accent-insensitive search index over full name and other names
+  // Accent-insensitive search index over names and birth/death years
   const searchIndex = useMemo(() => {
-    const index = new Map<string, string>()
-    initialPersons.forEach((p) =>
-      index.set(
-        p.id,
-        normalizeSearchText(`${p.full_name} ${p.other_names ?? ''}`)
-      )
-    )
+    const index = new Map<string, PersonSearchIndex>()
+    initialPersons.forEach((p) => index.set(p.id, buildPersonSearchIndex(p)))
     return index
   }, [initialPersons])
 
   const filteredPersons = useMemo(() => {
-    const query = normalizeSearchText(deferredSearchTerm)
+    const query = deferredSearchTerm
     const filterOption = deferredFilterOption
 
     return initialPersons.filter((person) => {
-      const text = searchIndex.get(person.id)
-      const matchesSearch = !query || (text?.indexOf(query) ?? -1) !== -1
+      const index = searchIndex.get(person.id)
+      const matchesSearch =
+        !query.trim() || (!!index && matchesPersonSearch(index, query))
 
-      let matchesFilter = true
-      switch (filterOption) {
-        case 'male':
-          matchesFilter = person.gender === 'male'
-          break
-        case 'female':
-          matchesFilter = person.gender === 'female'
-          break
-        case 'in_law_female':
-          matchesFilter = person.gender === 'female' && person.is_in_law
-          break
-        case 'in_law_male':
-          matchesFilter = person.gender === 'male' && person.is_in_law
-          break
-        case 'deceased':
-          matchesFilter = person.is_deceased
-          break
-        case 'first_child':
-          matchesFilter = person.birth_order === 1
-          break
-        case 'all':
-        default:
-          matchesFilter = true
-          break
-      }
-
-      return matchesSearch && matchesFilter
+      return matchesSearch && matchesPersonFilter(person, filterOption)
     })
   }, [initialPersons, searchIndex, deferredSearchTerm, deferredFilterOption])
+
+  const generations = useMemo(
+    () => listGenerations(initialPersons),
+    [initialPersons]
+  )
 
   const { parentsOf, spousesOf } = useMemo(() => {
     const pOf = new Map<string, string[]>()
@@ -132,12 +117,24 @@ export default function MemberList({
     )
   }, [filteredPersons, deferredSortOption, personMap, parentsOf, spousesOf])
 
+  // The list shows one batch at a time; a new search, filter or sort starts
+  // again from the first batch.
+  const batchKey = `${deferredSearchTerm}\u0000${deferredFilterOption}\u0000${deferredSortOption}`
+  const [batch, setBatch] = useState({
+    key: batchKey,
+    visible: MEMBER_BATCH_SIZE
+  })
+  const visibleCount =
+    batch.key === batchKey ? batch.visible : MEMBER_BATCH_SIZE
+  const { shown, remaining, nextCount } = takeBatch(sortedPersons, visibleCount)
+
   return (
     <>
       <MemberListToolbar
         searchTerm={searchTerm}
         onSearchTermChange={setSearchTerm}
         filterOption={filterOption}
+        generations={generations}
         onFilterOptionChange={setFilterOption}
         sortOption={sortOption}
         onSortOptionChange={setSortOption}
@@ -160,7 +157,7 @@ export default function MemberList({
         {sortedPersons.length > 0 ? (
           deferredSortOption.includes('generation') ? (
             <MemberGenerationView
-              sortedPersons={sortedPersons}
+              sortedPersons={shown}
               generationSort={
                 deferredSortOption as 'generation_asc' | 'generation_desc'
               }
@@ -170,7 +167,7 @@ export default function MemberList({
             />
           ) : (
             <div className='grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3'>
-              {sortedPersons.map((person) => (
+              {shown.map((person) => (
                 <div
                   key={person.id}
                   className='[contain-intrinsic-size:auto_120px] [content-visibility:auto]'>
@@ -207,6 +204,28 @@ export default function MemberList({
                 {t('addMember')}
               </button>
             )}
+          </div>
+        )}
+
+        {remaining > 0 && (
+          <div className='mt-8 flex flex-col items-center gap-3'>
+            <p className='text-sm text-stone-500' aria-live='polite'>
+              {t('membersShownOfTotal', {
+                shown: shown.length,
+                total: sortedPersons.length
+              })}
+            </p>
+            <button
+              type='button'
+              onClick={() =>
+                setBatch({
+                  key: batchKey,
+                  visible: nextVisibleCount(visibleCount, sortedPersons.length)
+                })
+              }
+              className='btn'>
+              {t('showMoreMembers', { count: nextCount })}
+            </button>
           </div>
         )}
       </div>

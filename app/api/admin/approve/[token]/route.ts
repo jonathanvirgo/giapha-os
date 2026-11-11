@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 
+import config from '@/app/config'
 import {
   getLocale,
   getMessages,
@@ -9,6 +10,7 @@ import {
 } from '@/lib/i18n/messages'
 import { hashApprovalToken } from '@/utils/approval'
 import { getAdminSupabase } from '@/utils/supabase/admin'
+import { isMissingDatabaseFunction } from '@/utils/supabase/missingFunction'
 
 export const runtime = 'nodejs'
 
@@ -66,7 +68,7 @@ function htmlResponse(content: string, status = 200, locale: Locale = 'vi') {
         <head>
           <meta charset="utf-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1" />
-          <title>Gia Phả OS - ${title}</title>
+          <title>${escapeHtml(config.siteName)} - ${title}</title>
         </head>
         <body style="margin:0;background:#fafaf9;font-family:Arial,sans-serif;color:#292524">
           <main style="box-sizing:border-box;max-width:560px;margin:0 auto;padding:48px 20px">
@@ -88,9 +90,12 @@ function htmlResponse(content: string, status = 200, locale: Locale = 'vi') {
   )
 }
 
+function isApprovalToken(token: string) {
+  return /^[A-Za-z0-9_-]{43}$/.test(token)
+}
+
 async function getRequest(token: string) {
-  if (!/^[A-Za-z0-9_-]{43}$/.test(token))
-    return { supabase: null, request: null }
+  if (!isApprovalToken(token)) return { supabase: null, request: null }
 
   const supabase = getAdminSupabase()
   const { data, error } = await supabase
@@ -119,16 +124,53 @@ function processedResponse(locale: Locale, t: Translator) {
   )
 }
 
+function revokedResponse(locale: Locale, t: Translator) {
+  return htmlResponse(
+    `<h1 style="margin-top:0;color:#991b1b">${t('approvalRevokedTitle')}</h1><p>${t('approvalRevokedText')}</p>`,
+    410,
+    locale
+  )
+}
+
+type AdminSupabase = ReturnType<typeof getAdminSupabase>
+
+// What public.approve_user_request (migration 20261031180000) answers.
+interface ApprovalResult {
+  status?:
+    'approved' | 'processed' | 'revoked' | 'expired' | 'invalid' | 'not_found'
+  email?: string | null
+}
+
+// A used link whose account is inactive was revoked: locking a user in
+// Manage users closes their open approval link. Answer 410 so the old email
+// cannot be mistaken for a working approval.
+async function usedRequestResponse(
+  supabase: AdminSupabase,
+  userId: string,
+  locale: Locale,
+  t: Translator
+) {
+  const { data: profile, error } = await supabase
+    .from('profiles')
+    .select('is_active')
+    .eq('id', userId)
+    .maybeSingle()
+
+  if (error) throw error
+  if (profile && !profile.is_active) return revokedResponse(locale, t)
+  return processedResponse(locale, t)
+}
+
 export async function GET(_request: Request, { params }: RouteContext) {
   const { locale, t } = getRequestTranslations(_request)
   try {
     const { token } = await params
-    const { request } = await getRequest(token)
+    const { supabase, request } = await getRequest(token)
 
-    if (!request) return invalidRequestResponse(locale, t)
+    if (!request || !supabase) return invalidRequestResponse(locale, t)
 
     if (request.used_at) {
-      return processedResponse(locale, t)
+      return usedRequestResponse(supabase, request.user_id, locale, t)
     }
 
     if (new Date(request.expires_at).getTime() <= Date.now()) {
@@ -177,62 +219,55 @@ export async function POST(_request: Request, { params }: RouteContext) {
     }
 
     const { token } = await params
-    const { supabase, request } = await getRequest(token)
+    if (!isApprovalToken(token)) return invalidRequestResponse(locale, t)
 
-    if (!request || !supabase) return invalidRequestResponse(locale, t)
+    // One database transaction checks the request and the account and
+    // activates it, so a lock made after this page was opened (even one
+    // landing during this request) is never undone, and of two concurrent
+    // clicks only one approves.
+    const { data, error } = await getAdminSupabase().rpc(
+      'approve_user_request',
+      { p_token_hash: hashApprovalToken(token) }
+    )
 
-    if (request.used_at) {
-      return processedResponse(locale, t)
-    }
-
-    if (new Date(request.expires_at).getTime() <= Date.now()) {
-      return invalidRequestResponse(locale, t)
-    }
-
-    // Claim the one-time request first. The conditional update makes two
-    // concurrent clicks mutually exclusive even though this route is stateless.
-    const { data: claimedRequest, error: claimError } = await supabase
-      .from('user_approval_requests')
-      .update({ used_at: new Date().toISOString() })
-      .eq('id', request.id)
-      .is('used_at', null)
-      .select('id')
-      .maybeSingle()
-
-    if (claimError) throw claimError
-    if (!claimedRequest) {
-      return processedResponse(locale, t)
-    }
-
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('is_active')
-      .eq('id', request.user_id)
-      .maybeSingle()
-
-    if (profileError || !profile) {
+    if (isMissingDatabaseFunction(error)) {
+      console.error(
+        'Cannot approve pending user: run the database migrations (approve_user_request is missing).'
+      )
       return htmlResponse(
-        `<h1 style="margin-top:0;color:#991b1b">${t('approvalNotFoundTitle')}</h1><p>${t('approvalNotFoundText')}</p>`,
-        404,
+        `<h1 style="margin-top:0;color:#991b1b">${t('approvalUpgradeTitle')}</h1><p>${t('approvalUpgradeText')}</p>`,
+        503,
         locale
       )
     }
+    if (error) throw error
 
-    if (!profile.is_active) {
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ is_active: true, updated_at: new Date().toISOString() })
-        .eq('id', request.user_id)
-        .eq('is_active', false)
-
-      if (updateError) throw updateError
+    const result = (data ?? {}) as ApprovalResult
+    switch (result.status) {
+      case 'approved':
+        return htmlResponse(
+          `<h1 style="margin-top:0;color:#166534">${t('approvalSuccessTitle')}</h1><p>${t('approvalSuccessText', { email: `<strong>${escapeHtml(result.email ?? '')}</strong>` })}</p>`,
+          200,
+          locale
+        )
+      case 'processed':
+        return processedResponse(locale, t)
+      case 'revoked':
+        return revokedResponse(locale, t)
+      case 'not_found':
+        return htmlResponse(
+          `<h1 style="margin-top:0;color:#991b1b">${t('approvalNotFoundTitle')}</h1><p>${t('approvalNotFoundText')}</p>`,
+          404,
+          locale
+        )
+      case 'invalid':
+      case 'expired':
+        return invalidRequestResponse(locale, t)
+      default:
+        throw new Error(
+          `approve_user_request returned an unknown status: ${String(result.status)}`
+        )
     }
-
-    return htmlResponse(
-      `<h1 style="margin-top:0;color:#166534">${t('approvalSuccessTitle')}</h1><p>${t('approvalSuccessText', { email: `<strong>${escapeHtml(request.email)}</strong>` })}</p>`,
-      200,
-      locale
-    )
   } catch (error) {
     console.error('Cannot approve pending user:', error)
     return htmlResponse(

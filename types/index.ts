@@ -49,6 +49,8 @@ export interface Person {
   birth_order: number | null
   generation: number | null
   other_names: string | null
+  /** Where the member is buried; missing on databases not upgraded yet. */
+  burial_place?: string | null
 }
 
 export interface Relationship {
@@ -78,4 +80,6 @@ export interface GalleryItem {
   created_by: string | null
   // Storage path used to create signed URLs and delete the object.
   storage_path?: string
+  // True when no signed URL could be made for the image (it is not shown).
+  image_error?: boolean
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import * as d3 from 'd3'
+import type { ZoomBehavior } from 'd3-zoom'
 import { RefObject, useEffect } from 'react'
 
 import { GraphLink, GraphNode } from '@/utils/bubbleGraph'
@@ -9,14 +9,17 @@ import { createBubbleTreeRenderer } from '@/utils/bubbleTreeRenderer'
 interface UseBubbleTreeRenderOptions {
   svgRef: RefObject<SVGSVGElement | null>
   containerRef: RefObject<HTMLDivElement | null>
-  zoomRef: RefObject<d3.ZoomBehavior<SVGSVGElement, unknown> | null>
+  zoomRef: RefObject<ZoomBehavior<SVGSVGElement, unknown> | null>
   nodes: GraphNode[]
   links: GraphLink[]
   isFullscreen: boolean
+  avatarUrl: (value: string | null | undefined) => string | null
   onZoomLevelChange: (level: number) => void
   onSelectionChange: () => void
   onNodeClick: (nodeId: string) => void
   onRenderError: (error: Error) => void
+  canvasLabel: string
+  getNodeLabel: (node: GraphNode) => string
 }
 
 export function useBubbleTreeRender({
@@ -26,10 +29,13 @@ export function useBubbleTreeRender({
   nodes,
   links,
   isFullscreen,
+  avatarUrl,
   onZoomLevelChange,
   onSelectionChange,
   onNodeClick,
-  onRenderError
+  onRenderError,
+  canvasLabel,
+  getNodeLabel
 }: UseBubbleTreeRenderOptions) {
   useEffect(() => {
     if (!svgRef.current || !containerRef.current) return
@@ -42,9 +48,12 @@ export function useBubbleTreeRender({
         zoomRef,
         nodes,
         links,
+        avatarUrl,
         onZoomLevelChange,
         onSelectionChange,
-        onNodeClick
+        onNodeClick,
+        canvasLabel,
+        getNodeLabel
       })
     } catch (err) {
       console.error('D3 rendering error:', err)
@@ -60,12 +69,15 @@ export function useBubbleTreeRender({
     isFullscreen,
     nodes,
     links,
+    avatarUrl,
     svgRef,
     containerRef,
     zoomRef,
     onZoomLevelChange,
     onSelectionChange,
     onNodeClick,
-    onRenderError
+    onRenderError,
+    canvasLabel,
+    getNodeLabel
   ])
 }

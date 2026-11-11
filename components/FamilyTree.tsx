@@ -1,7 +1,13 @@
 'use client'
 
-import { Minus, Plus } from 'lucide-react'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState
+} from 'react'
 
 import FamilyTreeNodeRenderer from '@/components/FamilyTreeNodeRenderer'
 import TreeLinesStyle from '@/components/TreeLinesStyle'
@@ -11,12 +17,12 @@ import { useI18n } from '@/lib/i18n/useI18n'
 import { Person, Relationship } from '@/types'
 import {
   buildAdjacencyLists,
+  buildNodeChildrenMap,
   computeAutoCollapsed,
   equalizeNodeHeights,
   getFilteredTreeData
 } from '@/utils/treeHelpers'
 
-import FamilyNodeCard from './FamilyNodeCard'
 import TreeToolbar from './TreeToolbar'
 
 const DEFAULT_AUTO_COLLAPSE_LEVEL = 4
@@ -33,6 +39,7 @@ export default function FamilyTree({
   canEdit?: boolean
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const keyboardHintId = useId()
   const [hideDaughtersInLaw, setHideDaughtersInLaw] = useState(false)
   const [hideSonsInLaw, setHideSonsInLaw] = useState(false)
   const [hideDaughters, setHideDaughters] = useState(false)
@@ -45,6 +52,13 @@ export default function FamilyTree({
     DEFAULT_AUTO_COLLAPSE_LEVEL
   )
 
+  const treeRef = useRef<HTMLDivElement>(null)
+  // Unscaled size of the tree (transforms don't change offsetWidth/Height).
+  const [naturalSize, setNaturalSize] = useState<{
+    width: number
+    height: number
+  } | null>(null)
+
   const { showAvatar } = useMemberListView()
   const { t } = useI18n()
 
@@ -53,10 +67,11 @@ export default function FamilyTree({
     isPressed,
     isDragging,
     handlers: {
-      handleMouseDown,
-      handleMouseMove,
-      handleMouseUpOrLeave,
+      handlePointerDown,
+      handlePointerMove,
+      handlePointerUpOrLeave,
       handleClickCapture,
+      handleKeyDown,
       handleZoomIn,
       handleZoomOut,
       handleResetZoom
@@ -115,7 +130,7 @@ export default function FamilyTree({
   // tree before collapsing it.
   const autoCollapsed = useMemo(
     () =>
-      computeAutoCollapsed(roots, adj.childrenByPersonId, autoCollapseLevel),
+      computeAutoCollapsed(roots, buildNodeChildrenMap(adj), autoCollapseLevel),
     [roots, adj, autoCollapseLevel]
   )
 
@@ -185,6 +200,22 @@ export default function FamilyTree({
 
   const handleCenter = centerTree
 
+  const hasTree = roots.length > 0
+  useEffect(() => {
+    const el = treeRef.current
+    if (!el) return
+    const measure = () =>
+      setNaturalSize((prev) =>
+        prev && prev.width === el.offsetWidth && prev.height === el.offsetHeight
+          ? prev
+          : { width: el.offsetWidth, height: el.offsetHeight }
+      )
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [hasTree])
+
   if (roots.length === 0)
     return (
       <div className='p-10 text-center text-stone-500'>{t('noTreeData')}</div>
@@ -220,45 +251,64 @@ export default function FamilyTree({
       <div
         ref={containerRef}
         role='group'
-        aria-label='Family tree canvas'
-        className={`h-full w-full overflow-auto bg-stone-50 ${isPressed ? 'cursor-grabbing' : 'cursor-grab'}`}
+        aria-label={t('treeCanvasLabel')}
+        aria-describedby={keyboardHintId}
+        className={`h-full w-full [touch-action:pan-x_pan-y] overflow-auto bg-stone-50 ${isPressed ? 'cursor-grabbing' : 'cursor-grab'}`}
         tabIndex={0}
         onKeyDown={(e) => {
           // Keyboard users get the same "release" affordance as mouse users:
           // Escape cancels a grab/drag state on the canvas.
-          if (e.key === 'Escape') handleMouseUpOrLeave()
+          if (e.key === 'Escape') handlePointerUpOrLeave()
+          handleKeyDown(e)
         }}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUpOrLeave}
-        onMouseLeave={handleMouseUpOrLeave}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUpOrLeave}
+        onPointerCancel={handlePointerUpOrLeave}
+        onPointerLeave={handlePointerUpOrLeave}
         onClickCapture={handleClickCapture}
         onDragStart={(e) => e.preventDefault()} // Prevent browser default dragging of links/images
       >
         <TreeLinesStyle />
+        <span id={keyboardHintId} className='sr-only'>
+          {t('treeKeyboardHint')}
+        </span>
 
-        {/* 
-        Use w-max to prevent wrapping and allow scrolling. 
-        mx-auto centers it if smaller than screen. 
-        p-8 adds padding inside scroll area.
+        {/*
+        The scaled box takes the tree's scaled size, so the scroll area always
+        matches what is drawn: nothing is cut off on the left when zoomed in
+        and no empty space is left when zoomed out. mx-auto centers it when it
+        is narrower than the screen.
       */}
         <div
-          id='export-container'
-          className={`css-tree mx-auto w-max min-w-full p-4 transition-[transform,opacity] duration-200 ${isDragging ? 'opacity-90' : ''}`}
-          style={{
-            transform: `scale(${scale})`,
-            transformOrigin: 'top center'
-          }}>
-          <ul>
-            <MemoizedNodeTree
-              roots={roots}
-              getTreeData={getTreeData}
-              collapsedNodes={collapsedNodes}
-              showAvatar={showAvatar}
-              hideExpandButtons={hideExpandButtons}
-              toggleCollapse={toggleCollapse}
-            />
-          </ul>
+          className='mx-auto'
+          style={
+            naturalSize
+              ? {
+                  width: naturalSize.width * scale,
+                  height: naturalSize.height * scale
+                }
+              : undefined
+          }>
+          <div
+            ref={treeRef}
+            id='export-container'
+            className={`css-tree w-max p-4 transition-opacity duration-200 ${isDragging ? 'opacity-90' : ''}`}
+            style={{
+              transform: `scale(${scale})`,
+              transformOrigin: 'top left'
+            }}>
+            <ul>
+              <MemoizedNodeTree
+                roots={roots}
+                getTreeData={getTreeData}
+                collapsedNodes={collapsedNodes}
+                showAvatar={showAvatar}
+                hideExpandButtons={hideExpandButtons}
+                toggleCollapse={toggleCollapse}
+              />
+            </ul>
+          </div>
         </div>
       </div>
     </div>

@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 
+import { useFilePreview } from '@/hooks/useFilePreview'
 import { Person } from '@/types'
 
 // Avatar form state: keeps the stored path as submit-only scratch data, while
@@ -10,21 +11,17 @@ import { Person } from '@/types'
 // "Remove photo" doesn't leave a broken avatar.
 export function useMemberAvatar(initialData?: Person) {
   const avatarUrlRef = useRef(initialData?.avatar_url || '')
-  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const {
+    file: avatarFile,
+    previewUrl,
+    setFile: setAvatarFile
+  } = useFilePreview()
   const [removeExistingAvatar, setRemoveExistingAvatar] = useState(false)
   const [processingAvatar, setProcessingAvatar] = useState(false)
 
-  const [objectUrl, setObjectUrl] = useState<string | null>(null)
-
-  // Revoke object URL on cleanup / unmount
-  useEffect(() => {
-    return () => {
-      if (objectUrl) URL.revokeObjectURL(objectUrl)
-    }
-  }, [objectUrl])
-
+  // A chosen file wins; otherwise the stored photo unless it was removed.
   const avatarPreview = avatarFile
-    ? objectUrl
+    ? previewUrl
     : removeExistingAvatar
       ? null
       : initialData?.avatar_url || null
@@ -33,20 +30,12 @@ export function useMemberAvatar(initialData?: Person) {
     if (initialData?.avatar_url) {
       setRemoveExistingAvatar(true)
     }
-    if (objectUrl) {
-      URL.revokeObjectURL(objectUrl)
-    }
-    setObjectUrl(URL.createObjectURL(file))
     setAvatarFile(file)
   }
 
   const handleAvatarRemove = () => {
     if (initialData?.avatar_url) {
       setRemoveExistingAvatar(true)
-    }
-    if (objectUrl) {
-      URL.revokeObjectURL(objectUrl)
-      setObjectUrl(null)
     }
     avatarUrlRef.current = ''
     setAvatarFile(null)

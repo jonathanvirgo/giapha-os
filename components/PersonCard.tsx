@@ -3,11 +3,12 @@
 import Image from 'next/image'
 import { memo } from 'react'
 
+import { useAvatarUrl } from '@/context/AvatarUrlContext'
 import { useMemberListView } from '@/context/useMemberListView'
 import { useI18n } from '@/lib/i18n/useI18n'
 import { Person } from '@/types'
-import { getAvatarUrl } from '@/utils/avatar'
-import { getAvatarBg } from '@/utils/styleHelprs'
+import { lifeYearsLabel } from '@/utils/memberSearch'
+import { getAvatarBg } from '@/utils/styleHelpers'
 
 import DefaultAvatar from './DefaultAvatar'
 import { FemaleIcon, MaleIcon } from './GenderIcons'
@@ -23,15 +24,17 @@ function getGenderStyle(gender: string) {
 }
 
 function PersonAvatar({ person }: { person: Person }) {
+  const { t } = useI18n()
+  const avatarUrl = useAvatarUrl()
   return (
     <div className='relative'>
       <div
         className={`flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-medium text-white shadow-lg ring-2 ring-white transition-transform duration-300 group-hover:scale-105 sm:size-16 ${getAvatarBg(person.gender)}`}>
-        {getAvatarUrl(person.avatar_url) ? (
+        {avatarUrl(person.avatar_url) ? (
           <Image
             unoptimized
-            src={getAvatarUrl(person.avatar_url)!}
-            alt={person.full_name}
+            src={avatarUrl(person.avatar_url)!}
+            alt=''
             width={32}
             height={32}
             className='h-full w-full object-cover'
@@ -43,16 +46,16 @@ function PersonAvatar({ person }: { person: Person }) {
       <div
         className={`absolute right-0 bottom-0 flex size-5 items-center justify-center rounded-full shadow-sm ring-2 ring-white ${getGenderStyle(person.gender)}`}>
         {person.gender === 'male' ? (
-          <MaleIcon className='size-5' />
+          <MaleIcon className='size-5' label={t('male')} />
         ) : person.gender === 'female' ? (
-          <FemaleIcon className='size-5' />
+          <FemaleIcon className='size-5' label={t('female')} />
         ) : null}
       </div>
     </div>
   )
 }
 
-function PersonBadges({
+export function PersonBadges({
   person,
   isDeceased
 }: {
@@ -64,7 +67,7 @@ function PersonBadges({
   if (!(
     isDeceased ||
     person.is_in_law ||
-    person.birth_order != null ||
+    (person.birth_order != null && !person.is_in_law) ||
     person.generation != null
   )) {
     return null
@@ -88,7 +91,7 @@ function PersonBadges({
               : t('inLawOther')}
         </span>
       )}
-      {person.birth_order != null && (
+      {person.birth_order != null && !person.is_in_law && (
         <span className='inline-flex items-center rounded-md border border-amber-200/60 bg-amber-50 px-2 py-0.5 text-sm font-medium text-amber-700 sm:text-sm'>
           {person.birth_order === 1
             ? t('firstChild')
@@ -145,9 +148,7 @@ function PersonCard({ person }: PersonCardProps) {
               />
             </svg>
             <span className='truncate'>
-              {person.birth_year || '...'}
-              {isDeceased &&
-                ` → ${person.death_lunar_year || person.death_year || '...'}`}
+              {lifeYearsLabel({ ...person, is_deceased: isDeceased }, '...')}
             </span>
           </p>
           <PersonBadges person={person} isDeceased={isDeceased} />

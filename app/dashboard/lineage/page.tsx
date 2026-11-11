@@ -1,9 +1,22 @@
+import type { Metadata } from 'next'
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import LineageManager from '@/components/LineageManager'
 import { getServerTranslations } from '@/lib/i18n/server'
-import { fetchAllRows } from '@/utils/supabase/fetchAll'
+import { Person, Relationship } from '@/types'
+import {
+  PERSON_LIST_COLUMNS,
+  RELATIONSHIP_COLUMNS
+} from '@/utils/personColumns'
+import { fetchAllRowsOrThrow } from '@/utils/supabase/fetchAll'
 import { getProfile, getSupabase } from '@/utils/supabase/queries'
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getServerTranslations()
+
+  return { title: t('lineagePageTitle') }
+}
 
 export default async function LineagePage() {
   const [{ t }, profile] = await Promise.all([
@@ -18,22 +31,29 @@ export default async function LineagePage() {
   const supabase = await getSupabase()
 
   const [{ data: personsData }, { data: relsData }] = await Promise.all([
-    fetchAllRows((from, to) =>
+    fetchAllRowsOrThrow((from, to) =>
       supabase
         .from('persons')
-        .select('*')
+        .select(PERSON_LIST_COLUMNS)
         .order('birth_year', { ascending: true, nullsFirst: false })
         .order('id')
         .range(from, to)
     ),
-    fetchAllRows((from, to) =>
-      supabase.from('relationships').select('*').order('id').range(from, to)
+    fetchAllRowsOrThrow((from, to) =>
+      supabase
+        .from('relationships')
+        .select(RELATIONSHIP_COLUMNS)
+        .order('created_at')
+        .order('id')
+        .range(from, to)
     )
   ])
 
   // Identify "roots" - people with no parents
-  const persons = personsData || []
-  const relationships = relsData || []
+  // PERSON_LIST_COLUMNS leaves out note/created_at; no view reads them.
+  const persons = (personsData || []) as Person[]
+  // RELATIONSHIP_COLUMNS leaves out note/updated_at; no view reads them.
+  const relationships = (relsData || []) as Relationship[]
 
   return (
     <main className='relative flex w-full flex-1 flex-col overflow-auto bg-stone-50/50 pt-8'>
@@ -43,6 +63,13 @@ export default async function LineagePage() {
           <h1 className='title'>{t('lineagePageTitle')}</h1>
           <p className='mt-2 max-w-2xl text-sm text-stone-500 sm:text-sm'>
             {t('lineagePageDescription')}
+          </p>
+          <p className='mt-3 text-sm print:hidden'>
+            <Link
+              href='/dashboard/lineage/book'
+              className='font-medium text-amber-700 hover:underline'>
+              {t('lineageBookOpen')} →
+            </Link>
           </p>
         </div>
 

@@ -13,6 +13,7 @@ import {
 
 import { useMemberListView } from '@/context/useMemberListView'
 import { useI18n } from '@/lib/i18n/useI18n'
+import { clickableProps } from '@/utils/a11y'
 import { getZodiacSign } from '@/utils/dateHelpers'
 import {
   daysUntilLabel,
@@ -89,10 +90,13 @@ function EventIcon({
 export default function EventCard({
   event,
   index,
+  canEdit = true,
   onEditCustomEvent
 }: {
   event: FamilyEvent
   index: number
+  /** Custom events open the edit form only for their creator or an admin. */
+  canEdit?: boolean
   onEditCustomEvent: (e: FamilyEvent) => void
 }) {
   const { t } = useI18n()
@@ -104,9 +108,11 @@ export default function EventCard({
 
   const { setMemberModalId } = useMemberListView()
 
+  const isClickable = isCustom ? canEdit : Boolean(event.personId)
+
   const handleClick = () => {
     if (isCustom) {
-      onEditCustomEvent(event)
+      if (canEdit) onEditCustomEvent(event)
     } else if (event.personId) {
       setMemberModalId(event.personId)
     }
@@ -120,8 +126,8 @@ export default function EventCard({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay: index * 0.04 }}
-      onClick={handleClick}
-      className={`group flex w-full cursor-pointer items-start gap-3 rounded-2xl border p-3.5 text-left transition active:scale-[0.98] sm:gap-4 sm:p-4 ${getCardTone(isToday, isPast, isBirthday, isCustom)}`}>
+      {...clickableProps(isClickable ? handleClick : null)}
+      className={`group flex w-full ${isClickable ? 'cursor-pointer active:scale-[0.98]' : ''} items-start gap-3 rounded-2xl border p-3.5 text-left transition sm:gap-4 sm:p-4 ${getCardTone(isToday, isPast, isBirthday, isCustom)}`}>
       {/* Icon */}
       <div
         className={`flex size-10 shrink-0 items-center justify-center rounded-xl sm:size-11 ${getIconTone(isToday, isPast, isBirthday, isCustom)}`}>
@@ -136,7 +142,7 @@ export default function EventCard({
             className={`truncate text-sm font-medium transition-colors sm:text-sm ${
               isPast
                 ? 'text-stone-500'
-                : 'text-stone-800 group-hover:text-amber-700'
+                : `text-stone-800 ${isClickable ? 'group-hover:text-amber-700' : ''}`
             }`}>
             {event.personName}
           </p>
@@ -145,7 +151,7 @@ export default function EventCard({
             event.originMonth &&
             getZodiacSign(event.originDay, event.originMonth) && (
               <span className='shrink-0 rounded-md border border-indigo-200/60 bg-indigo-50 px-1.5 py-0.5 font-sans text-sm font-medium whitespace-nowrap text-indigo-700'>
-                {getZodiacSign(event.originDay, event.originMonth)}
+                {t(getZodiacSign(event.originDay, event.originMonth)!)}
               </span>
             )}
           {/* Days badge — inline with name */}

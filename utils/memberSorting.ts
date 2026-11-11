@@ -1,5 +1,8 @@
 import { Person } from '@/types'
 
+import { compareBirth } from './compareBirth'
+import { compareByGivenName } from './givenName'
+
 type ParentsOf = Map<string, string[]>
 type SpousesOf = Map<string, string[]>
 
@@ -7,13 +10,13 @@ export function sortPersonsFlat(persons: Person[], sortOption: string) {
   return [...persons].sort((a, b) => {
     switch (sortOption) {
       case 'birth_asc':
-        return (a.birth_year || 9999) - (b.birth_year || 9999)
+        return compareBirth(a, b, { useOrder: false })
       case 'birth_desc':
-        return (b.birth_year || 0) - (a.birth_year || 0)
+        return compareBirth(a, b, { useOrder: false, direction: 'desc' })
       case 'name_asc':
-        return a.full_name.localeCompare(b.full_name, 'vi')
+        return compareByGivenName(a.full_name, b.full_name)
       case 'name_desc':
-        return b.full_name.localeCompare(a.full_name, 'vi')
+        return compareByGivenName(b.full_name, a.full_name)
       case 'updated_desc':
         return (
           new Date(b.updated_at || 0).getTime() -
@@ -96,19 +99,18 @@ export function sortPersonsByGeneration(
     // Find the "core" member (usually the bloodline, not in-law)
     const coreMember = members.find((m) => !m.is_in_law) || members[0]
 
-    // Score is [generation, parentBirthOrder, ownBirthOrder, birthYear]
-    const parents = parentsOf.get(coreMember.id) || []
-    let parentBirthOrder = 999
-    if (parents.length > 0) {
-      const p1 = personMap.get(parents[0])
-      if (p1) parentBirthOrder = p1.birth_order || 999
-    }
+    // Score: the blood parent (not an in-law) who comes first among their
+    // siblings, so the order of the parent rows doesn't matter
+    const parents = (parentsOf.get(coreMember.id) || [])
+      .map((id) => personMap.get(id))
+      .filter((p): p is Person => !!p)
+    const blood = parents.filter((p) => !p.is_in_law)
+    const parent = [...(blood.length > 0 ? blood : parents)].sort((a, b) =>
+      compareBirth(a, b)
+    )[0]
+    const parentBirthOrder = parent?.birth_order || 999
 
-    return {
-      parentBirthOrder,
-      ownBirthOrder: coreMember.birth_order || 999,
-      birthYear: coreMember.birth_year || 9999
-    }
+    return { parentBirthOrder, coreMember }
   }
 
   const familyScores = new Map(
@@ -125,10 +127,7 @@ export function sortPersonsByGeneration(
     if (scoreA.parentBirthOrder !== scoreB.parentBirthOrder) {
       return scoreA.parentBirthOrder - scoreB.parentBirthOrder
     }
-    if (scoreA.ownBirthOrder !== scoreB.ownBirthOrder) {
-      return scoreA.ownBirthOrder - scoreB.ownBirthOrder
-    }
-    return scoreA.birthYear - scoreB.birthYear
+    return compareBirth(scoreA.coreMember, scoreB.coreMember)
   })
 
   // 5. Flatten the grouped and sorted families
@@ -149,12 +148,7 @@ export function sortPersonsByGeneration(
       const refB = getBloodlineRef(b)
 
       // Different bloodline partner -> sort by the bloodline partner's order/age
-      if (refA.id !== refB.id) {
-        if ((refA.birth_order || 999) !== (refB.birth_order || 999)) {
-          return (refA.birth_order || 999) - (refB.birth_order || 999)
-        }
-        return (refA.birth_year || 9999) - (refB.birth_year || 9999)
-      }
+      if (refA.id !== refB.id) return compareBirth(refA, refB)
 
       // Same bloodline partner (e.g. one is bloodline, other is spouse)
       if (a.is_in_law !== b.is_in_law) {
@@ -162,7 +156,7 @@ export function sortPersonsByGeneration(
       }
 
       // Both are spouses or both bloodline? Sort by age
-      return (a.birth_year || 9999) - (b.birth_year || 9999)
+      return compareBirth(a, b)
     })
     finalSorted.push(...members.map((m) => ({ ...m, _familyId: groupId })))
   })
@@ -218,10 +212,10 @@ export function groupIntoCoupleGroups(
     // This ensures HUB -- SPOUSE links work best in a horizontal grid.
     const bloodlineMembers = group
       .filter((m) => !m.is_in_law)
-      .sort((a, b) => (a.birth_year || 0) - (b.birth_year || 0))
+      .sort((a, b) => compareBirth(a, b))
     const inLawMembers = group
       .filter((m) => m.is_in_law)
-      .sort((a, b) => (a.birth_year || 0) - (b.birth_year || 0))
+      .sort((a, b) => compareBirth(a, b))
 
     const balanced: Person[] = []
     if (group.length <= 2) {

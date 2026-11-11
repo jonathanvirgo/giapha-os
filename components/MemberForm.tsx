@@ -5,6 +5,7 @@ import { User } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
+import DiscardChangesDialog from '@/components/member/DiscardChangesDialog'
 import MemberAvatarField from '@/components/member/MemberAvatarField'
 import MemberDeathFields from '@/components/member/MemberDeathFields'
 import MemberFormFooter from '@/components/member/MemberFormFooter'
@@ -16,17 +17,27 @@ import { useMemberAvatar } from '@/hooks/useMemberAvatar'
 import { useI18n } from '@/lib/i18n/useI18n'
 import { Gender, Person } from '@/types'
 import {
+  finishMemberSave,
+  isFormDirty,
+  MemberSaveWarning,
+  submitMemberForm
+} from '@/utils/memberForm'
+import {
   getMemberFormInitialValues,
   hasGenerationChanged,
   toNumberOrEmpty
 } from '@/utils/memberFormInit'
-import { submitMemberForm } from '@/utils/memberFormSubmit'
 import { createClient } from '@/utils/supabase/client'
 
 interface MemberFormProps {
   initialData?: Person
   isEditing?: boolean
   isAdmin?: boolean
+  /**
+   * False when the private details failed to load: their fields are locked and
+   * saving leaves the stored details untouched.
+   */
+  privateLoaded?: boolean
   /** Called with the saved person's ID after a successful save. Overrides default router.push. */
   onSuccess?: (personId: string) => void
   /** Called when user clicks Cancel. Overrides default router.back(). */
@@ -34,9 +45,10 @@ interface MemberFormProps {
 }
 
 export default function MemberForm({
-  initialData,
-  isEditing = false,
+  initialData: initialDataProp,
+  isEditing: isEditingProp = false,
   isAdmin = false,
+  privateLoaded = true,
   onSuccess,
   onCancel
 }: MemberFormProps) {
@@ -45,12 +57,27 @@ export default function MemberForm({
   const { t } = useI18n()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [changed, setChanged] = useState(false)
+  const [warning, setWarning] = useState<MemberSaveWarning | null>(null)
+  // Set when a new member was inserted but a later step failed: the form then
+  // edits that person, so saving again cannot create a duplicate.
+  const [createdPerson, setCreatedPerson] = useState<Person | null>(null)
+  // `updated_at` of the row after a save whose later step failed (see
+  // `onUpdated`); without it, saving again would be taken as a conflict.
+  const [savedUpdatedAt, setSavedUpdatedAt] = useState<string | null>(null)
+  const initialData =
+    createdPerson ??
+    (initialDataProp && savedUpdatedAt
+      ? { ...initialDataProp, updated_at: savedUpdatedAt }
+      : initialDataProp)
+  const isEditing = isEditingProp || createdPerson !== null
+  const [confirmation, setConfirmation] = useState<string | null>(null)
 
   // Form states (defaults resolved by a plain helper to keep this component
   // free of per-field fallback branches)
   const init = useMemo(
-    () => getMemberFormInitialValues(initialData),
-    [initialData]
+    () => getMemberFormInitialValues(initialDataProp),
+    [initialDataProp]
   )
   const [fullName, setFullName] = useState(init.fullName)
   const [otherNames, setOtherNames] = useState(init.otherNames)
@@ -68,6 +95,7 @@ export default function MemberForm({
     lunarYear: init.deathLunarYear
   })
   const [isDeceased, setIsDeceased] = useState<boolean>(init.isDeceased)
+  const [burialPlace, setBurialPlace] = useState(init.burialPlace)
   const [isInLaw, setIsInLaw] = useState<boolean>(init.isInLaw)
 
   const [birthOrder, setBirthOrder] = useState<number | ''>(init.birthOrder)
@@ -91,17 +119,17 @@ export default function MemberForm({
     avatarPreview,
     handleAvatarSelected,
     handleAvatarRemove
-  } = useMemberAvatar(initialData)
+  } = useMemberAvatar(initialDataProp)
 
   const [note, setNote] = useState(initialData?.note || '')
   const errorRef = useRef<HTMLDivElement>(null)
 
   // Bring validation/save errors into view on long forms
   useEffect(() => {
-    if (error) {
+    if (error || warning || confirmation) {
       errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
-  }, [error])
+  }, [error, warning, confirmation])
 
   // Private fields
   const [phoneNumber, setPhoneNumber] = useState(init.phoneNumber)
@@ -110,9 +138,58 @@ export default function MemberForm({
     init.currentResidence
   )
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  const dirty = isFormDirty(
+    init,
+    {
+      fullName,
+      otherNames,
+      gender,
+      birthYear,
+      birthMonth,
+      birthDay,
+      deathYear: death.deathYear,
+      deathMonth: death.deathMonth,
+      deathDay: death.deathDay,
+      deathLunarYear: death.deathLunarYear,
+      deathLunarMonth: death.deathLunarMonth,
+      deathLunarDay: death.deathLunarDay,
+      isDeceased,
+      burialPlace,
+      isInLaw,
+      birthOrder,
+      generation,
+      note,
+      phoneNumber,
+      occupation,
+      currentResidence
+    },
+    avatarFile !== null || removeExistingAvatar
+  )
+  // Set once a save finished, so leaving afterwards is not questioned.
+  const [saved, setSaved] = useState(false)
+  const [askDiscard, setAskDiscard] = useState(false)
+  const guardLeave = dirty && !saved
+
+  // Ask the browser to confirm reload / tab close while there are changes.
+  useEffect(() => {
+    if (!guardLeave) return
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [guardLeave])
+
+  const handleSuccess = (personId: string) => {
+    setSaved(true)
+    finishMemberSave({ router, onSuccess }, personId)
+  }
+  const leave = () => (onCancel ? onCancel() : router.back())
+
+  const submit = (confirmed: boolean) => {
     void submitMemberForm({
+      confirmed,
       supabase,
       router,
       t,
@@ -135,7 +212,8 @@ export default function MemberForm({
         birthOrder,
         generation,
         otherNames,
-        note
+        note,
+        burialPlace
       },
       death,
       birthYear,
@@ -151,13 +229,24 @@ export default function MemberForm({
       avatarFile,
       removeExistingAvatar,
       isAdmin,
+      privateLoaded,
       privateFields: { phoneNumber, occupation, currentResidence },
       hasGenerationChanged: generationChanged,
       updateDescendantGenerations,
       setLoading,
       setError,
-      onSuccess
+      setWarning,
+      setConfirmation,
+      setChanged,
+      onSuccess: handleSuccess,
+      onCreated: setCreatedPerson,
+      onUpdated: setSavedUpdatedAt
     })
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    submit(false)
   }
 
   return (
@@ -221,12 +310,16 @@ export default function MemberForm({
             deathLunarDay={death.deathLunarDay}
             deathLunarMonth={death.deathLunarMonth}
             deathLunarYear={death.deathLunarYear}
+            deathLunarLeap={death.deathLunarLeap}
+            onLunarLeapChange={death.setLunarLeap}
             onSolarChange={(field, value) =>
               death.setSolarField(field, toNumberOrEmpty(value))
             }
             onLunarChange={(field, value) =>
               death.setLunarField(field, toNumberOrEmpty(value))
             }
+            burialPlace={burialPlace}
+            onBurialPlaceChange={setBurialPlace}
           />
         </div>
       </m.div>
@@ -235,6 +328,7 @@ export default function MemberForm({
       {isAdmin && (
         <MemberPrivateFields
           isDeceased={isDeceased}
+          locked={!privateLoaded}
           phoneNumber={phoneNumber}
           onPhoneNumberChange={setPhoneNumber}
           occupation={occupation}
@@ -246,12 +340,31 @@ export default function MemberForm({
 
       <MemberFormFooter
         error={error}
+        onReload={changed ? () => window.location.reload() : undefined}
+        warning={warning?.message ?? null}
+        onContinue={() => {
+          if (!warning) return
+          setWarning(null)
+          handleSuccess(warning.personId)
+        }}
+        confirmation={confirmation}
+        onConfirm={() => submit(true)}
         errorRef={errorRef}
         loading={loading}
         processingAvatar={processingAvatar}
         isEditing={isEditing}
-        onCancel={() => (onCancel ? onCancel() : router.back())}
+        onCancel={() => (guardLeave ? setAskDiscard(true) : leave())}
       />
+      {askDiscard && (
+        <DiscardChangesDialog
+          onKeepEditing={() => setAskDiscard(false)}
+          onDiscard={() => {
+            setAskDiscard(false)
+            setSaved(true)
+            leave()
+          }}
+        />
+      )}
     </form>
   )
 }

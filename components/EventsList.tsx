@@ -1,19 +1,34 @@
 'use client'
 
 import { m } from 'framer-motion'
-import { CalendarDays, Plus } from 'lucide-react'
-import { Solar } from 'lunar-javascript'
+import { CalendarDays, CalendarPlus, Plus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useSyncExternalStore } from 'react'
 
 import EventCard from '@/components/events/EventCard'
 import CustomEventModal from '@/components/modal/CustomEventModal'
 import { useI18n } from '@/lib/i18n/useI18n'
+import { toggleButtonProps } from '@/utils/a11y'
+import { canEditCustomEvent } from '@/utils/customEventMutations'
+import { vnToday } from '@/utils/dateHelpers'
 import {
   computeEvents,
   CustomEventRecord,
-  FamilyEvent
+  FamilyEvent,
+  filterVisibleEvents,
+  isUpcomingEvent
 } from '@/utils/eventHelpers'
+import {
+  buildIcs,
+  ICS_REMIND_CHOICES,
+  ICS_REMIND_DEFAULT,
+  icsLastYear,
+  readIcsRemind,
+  writeIcsRemind
+} from '@/utils/icsExport'
+import { solarToLunar } from '@/utils/lunarCalendar'
+
+const noopSubscribe = () => () => {}
 
 interface EventsListProps {
   persons: {
@@ -31,13 +46,17 @@ interface EventsListProps {
     is_deceased: boolean
   }[]
   customEvents?: CustomEventRecord[]
+  currentUserId?: string | null
+  isAdmin?: boolean
 }
 
 const EMPTY_CUSTOM_EVENTS: CustomEventRecord[] = []
 
 export default function EventsList({
   persons,
-  customEvents = EMPTY_CUSTOM_EVENTS
+  customEvents = EMPTY_CUSTOM_EVENTS,
+  currentUserId = null,
+  isAdmin = false
 }: EventsListProps) {
   const router = useRouter()
   const { t } = useI18n()
@@ -54,10 +73,17 @@ export default function EventsList({
 
   const handleOpenEditModal = (event: FamilyEvent) => {
     const rawEvent = customEvents.find((ce) => ce.id === event.personId)
-    if (rawEvent) {
+    if (rawEvent && canEditCustomEvent(rawEvent, currentUserId, isAdmin)) {
       setEditingCustomEvent(rawEvent)
       setIsModalOpen(true)
     }
+  }
+
+  const canEditEvent = (eventId: string | null) => {
+    const rawEvent = customEvents.find((ce) => ce.id === eventId)
+    return Boolean(
+      rawEvent && canEditCustomEvent(rawEvent, currentUserId, isAdmin)
+    )
   }
 
   const handleOpenCreateModal = () => {
@@ -65,12 +91,40 @@ export default function EventsList({
     setIsModalOpen(true)
   }
 
+  const savedRemind = useSyncExternalStore(
+    noopSubscribe,
+    readIcsRemind,
+    () => ICS_REMIND_DEFAULT
+  )
+  const [remindChoice, setRemindChoice] = useState<number | null>(null)
+  const remindDays = remindChoice ?? savedRemind
+
+  const handleDownloadIcs = () => {
+    const ics = buildIcs({
+      persons,
+      customEvents,
+      t,
+      siteUrl: window.location.origin,
+      remindDaysBefore: remindDays
+    })
+    const url = URL.createObjectURL(
+      new Blob([ics], { type: 'text/calendar;charset=utf-8' })
+    )
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `giapha-events-${vnToday().getFullYear()}-${icsLastYear()}.ics`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
   const handleModalSuccess = () => {
     router.refresh()
   }
 
   const [todayDate] = useState(() => {
-    const today = new Date()
+    const today = vnToday()
     const weekdays = [
       t('weekdaySunday'),
       t('weekdayMonday'),
@@ -88,31 +142,31 @@ export default function EventsList({
       year: today.getFullYear()
     })
     let lunarStr = ''
-    try {
-      const solar = Solar.fromYmd(
-        today.getFullYear(),
-        today.getMonth() + 1,
-        today.getDate()
-      )
-      const lunar = solar.getLunar()
-      const lMonthRaw = lunar.getMonth()
-      const isLeap = lMonthRaw < 0
-      const lMonth = Math.abs(lMonthRaw).toString().padStart(2, '0')
-      const lDay = lunar.getDay().toString().padStart(2, '0')
-      lunarStr = `${lDay}/${lMonth}${isLeap ? t('leapMonth') : ''}${t('lunarSuffix')}`
-    } catch (e) {
-      console.error(e)
+    const lunar = solarToLunar(
+      today.getFullYear(),
+      today.getMonth() + 1,
+      today.getDate()
+    )
+    if (lunar) {
+      const lMonth = lunar.month.toString().padStart(2, '0')
+      const lDay = lunar.day.toString().padStart(2, '0')
+      lunarStr = `${lDay}/${lMonth}${lunar.leap ? t('leapMonth') : ''}${t('lunarSuffix')}`
     }
     return { solar: solarStr, lunar: lunarStr }
   })
 
   const allEvents = useMemo(
-    () => computeEvents(persons, customEvents),
+    () => computeEvents(persons, customEvents, vnToday()),
     [persons, customEvents]
   )
 
+  const visibleEvents = useMemo(
+    () => filterVisibleEvents(allEvents, { showDeceasedBirthdays }),
+    [allEvents, showDeceasedBirthdays]
+  )
+
   const filtered = useMemo(() => {
-    let result = allEvents
+    let result = visibleEvents
     if (filter === 'past') {
       // Past tab: all event types from the past year
       return result
@@ -122,17 +176,14 @@ export default function EventsList({
     if (filter !== 'all') {
       result = result.filter((e) => e.type === filter)
     }
-    if (!showDeceasedBirthdays) {
-      result = result.filter((e) => !(e.type === 'birthday' && e.isDeceased))
-    }
     // Only show upcoming events (daysUntil >= 0) for non-past tabs
-    return result.filter((e) => e.daysUntil >= 0 && e.daysUntil <= 365)
-  }, [allEvents, filter, showDeceasedBirthdays])
+    return result.filter(isUpcomingEvent)
+  }, [visibleEvents, filter])
 
   const visible = filtered.slice(0, showCount)
 
-  const todayCount = allEvents.filter((e) => e.daysUntil === 0).length
-  const soonCount = allEvents.filter(
+  const todayCount = visibleEvents.filter((e) => e.daysUntil === 0).length
+  const soonCount = visibleEvents.filter(
     (e) => e.daysUntil > 0 && e.daysUntil <= 7
   ).length
 
@@ -188,12 +239,43 @@ export default function EventsList({
           </div>
         </div>
 
-        <button
-          onClick={handleOpenCreateModal}
-          className='btn-primary relative z-10 w-full sm:w-auto'>
-          <Plus className='size-5 text-stone-300' />
-          <span>{t('addEvent')}</span>
-        </button>
+        <div className='relative z-10 flex w-full flex-col gap-2 sm:w-auto'>
+          <button
+            onClick={handleOpenCreateModal}
+            className='btn-primary w-full sm:w-auto'>
+            <Plus className='size-5 text-stone-300' />
+            <span>{t('addEvent')}</span>
+          </button>
+          <button
+            onClick={handleDownloadIcs}
+            title={t('addToCalendarHint')}
+            className='btn w-full sm:w-auto'>
+            <CalendarPlus className='size-5' />
+            <span>{t('addToCalendar')}</span>
+          </button>
+          <label className='flex items-center justify-center gap-2 text-xs text-stone-600'>
+            <span>{t('icsRemindLabel')}</span>
+            <select
+              value={remindDays}
+              onChange={(e) => {
+                const days = Number(e.target.value)
+                setRemindChoice(days)
+                writeIcsRemind(days)
+              }}
+              className='rounded-lg border border-stone-200/80 bg-white/90 px-2 py-1 text-xs text-stone-700 focus:border-amber-400 focus:ring-2 focus:ring-amber-500/20 focus:outline-none'>
+              {ICS_REMIND_CHOICES.map((days) => (
+                <option key={days} value={days}>
+                  {days === 0
+                    ? t('icsRemindNone')
+                    : t('icsRemindDays', { days })}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className='text-center text-xs text-stone-500'>
+            {t('addToCalendarUntil', { year: icsLastYear() })}
+          </p>
+        </div>
       </m.div>
 
       {/* Controls */}
@@ -211,6 +293,8 @@ export default function EventsList({
           ).map((tab) => (
             <button
               key={tab.key}
+              type='button'
+              {...toggleButtonProps(tab.label, filter === tab.key)}
               onClick={() => {
                 setFilter(tab.key)
                 setShowCount(20)
@@ -225,7 +309,10 @@ export default function EventsList({
               {tab.label}
             </button>
           ))}
-          <span className='ml-auto self-center text-sm text-stone-400'>
+          <span
+            role='status'
+            aria-live='polite'
+            className='ml-auto self-center text-sm text-stone-400'>
             {t('eventCount', { count: filtered.length })}
             {filter === 'past' ? t('eventPastYear') : ''}
           </span>
@@ -258,9 +345,12 @@ export default function EventsList({
         <div className='space-y-2.5'>
           {visible.map((event, i) => (
             <EventCard
-              key={`${event.personId}-${event.type}-${event.eventDateLabel}`}
+              key={`${event.personId}-${event.type}-${event.nextOccurrence.getTime()}`}
               event={event}
               index={i}
+              canEdit={
+                event.type !== 'custom_event' || canEditEvent(event.personId)
+              }
               onEditCustomEvent={handleOpenEditModal}
             />
           ))}

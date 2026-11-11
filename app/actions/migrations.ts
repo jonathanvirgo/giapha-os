@@ -8,22 +8,13 @@ import postgres from 'postgres'
 import { getServerTranslations } from '@/lib/i18n/server'
 import packageJson from '@/package.json'
 import { getIsAdmin } from '@/utils/supabase/queries'
+import { compareVersions, parseVersion } from '@/utils/version'
 
 const SOURCE_REPOSITORY = 'homielab/giapha-os'
 const SOURCE_BRANCH = 'main'
 const SOURCE_README_URL = `https://github.com/${SOURCE_REPOSITORY}/blob/${SOURCE_BRANCH}/README.md#hướng-dẫn-cập-nhật-source-code`
 const SOURCE_README_EN_URL = `https://github.com/${SOURCE_REPOSITORY}/blob/${SOURCE_BRANCH}/README.en.md#source-code-updates`
 const SOURCE_PACKAGE_URL = `https://raw.githubusercontent.com/${SOURCE_REPOSITORY}/${SOURCE_BRANCH}/package.json`
-
-const MIGRATION_FILES = [
-  'docs/schema.sql',
-  'docs/migrations/20260312015736_add_lunar_death_date.sql',
-  'docs/migrations/20260320230020_add_editor_permission.sql',
-  'docs/migrations/20260524125731_add_gallery.sql',
-  'docs/migrations/20260831140135_security_and_approval_hardening.sql',
-  'docs/migrations/20260901000000_security_definer_and_rls_hardening.sql',
-  'docs/migrations/20260904000000_add_data_api_table_grants.sql'
-] as const
 
 interface MigrationDefinition {
   id: string
@@ -51,59 +42,6 @@ export interface SourceVersionStatus {
   latestVersion: string | null
   readmeUrl: string
   error?: string
-}
-
-interface ParsedVersion {
-  major: number
-  minor: number
-  patch: number
-  prerelease: string[]
-}
-
-function parseVersion(value: unknown): ParsedVersion | null {
-  if (typeof value !== 'string') return null
-
-  const match = value
-    .trim()
-    .match(/^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/)
-  if (!match) return null
-
-  return {
-    major: Number(match[1]),
-    minor: Number(match[2]),
-    patch: Number(match[3]),
-    prerelease: match[4] ? match[4].split('.') : []
-  }
-}
-
-function compareVersions(left: ParsedVersion, right: ParsedVersion) {
-  for (const key of ['major', 'minor', 'patch'] as const) {
-    if (left[key] !== right[key]) return left[key] > right[key] ? 1 : -1
-  }
-
-  if (!left.prerelease.length && !right.prerelease.length) return 0
-  if (!left.prerelease.length) return 1
-  if (!right.prerelease.length) return -1
-
-  const length = Math.max(left.prerelease.length, right.prerelease.length)
-  for (let index = 0; index < length; index += 1) {
-    const leftPart = left.prerelease[index]
-    const rightPart = right.prerelease[index]
-    if (leftPart === undefined) return -1
-    if (rightPart === undefined) return 1
-    if (leftPart === rightPart) continue
-
-    const leftNumber = /^\d+$/.test(leftPart) ? Number(leftPart) : null
-    const rightNumber = /^\d+$/.test(rightPart) ? Number(rightPart) : null
-    if (leftNumber !== null && rightNumber !== null) {
-      return leftNumber > rightNumber ? 1 : -1
-    }
-    if (leftNumber !== null) return -1
-    if (rightNumber !== null) return 1
-    return leftPart > rightPart ? 1 : -1
-  }
-
-  return 0
 }
 
 export async function getSourceVersionStatus(): Promise<SourceVersionStatus> {
@@ -160,19 +98,27 @@ export async function getSourceVersionStatus(): Promise<SourceVersionStatus> {
   }
 }
 
+// schema.sql first, then every docs/migrations/*.sql in file-name (timestamp)
+// order — the same bundle as /setup, so a new migration needs no list update.
 async function getMigrationDefinitions(): Promise<MigrationDefinition[]> {
-  return Promise.all(
-    MIGRATION_FILES.map(async (file) => ({
-      id: file,
-      file,
-      sql: await fs.readFile(
-        file === 'docs/schema.sql'
-          ? path.join(process.cwd(), 'docs', 'schema.sql')
-          : path.join(process.cwd(), 'docs', 'migrations', path.basename(file)),
-        'utf8'
-      )
+  const schemaPath = path.join(process.cwd(), 'docs', 'schema.sql')
+  const migrationsPath = path.join(process.cwd(), 'docs', 'migrations')
+  const migrationFiles = (await fs.readdir(migrationsPath))
+    .filter((fileName) => fileName.endsWith('.sql'))
+    .sort()
+
+  return Promise.all([
+    fs.readFile(schemaPath, 'utf8').then((sql) => ({
+      id: 'docs/schema.sql',
+      file: 'docs/schema.sql',
+      sql
+    })),
+    ...migrationFiles.map(async (fileName) => ({
+      id: `docs/migrations/${fileName}`,
+      file: `docs/migrations/${fileName}`,
+      sql: await fs.readFile(path.join(migrationsPath, fileName), 'utf8')
     }))
-  )
+  ])
 }
 
 function createDatabaseClient() {

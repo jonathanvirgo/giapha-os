@@ -1,21 +1,41 @@
-import * as d3 from 'd3'
+import { drag } from 'd3-drag'
+import {
+  forceCollide,
+  forceLink,
+  forceManyBody,
+  forceSimulation,
+  type Simulation
+} from 'd3-force'
+import { select, type BaseType, type Selection } from 'd3-selection'
+import { zoom, type ZoomBehavior } from 'd3-zoom'
 import { RefObject } from 'react'
 
 import { AVATAR_VERSION } from '@/components/DefaultAvatar'
-import { getAvatarUrl } from '@/utils/avatar'
 import { GraphLink, GraphNode } from '@/utils/bubbleGraph'
+import {
+  alphaDecayFor,
+  avatarOffsets,
+  pinRootNodes,
+  shortNodeName
+} from '@/utils/bubbleLayout'
 
 const showAvatar = true
 
 interface CreateBubbleTreeRendererOptions {
   svgRef: RefObject<SVGSVGElement | null>
   containerRef: RefObject<HTMLDivElement | null>
-  zoomRef: RefObject<d3.ZoomBehavior<SVGSVGElement, unknown> | null>
+  zoomRef: RefObject<ZoomBehavior<SVGSVGElement, unknown> | null>
   nodes: GraphNode[]
   links: GraphLink[]
+  /** Maps a stored `avatar_url` to a displayable URL (see useAvatarUrl). */
+  avatarUrl: (value: string | null | undefined) => string | null
   onZoomLevelChange: (level: number) => void
   onSelectionChange: () => void
   onNodeClick: (nodeId: string) => void
+  /** Accessible name of the whole canvas. */
+  canvasLabel: string
+  /** Accessible name of one node (family unit). */
+  getNodeLabel: (node: GraphNode) => string
 }
 
 // Builds the whole D3 scene (zoom, force simulation, nodes/links) and returns
@@ -27,43 +47,42 @@ export function createBubbleTreeRenderer({
   zoomRef,
   nodes,
   links,
+  avatarUrl,
   onZoomLevelChange,
   onSelectionChange,
-  onNodeClick
+  onNodeClick,
+  canvasLabel,
+  getNodeLabel
 }: CreateBubbleTreeRendererOptions): () => void {
   const container = containerRef.current!
   const width = container.clientWidth
   const height = container.clientHeight
 
-  const svg = d3
-    .select(svgRef.current!)
+  const svg = select(svgRef.current!)
     .attr('viewBox', [0, 0, width, height])
     .style('cursor', 'grab')
   svg.selectAll('*').remove() // Clear previous render
 
-  let simulation: d3.Simulation<GraphNode, undefined> | null = null
-  let nodeSelection: d3.Selection<
-    d3.BaseType,
+  let simulation: Simulation<GraphNode, undefined> | null = null
+  let nodeSelection: Selection<
+    BaseType,
     GraphNode,
     SVGGElement,
     unknown
   > | null = null
-  let zoomBehavior: d3.ZoomBehavior<SVGSVGElement, unknown> | null = null
+  let zoomBehavior: ZoomBehavior<SVGSVGElement, unknown> | null = null
 
   // Pin root nodes to the center
-  const rootNodes = nodes.filter((n) => n.isRoot)
-  if (rootNodes.length === 1) {
-    rootNodes[0].fx = width / 2
-    rootNodes[0].fy = height / 2
-  } else if (rootNodes.length > 1) {
-    rootNodes.forEach((n, i) => {
-      n.fx = width / 2 + (i - (rootNodes.length - 1) / 2) * 150
-      n.fy = height / 2
-    })
-  }
+  pinRootNodes(nodes, width, height)
 
   svg.attr('viewBox', [0, 0, width, height]).style('cursor', 'grab')
   svg.selectAll('*').remove() // Clear previous render
+
+  svg
+    .attr('role', 'group')
+    .attr('aria-label', canvasLabel)
+    .append('title')
+    .text(canvasLabel)
 
   const g = svg.append('g')
 
@@ -85,8 +104,7 @@ export function createBubbleTreeRenderer({
     .attr('cy', 0)
 
   // Zoom setup
-  zoomBehavior = d3
-    .zoom<SVGSVGElement, unknown>()
+  zoomBehavior = zoom<SVGSVGElement, unknown>()
     .scaleExtent([0.1, 4])
     .on('zoom', (event) => {
       g.attr('transform', event.transform)
@@ -97,7 +115,7 @@ export function createBubbleTreeRenderer({
   zoomRef.current = zoomBehavior
   svg.call(
     zoomBehavior as unknown as (
-      selection: d3.Selection<SVGSVGElement, unknown, null, undefined>
+      selection: Selection<SVGSVGElement, unknown, null, undefined>
     ) => void
   )
 
@@ -110,7 +128,7 @@ export function createBubbleTreeRenderer({
   // Initial center transform
   svg.call(
     zoomBehavior!.translateTo as unknown as (
-      selection: d3.Selection<SVGSVGElement, unknown, null, undefined>,
+      selection: Selection<SVGSVGElement, unknown, null, undefined>,
       x: number,
       y: number
     ) => void,
@@ -119,29 +137,25 @@ export function createBubbleTreeRenderer({
   )
 
   // Force simulation
-  simulation = d3
-    .forceSimulation<GraphNode>(nodes)
+  simulation = forceSimulation<GraphNode>(nodes)
     .force(
       'link',
-      d3
-        .forceLink<GraphNode, GraphLink>(links)
+      forceLink<GraphNode, GraphLink>(links)
         .id((d) => d.id)
         .distance(150)
     )
-    .force('charge', d3.forceManyBody().strength(-1200))
+    .force('charge', forceManyBody().strength(-1200))
     // Use width / 2 as the collision radius to prevent overlapping of the wider family units
     .force(
       'collide',
-      d3
-        .forceCollide<GraphNode>()
+      forceCollide<GraphNode>()
         .radius((d) => d.width / 2 + 15)
         .iterations(2)
     )
 
   // Large families: settle faster so the layout stops moving sooner
-  if (nodes.length > 300) {
-    simulation.alphaDecay(nodes.length > 1000 ? 0.06 : 0.04)
-  }
+  const alphaDecay = alphaDecayFor(nodes.length)
+  if (alphaDecay !== null) simulation.alphaDecay(alphaDecay)
 
   // Draw links
   const link = g
@@ -154,26 +168,56 @@ export function createBubbleTreeRenderer({
     .attr('stroke', '#d6d3d1')
     .attr('stroke-width', 2)
 
+  // Click, Enter and Space all select the node and centre it.
+  const activateNode = (d: GraphNode) => {
+    if (d.x != null && d.y != null) {
+      svg.transition().duration(450).call(zoomBehavior!.translateTo, d.x, d.y)
+    }
+    onNodeClick(d.id)
+  }
+
   // Draw nodes (Family Units)
   nodeSelection = g
     .append('g')
     .selectAll('g')
     .data(nodes)
     .join('g')
-    .attr('class', 'bubble-node')
+    .attr(
+      'class',
+      'bubble-node focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-amber-600'
+    )
+    .attr('tabindex', 0)
+    .attr('role', 'button')
+    .attr('aria-pressed', 'false')
+    .attr('aria-label', (d) => getNodeLabel(d))
     .style('cursor', 'pointer')
     .on('click', (event, d) => {
       if (event.defaultPrevented) return
-
-      if (d.x != null && d.y != null) {
-        svg.transition().duration(450).call(zoomBehavior!.translateTo, d.x, d.y)
+      activateNode(d)
+    })
+    .on('keydown', (event: KeyboardEvent, d) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return
+      event.preventDefault()
+      activateNode(d)
+    })
+    .on('focus', (event: FocusEvent, d) => {
+      // Keep the node focused with Tab in view; the browser would otherwise
+      // scroll the clipped container instead of moving the canvas.
+      const container = svg.node()?.parentElement?.parentElement
+      if (container) {
+        container.scrollLeft = 0
+        container.scrollTop = 0
       }
-
-      onNodeClick(d.id)
+      if (
+        (event.target as Element).matches(':focus-visible') &&
+        d.x != null &&
+        d.y != null
+      ) {
+        svg.transition().duration(250).call(zoomBehavior!.translateTo, d.x, d.y)
+      }
     })
     .call(
-      d3
-        .drag<SVGGElement, GraphNode>()
+      drag<SVGGElement, GraphNode>()
         .on('start', (event, d) => {
           if (!event.active) simulation!.alphaTarget(0.3).restart()
           d.fx = d.x
@@ -213,17 +257,12 @@ export function createBubbleTreeRenderer({
   // Avatars for everyone in the Family Unit
   if (showAvatar) {
     nodeSelection.each(function (d) {
-      const unitContent = d3.select(this)
+      const unitContent = select(this)
 
+      const offsets = avatarOffsets(d)
       d.people.forEach((person, index) => {
-        // Calculate X offset for each avatar inside the pill
-        // If 1 person (width = radius*2): offset = 0
-        // If 2 people: spacing = radius*1.5. Offsets = -0.75*r, +0.75*r
-        const totalSpacing = d.width - d.radius * 2
-        const spacingStep =
-          d.people.length > 1 ? totalSpacing / (d.people.length - 1) : 0
-        const startX = -(totalSpacing / 2)
-        const cx = startX + index * spacingStep
+        // Each avatar sits at its own X offset inside the pill
+        const cx = offsets[index]
 
         const avatarGroup = unitContent
           .append('g')
@@ -242,7 +281,7 @@ export function createBubbleTreeRenderer({
           .attr('preserveAspectRatio', 'xMidYMid slice')
           .attr(
             'href',
-            getAvatarUrl(person.avatar_url) ||
+            avatarUrl(person.avatar_url) ||
               (person.gender === 'male'
                 ? `/avatar/${AVATAR_VERSION}/male.svg`
                 : `/avatar/${AVATAR_VERSION}/female.svg`)
@@ -260,7 +299,7 @@ export function createBubbleTreeRenderer({
     .attr('font-size', (d) => (d.isRoot ? '14px' : '12px'))
     .attr('font-weight', (d) => (d.isRoot ? 'bold' : 'normal'))
     .style('pointer-events', 'none')
-    .text((d) => d.people.map((p) => p.full_name.split(' ').pop()).join(' & '))
+    .text((d) => shortNodeName(d))
 
   simulation!.on('tick', () => {
     link
@@ -278,6 +317,8 @@ export function createBubbleTreeRenderer({
     simulation.stop()
     simulation.on('tick', null)
     nodeSelection.on('click', null)
+    nodeSelection.on('keydown', null)
+    nodeSelection.on('focus', null)
     nodeSelection.on('.drag', null)
     zoomRef.current = null
   }

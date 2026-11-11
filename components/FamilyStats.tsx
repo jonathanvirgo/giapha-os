@@ -1,29 +1,15 @@
 'use client'
 
 import { m } from 'framer-motion'
-import {
-  Crown,
-  Flower2,
-  Heart,
-  HeartOff,
-  Mars,
-  Moon,
-  Skull,
-  Star,
-  Users,
-  Venus
-} from 'lucide-react'
-import { useMemo } from 'react'
+import { Crown, Hourglass, Moon, Star, Users } from 'lucide-react'
+import Link from 'next/link'
 
 import StatCardsGrid from '@/components/StatCardsGrid'
 import { useI18n } from '@/lib/i18n/useI18n'
-import { Person, Relationship } from '@/types'
-import { getZodiacAnimal, getZodiacSign } from '@/utils/dateHelpers'
-import { computeFamilyStats } from '@/utils/familyStats'
+import type { FamilyStatsResult, LifespanPerson } from '@/utils/familyStats'
 
 interface FamilyStatsProps {
-  persons: Person[]
-  relationships: Relationship[]
+  stats: FamilyStatsResult
 }
 
 function GenerationRow({
@@ -60,15 +46,106 @@ function GenerationRow({
   )
 }
 
-export default function FamilyStats({
-  persons,
-  relationships
-}: FamilyStatsProps) {
+function LifespanPersonRow({
+  label,
+  person
+}: {
+  label: string
+  person: LifespanPerson | null
+}) {
   const { t } = useI18n()
-  const stats = useMemo(
-    () => computeFamilyStats(persons, relationships),
-    [persons, relationships]
+  return (
+    <div>
+      <dt className='text-sm text-stone-500'>{label}</dt>
+      <dd className='mt-1 text-base font-semibold text-stone-800'>
+        {person ? (
+          <>
+            <Link
+              href={`/dashboard/members/${person.id}`}
+              className='text-amber-700 underline-offset-2 hover:underline'>
+              {person.name}
+            </Link>{' '}
+            <span className='font-normal text-stone-600'>
+              — {t('lifespanAge', { age: person.age })}
+            </span>
+          </>
+        ) : (
+          '—'
+        )}
+      </dd>
+    </div>
   )
+}
+
+function LifespanCard({ lifespan }: Pick<FamilyStatsResult, 'lifespan'>) {
+  const { t } = useI18n()
+  if (lifespan.counted === 0 && !lifespan.oldestLiving) return null
+  const maxAvg = Math.max(0, ...lifespan.byDecade.map((d) => d.average))
+  return (
+    <m.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay: 0.6 }}
+      className='card-feature'>
+      <h2 className='mb-5 flex items-center gap-2 text-base font-semibold text-stone-700'>
+        <Hourglass className='size-4 text-emerald-600' />
+        {t('lifespanTitle')}
+      </h2>
+      <dl className='grid grid-cols-1 gap-4 sm:grid-cols-3'>
+        <div>
+          <dt className='text-sm text-stone-500'>{t('lifespanAverage')}</dt>
+          <dd className='mt-1 text-base font-semibold text-stone-800'>
+            {lifespan.average != null
+              ? t('lifespanAge', { age: lifespan.average })
+              : '—'}
+          </dd>
+        </div>
+        <LifespanPersonRow
+          label={t('lifespanLongestLived')}
+          person={lifespan.longestLived}
+        />
+        <LifespanPersonRow
+          label={t('lifespanOldestLiving')}
+          person={lifespan.oldestLiving}
+        />
+      </dl>
+      {lifespan.byDecade.length > 0 && (
+        <>
+          <h3 className='mt-6 mb-3 text-sm font-semibold text-stone-600'>
+            {t('lifespanByDecade')}
+          </h3>
+          <div className='space-y-3'>
+            {lifespan.byDecade.map(({ decade, average, count }) => (
+              <div key={decade} className='flex items-center gap-3'>
+                <span className='w-14 shrink-0 text-sm font-medium text-stone-500'>
+                  {t('lifespanDecade', { decade })}
+                </span>
+                <div className='h-2 flex-1 overflow-hidden rounded-full bg-stone-100'>
+                  <div
+                    style={{
+                      width: `${maxAvg > 0 ? (average / maxAvg) * 100 : 0}%`
+                    }}
+                    className='h-full rounded-full bg-emerald-400'
+                  />
+                </div>
+                <span className='w-28 shrink-0 text-right text-sm text-stone-700'>
+                  {t('lifespanAge', { age: average })}{' '}
+                  <span className='text-stone-400'>({count})</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+      <p className='mt-4 text-sm text-stone-400 italic'>
+        {t('lifespanCountedHint', { count: lifespan.counted })}
+      </p>
+    </m.div>
+  )
+}
+
+export default function FamilyStats({ stats }: FamilyStatsProps) {
+  const { t } = useI18n()
 
   return (
     <div className='space-y-8'>
@@ -103,6 +180,8 @@ export default function FamilyStats({
         </m.div>
       )}
 
+      <LifespanCard lifespan={stats.lifespan} />
+
       {/* Gender ratio visual */}
       <m.div
         initial={{ opacity: 0, y: 16 }}
@@ -130,10 +209,19 @@ export default function FamilyStats({
                 className='flex items-center justify-center bg-pink-400'
                 title={`${t('female')}: ${stats.female}`}
               />
+              {stats.other > 0 && (
+                <m.div
+                  initial={{ flex: 0 }}
+                  animate={{ flex: stats.other }}
+                  transition={{ duration: 0.7, delay: 0.7 }}
+                  className='flex items-center justify-center bg-stone-400'
+                  title={`${t('otherGender')}: ${stats.other}`}
+                />
+              )}
             </>
           )}
         </div>
-        <div className='mt-3 flex gap-6 text-sm'>
+        <div className='mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm'>
           <span className='flex items-center gap-2 text-stone-600'>
             <span className='inline-block size-3 rounded-full bg-blue-400' />
             {t('male')} — {t('peopleCount', { count: stats.male })} (
@@ -148,6 +236,13 @@ export default function FamilyStats({
               : 0}
             %)
           </span>
+          {stats.other > 0 && (
+            <span className='flex items-center gap-2 text-stone-600'>
+              <span className='inline-block size-3 rounded-full bg-stone-400' />
+              {t('otherGender')} — {t('peopleCount', { count: stats.other })} (
+              {Math.round((stats.other / stats.total) * 100)}%)
+            </span>
+          )}
         </div>
       </m.div>
 
@@ -170,7 +265,7 @@ export default function FamilyStats({
                 return (
                   <div key={name} className='flex items-center gap-3'>
                     <span className='w-24 shrink-0 text-sm font-medium text-stone-500'>
-                      {name}
+                      {t(name)}
                     </span>
                     <div className='h-2 flex-1 overflow-hidden rounded-full bg-stone-100'>
                       <m.div
@@ -215,7 +310,7 @@ export default function FamilyStats({
                 return (
                   <div key={name} className='flex items-center gap-3'>
                     <span className='w-24 shrink-0 text-sm font-medium text-stone-500'>
-                      {name}
+                      {t(name)}
                     </span>
                     <div className='h-2 flex-1 overflow-hidden rounded-full bg-stone-100'>
                       <m.div

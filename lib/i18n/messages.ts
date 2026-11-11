@@ -1,9 +1,17 @@
-export const locales = ['vi', 'en'] as const
+import { globalErrorMessages } from './globalErrorMessages'
+import {
+  interpolate,
+  translateWith,
+  type TranslationValues
+} from './interpolate'
+import { defaultLocale, getLocale, locales, type Locale } from './locales'
 
-export type Locale = (typeof locales)[number]
+export { defaultLocale, getLocale, interpolate, locales }
+export type { Locale, TranslationValues }
 
 export const messages = {
   vi: {
+    ...globalErrorMessages.vi,
     language: 'Ngôn ngữ',
     vietnamese: 'Tiếng Việt',
     english: 'English',
@@ -13,6 +21,7 @@ export const messages = {
     lunarYear: 'Năm {year}',
     upcomingEvents: 'Sự kiện 30 ngày tới ({count})',
     moreEvents: '+ {count} sự kiện khác đang chờ...',
+    moreEvents_one: '+ {count} sự kiện khác đang chờ...',
     noUpcomingEvents: 'Không có sự kiện nào trong 30 ngày tới.',
     viewYearEvents: 'Xem sự kiện trong năm',
     commonFeatures: 'Chức năng chung',
@@ -20,6 +29,8 @@ export const messages = {
     noAddMemberPermission: 'Bạn không có quyền thêm thành viên.',
     noEditMemberPermission: 'Bạn không có quyền chỉnh sửa thành viên.',
     backToMembers: 'Quay lại danh sách',
+    printProfile: 'In hồ sơ',
+    viewOnTree: 'Xem trên cây',
     memberDetails: 'Chi tiết thành viên',
     adminSection: 'Quản trị viên',
     adminAddUser: 'Thêm người dùng',
@@ -44,9 +55,22 @@ export const messages = {
     adminCreated:
       'Tạo người dùng thành công! Họ có thể đăng nhập ngay bây giờ.',
     adminUnknownCreateError: 'Lỗi không xác định khi tạo user',
+    userAdminAccessDenied:
+      'Từ chối truy cập. Chỉ admin đang hoạt động mới quản lý được người dùng.',
+    userAdminOwnRole: 'Bạn không thể tự đổi vai trò của chính mình.',
+    userAdminLastAdminRole:
+      'Không thể bỏ quyền admin của admin cuối cùng đang hoạt động.',
+    userAdminDeleteSelf: 'Bạn không thể tự xoá tài khoản của chính mình.',
+    userAdminLastAdminDelete: 'Không thể xoá admin cuối cùng đang hoạt động.',
+    userAdminInvalidEmail: 'Email không hợp lệ.',
+    userAdminPasswordTooShort: 'Mật khẩu phải có ít nhất 8 ký tự.',
+    userAdminEmailTaken: 'Email này đã có tài khoản.',
+    userAdminOwnStatus: 'Bạn không thể tự khoá hoặc mở khoá chính mình.',
+    userAdminLastAdminDeactivate:
+      'Không thể khoá admin cuối cùng đang hoạt động.',
     adminNoUsers: 'Không tìm thấy người dùng nào.',
     adminCreateTitle: 'Tạo người dùng mới',
-    adminPasswordMinLength: 'Ít nhất 6 ký tự',
+    adminPasswordMinLength: 'Ít nhất 8 ký tự',
     adminMemberRole: 'Thành viên (Member)',
     adminEditorRole: 'Biên tập (Editor)',
     adminAdminRole: 'Quản trị viên (Admin)',
@@ -66,6 +90,9 @@ export const messages = {
     invalidData: 'Dữ liệu không hợp lệ.',
     invalidDataStructure:
       'Dữ liệu không hợp lệ. Vui lòng kiểm tra lại file JSON.',
+    invalidBackupVersion: 'File backup có số phiên bản không hợp lệ.',
+    backupFromNewerVersion:
+      'File backup được tạo từ phiên bản ứng dụng mới hơn (định dạng v{version}, bản này đọc tối đa v{supported}). Hãy nâng cấp ứng dụng rồi phục hồi lại.',
     emptyBackup: 'File backup trống — không có thành viên nào để phục hồi.',
     tooManyPersons: 'File vượt quá giới hạn {count} thành viên.',
     tooManyRelationships: 'File vượt quá giới hạn {count} quan hệ.',
@@ -75,17 +102,32 @@ export const messages = {
     invalidPersonName: 'Tên thành viên không hợp lệ.',
     invalidGender: 'Giới tính không hợp lệ.',
     fieldTooLong: 'Trường {field} quá dài.',
+    invalidPersonDate:
+      'Thành viên "{name}" ({id}) có giá trị không hợp lệ ở trường {field} (ngày/tháng/năm, đời hoặc thứ tự sinh).',
     invalidRelationship: 'Có quan hệ không hợp lệ.',
     invalidRelationshipData: 'Quan hệ chứa dữ liệu không hợp lệ.',
     relationshipNoteTooLong: 'Ghi chú quan hệ quá dài.',
+    duplicateRelationship:
+      'Quan hệ cha/mẹ – con giữa "{a}" và "{b}" xuất hiện nhiều lần.',
+    backupRelationshipIssues:
+      'File sao lưu có quan hệ không hợp lệ (liệt kê tối đa {max} lỗi đầu), chưa phục hồi gì:',
+    backupRelationshipCycle: 'Vòng cha mẹ – con: {path}',
+    backupDuplicateSpouse: 'Cặp vợ chồng bị lưu hai lần: {a} – {b}',
     privateDetailsLimit: 'Thông tin riêng tư vượt quá giới hạn cho phép.',
     invalidPrivateDetails: 'Thông tin riêng tư không hợp lệ.',
     invalidPrivateDetailsPerson:
       'Thông tin riêng tư trỏ tới hồ sơ không hợp lệ.',
+    duplicatePrivateDetail:
+      'Thông tin riêng tư của thành viên {id} xuất hiện nhiều lần.',
     eventsLimit: 'Số lượng sự kiện vượt quá giới hạn cho phép.',
     invalidEvent: 'Sự kiện không hợp lệ.',
     invalidEventId: 'ID sự kiện không hợp lệ.',
+    duplicateEventId: 'File chứa ID sự kiện bị trùng: {id}.',
     invalidEventName: 'Tên sự kiện không hợp lệ.',
+    invalidEventDate:
+      'Sự kiện "{name}" ({id}) có ngày không hợp lệ (cần YYYY-MM-DD).',
+    invalidEventRecurrence:
+      'Kiểu lặp của sự kiện không hợp lệ (none, yearly_solar hoặc yearly_lunar).',
     loadDataError: 'Lỗi tải dữ liệu: {error}',
     deleteEventsError: 'Lỗi khi xoá custom_events cũ: {error}',
     deleteRelationshipsError: 'Lỗi khi xoá relationships cũ: {error}',
@@ -97,13 +139,29 @@ export const messages = {
     importPrivateDetailsError:
       'Lỗi khi import person_details_private (chunk {chunk}): {error}',
     importEventsError: 'Lỗi khi import custom_events (chunk {chunk}): {error}',
+    restoreTransactionError:
+      'Phục hồi thất bại, dữ liệu hiện tại vẫn được giữ nguyên: {error}',
+    restoreUpgradeDatabase:
+      'Database chưa được nâng cấp nên phục hồi chưa chạy trong một giao dịch (lỗi giữa chừng có thể làm mất dữ liệu). Hãy chạy migration ở trang Nâng cấp hệ thống (/dashboard/upgrade).',
     familyTreeDescription: 'Xem và tương tác với sơ đồ dòng họ',
+    approvalEmailSubject: 'Có tài khoản mới đang chờ duyệt: {email}',
+    approvalEmailTitle: 'Tài khoản mới chờ duyệt',
+    approvalEmailIntro:
+      'Có người dùng vừa xác nhận email và đang chờ được duyệt để truy cập dữ liệu gia phả:',
+    approvalEmailButton: 'Xem và duyệt tài khoản',
+    approvalEmailExpiry:
+      'Liên kết có hiệu lực trong {days} ngày. Bạn cũng có thể đăng nhập ứng dụng và duyệt trong mục Quản lý người dùng.',
+    approvalEmailText:
+      'Tài khoản {email} đang chờ duyệt. Duyệt tại: {url}\n\nBạn cũng có thể đăng nhập ứng dụng và duyệt trong mục Quản lý người dùng.',
     approvalTitle: 'Duyệt tài khoản',
     approvalInvalidTitle: 'Liên kết không hợp lệ',
     approvalInvalidText:
       'Liên kết duyệt tài khoản không tồn tại hoặc đã hết hạn.',
     approvalProcessedTitle: 'Đã xử lý',
     approvalProcessedText: 'Yêu cầu duyệt tài khoản này đã được sử dụng.',
+    approvalRevokedTitle: 'Yêu cầu đã bị thu hồi',
+    approvalRevokedText:
+      'Tài khoản này đã bị khoá trong mục Quản lý người dùng nên liên kết duyệt không còn dùng được. Muốn mở lại, hãy đăng nhập ứng dụng và mở khoá tài khoản ở đó.',
     approvalPendingText:
       'Tài khoản sau đang chờ được cấp quyền truy cập dữ liệu gia phả:',
     approvalConfirm: 'Xác nhận duyệt',
@@ -120,6 +178,9 @@ export const messages = {
     approvalFailureTitle: 'Duyệt thất bại',
     approvalFailureText:
       'Đã xảy ra lỗi khi cập nhật trạng thái. Vui lòng thử lại hoặc duyệt trong ứng dụng.',
+    approvalUpgradeTitle: 'Cần nâng cấp database',
+    approvalUpgradeText:
+      'Database chưa có hàm duyệt mới nên liên kết này chưa duyệt được tài khoản. Hãy chạy migration ở trang Nâng cấp hệ thống (/dashboard/upgrade) rồi bấm lại liên kết, hoặc đăng nhập ứng dụng và duyệt ở Quản lý người dùng.',
     kinshipDescription: 'Hệ thống gọi tên họ hàng chuẩn xác',
     kinshipPageTitle: 'Tra cứu danh xưng',
     kinshipPageDescription:
@@ -127,6 +188,34 @@ export const messages = {
     lineagePageTitle: 'Thứ tự gia phả',
     lineagePageDescription:
       'Tự động tính toán và cập nhật thế hệ, thứ tự sinh và trạng thái Dâu/Rể cho tất cả thành viên. Xem preview trước khi áp dụng.',
+    lineageBookTitle: 'Phả ký',
+    lineageBookTitleSurname: 'Phả ký họ {surname}',
+    lineageBookDescription:
+      'Bản in gia phả theo đời để đọc và biếu họ hàng: mỗi người kèm cha mẹ, vợ/chồng, con và ngày giỗ âm lịch.',
+    lineageBookPrintedOn: 'Ngày in: {date}',
+    lineageBookToc: 'Mục lục',
+    lineageBookGeneration: 'Đời {n}',
+    lineageBookUnknownGeneration: 'Chưa rõ đời',
+    lineageBookOpen: 'Mở phả ký',
+    lineageBookMembers: '{count} người',
+    lineageBookMembers_one: '{count} người',
+    lineageBookBorn: 'Sinh {date}',
+    lineageBookDied: 'Mất {date}',
+    lineageBookDeathLunar: 'Ngày mất (âm lịch): {date}',
+    lineageBookBuried: 'An táng tại {place}',
+    lineageBookParents: 'Cha/mẹ',
+    lineageBookSpouses: 'Vợ/chồng',
+    lineageBookChildren: 'Con',
+    lineageBookFather: 'Cha',
+    lineageBookMother: 'Mẹ',
+    lineageBookParent: 'Cha/mẹ',
+    lineageBookWife: 'vợ',
+    lineageBookHusband: 'chồng',
+    lineageBookSpouse: 'vợ/chồng',
+    lineageBookInLaw: '(dâu/rể)',
+    lineageBookAdopted: '(con nuôi)',
+    lineageBookOtherNames: 'Tên khác: {names}',
+    lineageBookEmpty: 'Chưa có thành viên nào.',
     lineageGenerationCardTitle: 'Thế hệ (Generation)',
     lineageGenerationCardText:
       'Dùng thuật toán BFS từ các tổ tiên gốc (người chưa có thông tin bố/mẹ trong hệ thống). Tổ tiên = Đời 1, con = Đời 2, cháu = Đời 3... Con dâu/rể kế thừa đời của người bạn đời.',
@@ -151,6 +240,67 @@ export const messages = {
     relationPathAnalysis: 'Phân tích con đường quan hệ',
     kinshipDisclaimer:
       '* Danh xưng chính xác dựa trên giới tính, thứ tự sinh của các nhánh và vế Nội/Ngoại.',
+    kinshipUncertainHint:
+      'Chưa rõ ai lớn hơn nên hiện cả hai cách gọi. Thêm năm sinh hoặc thứ tự sinh cho',
+    kinshipUncertainOr: 'hoặc',
+    kinshipNeutralGenderHint:
+      'Có người ghi giới tính Khác nên cách gọi ghi cả dạng nam và nữ.',
+    kinshipDescDirect: 'Quan hệ Trực hệ',
+    kinshipDescSiblings: 'Anh chị em ruột',
+    kinshipDescUpperPaternal: 'Bên Nội (Vế trên)',
+    kinshipDescUpperMaternal: 'Bên Ngoại (Vế trên)',
+    kinshipDescUpperUnknownSide:
+      'Vế trên, chưa rõ bên Nội hay Ngoại (cha/mẹ ghi giới tính Khác)',
+    kinshipDescCousinsPaternal: 'Anh em họ Nội',
+    kinshipDescCousinsMaternal: 'Anh em họ Ngoại',
+    kinshipDescCousinsUnknownSide:
+      'Anh em họ, chưa rõ bên Nội hay Ngoại (cha/mẹ ghi giới tính Khác)',
+    kinshipDescRelativesPaternal: 'Họ hàng Nội',
+    kinshipDescRelativesMaternal: 'Họ hàng Ngoại',
+    kinshipDescRelativesUnknownSide:
+      'Họ hàng, chưa rõ bên Nội hay Ngoại (cha/mẹ ghi giới tính Khác)',
+    kinshipDescRelativesGeneric: 'Quan hệ họ hàng',
+    kinshipDescMarriage: 'Quan hệ Hôn nhân',
+    kinshipDescViaSpouse: 'Thông qua hôn nhân của {name}',
+    kinshipDescStepParent: 'Bố dượng, mẹ kế (thông qua hôn nhân của {name})',
+    kinshipDescStepChild: 'Con riêng (thông qua hôn nhân của {name})',
+    kinshipDescWifeOfAncestor:
+      '{spouse} là vợ của {ancestor} nhưng chưa được ghi là mẹ của {child}',
+    kinshipDescHusbandOfAncestor:
+      '{spouse} là chồng của {ancestor} nhưng chưa được ghi là cha của {child}',
+    kinshipDescSpouseOfAncestor:
+      '{spouse} là vợ/chồng của {ancestor} nhưng chưa được ghi là cha/mẹ của {child}',
+    kinshipSpouseOfAncestorHint:
+      'Có thể đây là vợ/chồng sau chứ không phải cha/mẹ ruột, nên cách gọi chỉ là phỏng đoán. Nếu đúng là cha/mẹ, thêm quan hệ ở hồ sơ của',
+    kinshipDescViaBothSpouses: 'Thông qua hôn nhân của cả {nameA} và {nameB}',
+    kinshipDescCoParentsInLaw:
+      'Thông gia (còn gọi sui gia, ông sui/bà sui): con hai bên {childA} và {childB} là vợ chồng',
+    kinshipDescStepSiblings:
+      'Anh chị em kế: con riêng của {stepParent} và con riêng của {parent}, hai người là vợ chồng',
+    kinshipDescCoWives: 'Cùng chồng: hai người vợ của {name}',
+    kinshipDescCoHusbands: 'Cùng vợ: hai người chồng của {name}',
+    kinshipDescCoSpouses: 'Cùng vợ/chồng: hai người cùng kết hôn với {name}',
+    kinshipNoTerm: 'Không có cách gọi riêng',
+    kinshipDescNone: 'Không tìm thấy quan hệ trong phạm vi dữ liệu',
+    kinshipCommonAncestor: '(Tổ tiên chung: {name})',
+    kinshipCommonAncestorFallback: 'Tổ tiên chung',
+    kinshipPathGenerations: '{name} cách {ancestor} {depth} đời.',
+    kinshipPathSpouses: '{nameA} và {nameB} là vợ chồng.',
+    kinshipPathHusbandOf: '{name} là chồng của {spouse}.',
+    kinshipPathWifeOf: '{name} là vợ của {spouse}.',
+    kinshipPathSpouseOf: '{name} là vợ/chồng của {spouse}.',
+    kinshipPathChildOf: '{name} là con của {parent}.',
+    kinshipUnknownTerm: 'Chưa xác định',
+    personNotUpdatedShort:
+      'người này không còn tồn tại hoặc bạn không còn quyền sửa',
+    csvZipInvalid:
+      'File ZIP không hợp lệ: thiếu persons.csv hoặc relationships.csv.',
+    csvParseError:
+      '{file} dòng {line}: {problem} Chưa phục hồi gì; hãy sửa file rồi chọn lại.',
+    csvTooFewFields: 'dòng này có ít ô hơn dòng tiêu đề.',
+    csvTooManyFields: 'dòng này có nhiều ô hơn dòng tiêu đề.',
+    csvBrokenQuotes: 'dấu nháy kép (") không được đóng hoặc đặt sai chỗ.',
+    logoutFailed: 'Không đăng xuất được, hãy thử lại.',
     usageGuide: 'Hướng dẫn sử dụng',
     kinshipReference: 'Bảng danh xưng',
     regionalTerms: 'Quy đổi danh xưng',
@@ -233,6 +383,8 @@ export const messages = {
     galleryDescriptionShort: 'Lưu giữ và chia sẻ hình ảnh, kỷ niệm dòng họ',
     aboutDescriptionShort: 'Thông tin về ứng dụng và đội ngũ phát triển',
     manageUsersDescription: 'Phê duyệt tài khoản và phân quyền',
+    manageUsersLoadError:
+      'Không tải được danh sách người dùng. Nếu vừa cập nhật mã nguồn, hãy chạy migration ở trang Nâng cấp hệ thống (/dashboard/upgrade) rồi thử lại.',
     lineageDescription: 'Sắp xếp và xem cấu trúc hệ thống',
     backupDescriptionShort: 'Xuất/Nhập dữ liệu toàn hệ thống',
     upgradeDescriptionShort: 'Kiểm tra và đồng bộ source code, database',
@@ -241,10 +393,22 @@ export const messages = {
     totalMembers: 'Tổng thành viên',
     married: 'Đã kết hôn',
     unmarried: 'Chưa kết hôn',
+    lifespanTitle: 'Tuổi thọ',
+    lifespanAverage: 'Tuổi thọ trung bình',
+    lifespanLongestLived: 'Người thọ nhất',
+    lifespanOldestLiving: 'Người còn sống cao tuổi nhất',
+    lifespanByDecade: 'Tuổi thọ trung bình theo thập niên sinh',
+    lifespanDecade: '{decade}s',
+    lifespanAge: '{age} tuổi',
+    lifespanCountedHint:
+      'Tính trên {count} người đã mất có đủ năm sinh và năm mất; người thiếu năm không được tính.',
+    lifespanCountedHint_one:
+      'Tính trên {count} người đã mất có đủ năm sinh và năm mất; người thiếu năm không được tính.',
     generationDistribution: 'Phân bố theo thế hệ',
     generationAssignedHint: '* Chỉ tính các thành viên đã được gán số thế hệ',
     genderRatio: 'Tỉ lệ giới tính',
     peopleCount: '{count} người',
+    peopleCount_one: '{count} người',
     zodiacSigns: 'Cung hoàng đạo',
     zodiacSolarHint: '* Dự toán dựa trên ngày/tháng sinh dương lịch',
     chineseZodiac: 'Con giáp',
@@ -265,6 +429,12 @@ export const messages = {
     generationsFetchError: 'Lỗi lấy thông tin thế hệ',
     descendantGenerationUpdateError:
       'Có lỗi xảy ra khi cập nhật một số thế hệ sau.',
+    generationTransactionError: 'không có thay đổi nào được lưu ({error})',
+    generationUpgradeDatabase:
+      'Database chưa được nâng cấp nên thế hệ được cập nhật từng người một, không trong một giao dịch (lỗi giữa chừng có thể để lại thế hệ cập nhật dở). Hãy chạy migration ở trang Nâng cấp hệ thống (/dashboard/upgrade).',
+    lineageTransactionError: 'Chưa áp dụng thay đổi nào: {error}',
+    lineagePartialUpdateError:
+      'Không cập nhật được {failed}/{total} thành viên ({error}); các thành viên còn lại đã được lưu.',
     calculating: 'Đang tính...',
     calculate: 'Tính toán',
     updating: 'Đang cập nhật...',
@@ -313,7 +483,7 @@ export const messages = {
     logout: 'Đăng xuất',
     processing: 'Đang xử lý...',
     back: 'Quay lại',
-    home: 'Trang chủ',
+    footerBy: 'bởi',
     footerDisclaimer:
       'Nội dung có thể thiếu sót. Vui lòng đóng góp để gia phả chính xác hơn.',
     pendingTitle: 'Tài khoản chờ duyệt',
@@ -357,6 +527,9 @@ export const messages = {
     ssoError:
       'SSO chưa được cấu hình đầy đủ. Vui lòng liên hệ quản trị viên hoặc xem hướng dẫn.',
     ssoGuide: 'Xem hướng dẫn cấu hình SSO',
+    ssoGuideUrl:
+      'https://github.com/homielab/giapha-os#đăng-nhập-bằng-google-và-facebook',
+    sourceCodeLabel: 'Mã nguồn',
     noAccount: 'Chưa có tài khoản? Đăng ký ngay',
     hasAccount: 'Đã có tài khoản? Đăng nhập',
     demoLoginNotice:
@@ -366,12 +539,20 @@ export const messages = {
     signupSuccess:
       'Đăng ký thành công! Vui lòng chờ admin kích hoạt tài khoản để xem nội dung.',
     passwordMismatch: 'Mật khẩu xác nhận không khớp.',
+    authInvalidCredentials: 'Email hoặc mật khẩu không đúng.',
+    authEmailNotConfirmed:
+      'Email chưa được xác nhận. Vui lòng mở thư xác nhận trong hộp thư của bạn.',
+    authUserExists: 'Email này đã được đăng ký. Vui lòng đăng nhập.',
+    authWeakPassword:
+      'Mật khẩu quá yếu. Vui lòng chọn mật khẩu dài và khó đoán hơn.',
+    authRateLimited: 'Bạn thử quá nhiều lần. Vui lòng đợi một lát rồi thử lại.',
+    authEmailInvalid: 'Địa chỉ email không hợp lệ.',
     unexpectedError: 'Đã xảy ra lỗi không mong muốn',
     oauthNotConfigured:
       'Đăng nhập với {provider} chưa được cấu hình trên hệ thống.',
     aboutTitle: 'Giới thiệu dự án',
     aboutDescription:
-      'Gia Phả OS là một giải pháp mã nguồn mở được thiết kế giúp các dòng họ, gia đình tự xây dựng và quản lý cây phả hệ của riêng mình. Dự án giúp bảo tồn và truyền đạt lại thông tin cội nguồn một cách trực quan, hiện đại, và đặc biệt là an toàn.',
+      '{siteName} là một giải pháp mã nguồn mở được thiết kế giúp các dòng họ, gia đình tự xây dựng và quản lý cây phả hệ của riêng mình. Dự án giúp bảo tồn và truyền đạt lại thông tin cội nguồn một cách trực quan, hiện đại, và đặc biệt là an toàn.',
     privacyTitle: 'Tuyên bố từ chối trách nhiệm & Quyền riêng tư',
     sourceOnly:
       'Dự án này chỉ cung cấp mã nguồn (source code). Không có bất kỳ dữ liệu cá nhân nào được thu thập hay lưu trữ bởi tác giả.',
@@ -405,8 +586,13 @@ export const messages = {
     exportFile: 'Xuất file',
     exporting: 'Đang xuất...',
     saveAsImage: 'Lưu thành ảnh (PNG)',
-    saveAsPdf: 'Lưu thành PDF',
+    saveAsPdf: 'PDF một trang',
+    saveAsPdfA4: 'PDF nhiều trang A4',
+    saveAsPdfA3: 'PDF nhiều trang A3',
+    pdfPageLabel: 'Trang',
     exportError: 'Đã xảy ra lỗi khi xuất file. Vui lòng thử lại.',
+    exportTooLarge:
+      'Cây quá lớn để xuất trên thiết bị này. Hãy chọn gốc nhỏ hơn (xuất từng nhánh) hoặc xuất trên máy tính.',
     hidePhoto: 'Ẩn ảnh',
     showPhoto: 'Hiện ảnh',
     searchMembers: 'Tìm kiếm thành viên...',
@@ -417,10 +603,14 @@ export const messages = {
     sonInLaw: 'Rể',
     deceased: 'Đã mất',
     firstChild: 'Con trưởng',
+    filterAlive: 'Còn sống',
+    filterMissingBirthYear: 'Thiếu năm sinh',
+    filterGeneration: 'Đời {n}',
+    filterGenerationGroup: 'Theo đời',
     birthAsc: 'Năm sinh (Tăng dần)',
     birthDesc: 'Năm sinh (Giảm dần)',
-    nameAsc: 'Tên (A-Z)',
-    nameDesc: 'Tên (Z-A)',
+    nameAsc: 'Tên gọi (A-Z)',
+    nameDesc: 'Tên gọi (Z-A)',
     updatedDesc: 'Cập nhật (Mới nhất)',
     updatedAsc: 'Cập nhật (Cũ nhất)',
     generationAsc: 'Theo thế hệ (Tăng dần)',
@@ -430,11 +620,18 @@ export const messages = {
     clearSearch: 'Xoá tìm kiếm',
     clearFilters: 'Xoá bộ lọc',
     showingMembers: 'Hiển thị {shown}/{total} thành viên',
+    showMoreMembers: 'Hiện thêm {count}',
+    membersShownOfTotal: 'Đang hiện {shown}/{total} thành viên',
     noMembers: 'Chưa có thành viên nào. Hãy thêm thành viên đầu tiên.',
     invalidBirthDate: 'Ngày sinh không hợp lệ. Vui lòng kiểm tra lại.',
+    dayNeedsMonth: 'Cần có tháng khi nhập ngày.',
     invalidLunarDate: 'Ngày âm lịch không hợp lệ. Vui lòng kiểm tra lại.',
     invalidDeathDate: 'Ngày mất không hợp lệ. Vui lòng kiểm tra lại.',
-    deathBeforeBirth: 'Năm mất phải lớn hơn hoặc bằng năm sinh.',
+    deathBeforeBirth: 'Ngày mất không được trước ngày sinh.',
+    birthInFuture: 'Ngày sinh không được sau hôm nay. Kiểm tra lại năm.',
+    deathInFuture: 'Ngày mất không được sau hôm nay. Kiểm tra lại năm.',
+    yearNotFourDigits: 'Năm phải có 4 chữ số (ví dụ 1985, không phải 85).',
+    invalidWholeNumber: 'Thứ tự sinh và đời phải là số nguyên.',
     saveIdError: 'Không lấy được ID thành viên sau khi lưu.',
     saveMemberError: 'Không thể lưu thành viên.',
     generalInfo: 'Thông tin chung',
@@ -468,7 +665,10 @@ export const messages = {
     dateHint:
       '* Nhập ngày dương lịch hoặc ngày âm lịch. Hệ thống sẽ tự tính toán và điền phần còn lại.',
     lunarDeathDate: 'Ngày mất (Âm lịch)',
+    lunarLeapMonth: 'Tháng nhuận (chỉ để quy đổi sang dương lịch)',
     solarDeathDate: 'Ngày mất (Dương lịch)',
+    burialPlace: 'Nơi an táng',
+    burialPlacePlaceholder: 'Ví dụ: Nghĩa trang X, xã Y',
     note: 'Ghi chú',
     notePlaceholder: 'Thêm thông tin bổ sung, tiểu sử...',
     privateInfo: 'Thông tin riêng tư',
@@ -481,6 +681,10 @@ export const messages = {
     residence: 'Nơi ở hiện tại',
     residencePlaceholder: 'Địa chỉ cư trú...',
     cancel: 'Hủy bỏ',
+    discardChangesTitle: 'Bỏ thay đổi?',
+    discardChangesBody: 'Những gì bạn vừa nhập sẽ không được lưu.',
+    discardChanges: 'Bỏ',
+    keepEditing: 'Tiếp tục sửa',
     saving: 'Đang lưu...',
     saveChanges: 'Lưu thay đổi',
     dbMissingTitle: 'Chưa kết nối cơ sở dữ liệu',
@@ -514,6 +718,22 @@ export const messages = {
     eventsTitle: 'Sự kiện gia phả',
     eventsDescription: 'Sinh nhật, ngày giỗ (âm lịch) và các sự kiện tuỳ chỉnh',
     addEvent: 'Thêm sự kiện',
+    addToCalendar: 'Thêm vào lịch (.ics)',
+    addToCalendarHint:
+      'Tải file lịch có sinh nhật (lặp hằng năm), ngày giỗ của năm nay và 4 năm tới, và các sự kiện tuỳ chỉnh để nhập vào Google/Apple Calendar',
+    icsCalendarName: 'Gia phả: sinh nhật và ngày giỗ',
+    icsBirthdaySummary: 'Sinh nhật {name}',
+    icsDeathSummary: 'Giỗ {name}',
+    icsBirthYear: 'Sinh năm {year}',
+    icsLunarDate: 'Ngày giỗ theo âm lịch: {date}',
+    icsCustomLunarDate: 'Ngày âm lịch: {date}',
+    icsApproximate: 'Ngày ước tính, chưa có năm mất hoặc ngày mất âm lịch.',
+    icsRemindUntil:
+      'Tạo bởi Giapha OS, nhắc đến hết {year}. Sau đó hãy xuất lại file lịch.',
+    addToCalendarUntil: 'Nhắc đến hết {year}',
+    icsRemindLabel: 'Nhắc trước',
+    icsRemindNone: 'Không nhắc',
+    icsRemindDays: '{days} ngày, lúc 8 giờ sáng',
     lunarCalendar: 'Âm lịch',
     weekdaySunday: 'Chủ nhật',
     weekdayMonday: 'Thứ hai',
@@ -525,53 +745,82 @@ export const messages = {
     calendarDate: '{weekday}, ngày {day}/{month}',
     calendarDateWithYear: '{weekday}, ngày {day}/{month}/{year}',
     lunarDateSuffix: ' (Âm lịch: {date})',
+    approximateDateSuffix: ' (ước tính)',
     leapMonth: ' nhuận',
     lunarSuffix: ' ÂL',
     todaySolarDate: '{weekday}, ngày {day} tháng {month} năm {year}',
     eventsToday: '{count} sự kiện hôm nay',
+    eventsToday_one: '{count} sự kiện hôm nay',
     eventsNext7Days: '{count} sự kiện trong 7 ngày tới',
+    eventsNext7Days_one: '{count} sự kiện trong 7 ngày tới',
     eventAll: 'Tất cả',
     eventBirthdays: 'Sinh nhật',
     eventDeaths: 'Ngày giỗ',
     eventCustom: 'Tuỳ chỉnh',
     eventPast: 'Đã qua',
     eventCount: '{count} sự kiện',
+    eventCount_one: '{count} sự kiện',
     eventPastYear: ' trong năm qua',
     showDeceasedBirthdays: 'Hiển thị sinh nhật của người đã mất',
     noEvents: 'Không có sự kiện nào',
     noEventsHint: 'Hãy bổ sung ngày sinh hoặc ngày mất cho thành viên',
     loadMoreEvents: 'Xem thêm {count} sự kiện…',
+    loadMoreEvents_one: 'Xem thêm {count} sự kiện…',
     yesterday: 'Hôm qua',
     today: 'Hôm nay',
     tomorrow: 'Ngày mai',
     daysAgo: '{count} ngày trước',
     weeksAgo: '{count} tuần trước',
+    weeksAgo_one: '{count} tuần trước',
     monthsAgo: '{count} tháng trước',
+    monthsAgo_one: '{count} tháng trước',
     daysFromNow: '{count} ngày nữa',
     weeksFromNow: '{count} tuần nữa',
+    weeksFromNow_one: '{count} tuần nữa',
     monthsFromNow: '{count} tháng nữa',
+    monthsFromNow_one: '{count} tháng nữa',
     yearsOld: '{count} tuổi',
+    yearsOld_one: '{count} tuổi',
     yearsSince: '{count} năm',
+    yearsSince_one: '{count} năm',
     backupTitle: 'Sao lưu & Phục hồi',
     backupDescription:
       'Quản lý dữ liệu an toàn. Bạn có thể tải xuống bản sao lưu để lưu trữ hoặc phục hồi lại dữ liệu từ file đã lưu. Tính năng này chỉ dành cho Quản trị viên.',
     backupData: 'Sao lưu dữ liệu',
     backupDataDescription:
       'Tải xuống định dạng file JSON, GEDCOM hoặc CSV (Zip). Chọn một điểm gốc bên dưới để chỉ sao lưu nhánh gia đình đó, hoặc chọn "Toàn bộ" để xuất toàn bộ cây.',
+    backupPhotosNote:
+      'Bản sao lưu JSON/CSV/GEDCOM không chứa ảnh đại diện và thư viện ảnh (cả tiêu đề, mô tả ảnh); tải riêng các bucket avatars và gallery từ Supabase Storage.',
     exportRoot: 'Điểm gốc (Root) để xuất dữ liệu',
+    exportPersonsLoadError:
+      'Không tải được danh sách thành viên để chọn điểm gốc: {error}. Tải lại trang để thử lại; có thể vẫn xuất toàn bộ dữ liệu.',
     allData: 'Toàn bộ dữ liệu',
     exportJson: 'Xuất JSON',
     exportGedcom: 'Xuất GEDCOM',
     exportCsv: 'Xuất CSV (Zip)',
     restoreData: 'Phục hồi dữ liệu',
     restoreDataDescription:
-      'Khôi phục cây gia phả từ file đã sao lưu (.json, .ged, hoặc .zip).',
-    restoreWarning: 'Cảnh báo: Tác vụ này sẽ xoá toàn bộ dữ liệu hiện tại!',
+      'Khôi phục cây gia phả từ file đã sao lưu (.json, .ged, hoặc .zip), hoặc thêm nhánh trong file vào cây hiện tại.',
+    restoreWarning:
+      'Cảnh báo: chế độ "Thay toàn bộ cây" sẽ xoá toàn bộ dữ liệu hiện tại!',
     chooseRestoreFile: 'Chọn file phục hồi',
     restoreConfirmTitle: 'Xác nhận phục hồi',
     restoreConfirmText:
       'Hệ thống sẽ xoá toàn bộ dữ liệu thành viên, mối quan hệ, thông tin riêng tư và sự kiện hiện tại để thay thế bằng dữ liệu từ file {file}.',
     restoreIrreversible: 'Hành động này không thể hoàn tác. Bạn đã chắc chắn?',
+    restoreFileContains:
+      'File này chứa {persons} thành viên, {relationships} quan hệ, {events} sự kiện.',
+    restoreFileExportedAt: 'Xuất ngày {date}.',
+    restoreDownloadCurrent: 'Tải bản sao lưu hiện tại trước',
+    restoreEncodingAnsel:
+      'File GEDCOM dùng bảng mã ANSEL, chưa được hỗ trợ đầy đủ: hãy kiểm tra tên có dấu trước khi tiếp tục.',
+    restoreEncodingReplaced:
+      'Một số ký tự trong file không đọc được (hiện thành �): tên có dấu có thể bị sai. Nên lưu lại file GEDCOM ở dạng UTF-8 rồi nhập lại.',
+    restoreFileUnreadable:
+      'Không đọc được file: nội dung không phải JSON hợp lệ.',
+    notFoundTitle: 'Không tìm thấy trang',
+    notFoundDescription:
+      'Trang bạn tìm không tồn tại hoặc thành viên này đã bị xoá.',
     restoreCancel: 'Huỷ bỏ',
     restoreContinue: 'Vẫn tiếp tục',
     restoring: 'Đang phục hồi...',
@@ -583,9 +832,199 @@ export const messages = {
       'Phục hồi thành công! Đã nhập {persons} thành viên, {relationships} quan hệ.',
     restoreFailed: 'Quá trình phục hồi đã xảy ra lỗi.',
     fileTooLarge: 'File phục hồi không được vượt quá 25MB.',
+    restoreTooLargeForHost:
+      'Dữ liệu phục hồi lớn hơn 4,5 MB, mức tối đa máy chủ Vercel nhận (như bản demo). Bản tự host (Docker, máy chủ riêng) không giới hạn này.',
     csvRestoreZipOnly:
       'Vui lòng phục hồi bằng file .zip được tạo ra từ chức năng Xuất CSV.',
     invalidRestoreFile: 'Vui lòng chọn file .json, .ged, hoặc .zip hợp lệ.',
+    lunarRecomputeTitle: 'Tính lại ngày giỗ âm lịch',
+    lunarRecomputeDescription:
+      'Ngày âm lịch lưu trước khi ứng dụng chuyển sang âm lịch Việt Nam được tính theo lịch Trung Quốc, có năm lệch một ngày hoặc một tháng. Công cụ này so ngày âm lịch đang lưu với ngày tính lại từ ngày mất dương lịch và chỉ sửa những dòng bạn chọn.',
+    lunarRecomputeWarning:
+      'Nếu ngày âm lịch là ngày bạn nhập tay (ngày mất dương lịch chỉ được suy ra từ đó và có thể sai) thì không nên áp dụng cho dòng đó. Ứng dụng không biết ngày nào được nhập tay, nên hãy xem từng dòng.',
+    lunarRecomputeBackupHint:
+      'Nên tải bản sao lưu JSON ở mục "Sao lưu dữ liệu" phía trên trước khi áp dụng.',
+    lunarRecomputeCheck: 'Kiểm tra ngày giỗ',
+    lunarRecomputeChecking: 'Đang kiểm tra...',
+    lunarRecomputeNone:
+      'Không có ngày âm lịch nào khác với ngày tính lại theo âm lịch Việt Nam.',
+    lunarRecomputeFound:
+      '{count} thành viên có ngày âm lịch khác với ngày tính lại. Đã chọn {selected}.',
+    lunarRecomputeSelectAll: 'Chọn tất cả',
+    lunarRecomputeSelectRow: 'Chọn {name}',
+    lunarRecomputeSolar: 'Ngày mất (dương lịch)',
+    lunarRecomputeStored: 'Âm lịch đang lưu',
+    lunarRecomputeNew: 'Âm lịch tính lại',
+    lunarRecomputeLeap: 'nhuận',
+    lunarRecomputeApply: 'Áp dụng cho {count} dòng đã chọn',
+    lunarRecomputeApplying: 'Đang áp dụng...',
+    lunarRecomputeConfirmTitle: 'Xác nhận tính lại ngày giỗ',
+    lunarRecomputeConfirmText:
+      'Ngày âm lịch của {count} thành viên đã chọn sẽ được thay bằng ngày tính lại theo âm lịch Việt Nam. Ngày giỗ trong danh sách sự kiện sẽ đổi theo.',
+    lunarRecomputeConfirmContinue: 'Áp dụng',
+    lunarRecomputeResult:
+      'Đã cập nhật {updated} thành viên. Bỏ qua {skipped} (đã đúng, đã xoá hoặc vừa được sửa), lỗi {failed}.',
+    lunarRecomputeInvalidSelection:
+      'Danh sách thành viên đã chọn không hợp lệ.',
+    lunarRecomputeFailed: 'Không thể tính lại ngày giỗ. Vui lòng thử lại.',
+    dataCheckTitle: 'Kiểm tra dữ liệu',
+    dataCheckDescription:
+      'Rà cả cây tìm mốc ngày vô lý, thường gặp ở dữ liệu nhập từ GEDCOM hoặc CSV: mất trước khi sinh, con sinh sau khi mẹ mất, cha mất hơn 10 tháng trước khi con sinh, cha/mẹ hơn con dưới 12 hoặc trên 70 tuổi (chỉ xét khi có đủ năm sinh; bỏ qua con nuôi), ngày sinh/mất trong tương lai, quan hệ bị lặp, con có quá nhiều cha mẹ ruột, vợ chồng là cha mẹ – con hoặc anh chị em (chung cha hoặc mẹ ruột), vợ chồng mà một người mất trước khi người kia sinh, vòng cha–con (một người vừa là tổ tiên vừa là con cháu của chính mình), người nối quan hệ với chính mình, các con cùng cặp cha mẹ trùng "con thứ" hoặc thứ tự ngược năm sinh (số thứ tự chỉ so trong cùng cặp cha mẹ, con các bà vợ khác nhau không so); và nhóm thiếu thông tin: chưa có năm sinh, đã mất nhưng thiếu năm mất, chưa rõ giới tính. Chỉ để xem; không có gì bị sửa. Mở từng hồ sơ để sửa.',
+    dataCheckRun: 'Kiểm tra dữ liệu',
+    dataCheckRunning: 'Đang kiểm tra...',
+    dataCheckNone: 'Không phát hiện gì.',
+    dataCheckFound: 'Phát hiện {count} điểm cần xem.',
+    dataCheckLimited: 'Hiện {shown} điểm đầu mỗi nhóm.',
+    dataCheckFailed: 'Không thể kiểm tra. Vui lòng thử lại.',
+    dataCheckOpen: 'Mở hồ sơ',
+    dataCheckKindDeathBeforeBirth: 'Mất trước khi sinh',
+    dataCheckKindBornAfterMotherDeath: 'Con sinh sau khi mẹ mất',
+    dataCheckKindFatherDiedBeforeBirth: 'Cha mất lâu trước khi con sinh',
+    dataCheckKindParentTooYoung: 'Cha/mẹ nhỏ hơn con dưới 12 tuổi',
+    dataCheckKindParentTooOld: 'Cha/mẹ hơn con trên 70 tuổi',
+    dataCheckKindFutureDate: 'Ngày trong tương lai',
+    dataCheckKindImplausibleAge: 'Tuổi trên 120',
+    dataCheckKindDuplicateRelationship: 'Quan hệ bị lặp',
+    dataCheckKindTooManyParents: 'Con có quá nhiều cha mẹ ruột',
+    dataCheckKindMissingBirthYear: 'Thiếu thông tin: chưa có năm sinh',
+    dataCheckKindMissingDeathYear:
+      'Thiếu thông tin: đã mất nhưng thiếu năm mất',
+    dataCheckKindDeceasedFlagMissing: 'Có ngày mất nhưng chưa đánh dấu đã mất',
+    dataCheckKindMissingGender: 'Thiếu thông tin: chưa rõ giới tính',
+    dataCheckMissingPerson: '{name}',
+    dataCheckDeathBeforeBirth: '{name}: sinh {birth}, mất {death}.',
+    dataCheckBornAfterMotherDeath:
+      '{child} sinh {birth}, sau khi mẹ {mother} mất ({death}).',
+    dataCheckFatherDiedBeforeBirth:
+      '{child} sinh {birth}, quá lâu sau khi cha {father} mất ({death}).',
+    dataCheckParentAge:
+      '{parent} ({parentBirth}) và con {child} ({childBirth}) cách nhau {age} năm.',
+    dataCheckFutureBirth: '{name}: ngày sinh {date} chưa tới.',
+    dataCheckFutureDeath: '{name}: ngày mất {date} chưa tới.',
+    dataCheckLivingTooOld:
+      '{name}: sinh {birth}, chưa đánh dấu đã mất, nay {age} tuổi. Có thể thiếu ngày mất.',
+    dataCheckDiedTooOld: '{name}: sinh {birth}, mất {death}, thọ {age} tuổi.',
+    dataCheckDuplicateMarriage: '{a} và {b} có hai quan hệ hôn nhân.',
+    dataCheckDuplicateChild: '{a} và {b} có hai quan hệ cha/mẹ – con.',
+    dataCheckKindMarriageWithRelative:
+      'Kết hôn với cha mẹ, con hoặc anh chị em',
+    dataCheckKindMarriageAfterDeath: 'Vợ chồng mất trước khi người kia sinh',
+    dataCheckMarriageParent: '{a} và {b} vừa là vợ chồng vừa là cha/mẹ – con.',
+    dataCheckMarriageSibling: '{a} và {b} vừa là vợ chồng vừa là anh chị em.',
+    dataCheckMarriageAfterDeath:
+      '{dead} mất {death}, trước khi vợ/chồng {other} sinh ({birth}).',
+    dataCheckTooManyParents:
+      '{child} có {count} cha mẹ ruột (tối đa một cha và một mẹ): {parents}.',
+    dataCheckKindSingleParentWithSpouse:
+      'Con chỉ ghi một cha/mẹ nhưng người đó có vợ/chồng',
+    dataCheckSingleParentWithSpouse:
+      '{child} chỉ ghi {parent} là cha/mẹ, nhưng {parent} có vợ/chồng: {spouses}. Nếu đúng là cha/mẹ của {child}, thêm quan hệ ở hồ sơ {child}.',
+    dataCheckKindParentChildLoop: 'Vòng cha–con',
+    dataCheckKindSelfLink: 'Quan hệ với chính mình',
+    dataCheckParentChildLoop:
+      'Vòng {count} người, mỗi người là cha/mẹ của người sau: {path}.',
+    dataCheckSelfMarriage: '{name} kết hôn với chính mình.',
+    dataCheckSelfChild: '{name} là cha/mẹ của chính mình.',
+    dataCheckKindGenerationMismatch: 'Đời của con khác đời cha mẹ cộng một',
+    dataCheckKindBirthOrderConflict: 'Con thứ bị trùng hoặc ngược năm sinh',
+    dataCheckKindIsolatedPerson: 'Người không có quan hệ nào',
+    dataCheckGenerationMismatch:
+      '{child} ghi đời {childGeneration}, cha/mẹ {parent} đời {parentGeneration} (con phải là đời {expected}).',
+    dataCheckBirthOrderSame:
+      '{names} (con của {parent}) cùng là con thứ {order}.',
+    dataCheckBirthOrderReversed:
+      '{a} là con thứ {orderA} (sinh {birthA}) nhưng sinh sau {b}, con thứ {orderB} (sinh {birthB}); cùng là con của {parent}.',
+    dataCheckIsolatedPerson:
+      '{name} không có cha mẹ, vợ chồng hay con nào trong cây.',
+    duplicateScanTitle: 'Người có thể trùng',
+    duplicateScanDescription:
+      'Quét cả cây tìm thành viên có thể là một người nhập hai lần: cùng tên (không phân biệt dấu) và cùng năm sinh, hoặc cùng tên và cùng cha/mẹ. Chỉ để xem; không có gì bị sửa hay xoá. Hãy mở từng hồ sơ và tự sửa hoặc xoá bằng công cụ sẵn có.',
+    duplicateScanRun: 'Quét người có thể trùng',
+    duplicateScanScanning: 'Đang quét...',
+    duplicateScanNone: 'Không tìm thấy nhóm nào có thể trùng (0 nhóm).',
+    duplicateScanFound: 'Tìm thấy {count} nhóm có thể trùng.',
+    duplicateScanLimited:
+      'Chỉ hiện {shown} nhóm đầu, còn {remaining} nhóm nữa.',
+    duplicateScanYears: 'Năm sinh – mất',
+    duplicateScanRelationships: 'Số quan hệ',
+    duplicateScanOpen: 'Mở hồ sơ',
+    duplicateScanFailed: 'Không thể quét. Vui lòng thử lại.',
+    duplicateScanGroup: 'Nhóm trùng',
+    mergeButton: 'Gộp…',
+    mergeTitle: 'Gộp hai hồ sơ trùng',
+    mergeDescription:
+      'Mọi dữ liệu của hồ sơ bị gộp sẽ chuyển sang hồ sơ giữ, rồi hồ sơ bị gộp bị xoá. Thao tác không thể hoàn tác — hãy tải bản sao lưu trước.',
+    mergeBackupFirst: 'Khuyến nghị: tải bản sao lưu trước khi gộp.',
+    mergeBackupLink: 'Tải bản sao lưu',
+    mergeKeepTag: 'Hồ sơ giữ',
+    mergeDropTag: 'Hồ sơ bị gộp',
+    mergeKeeperHint:
+      'Hồ sơ giữ giữ nguyên tên và ngày đã có; trường trống sẽ lấy giá trị của hồ sơ bị gộp.',
+    mergePreviewButton: 'Xem trước nội dung sẽ gộp',
+    mergePreviewLoading: 'Đang tải...',
+    mergeNothingToMove: 'Hai hồ sơ không có dữ liệu riêng nào cần chuyển.',
+    mergeNoRelationships:
+      'Không có quan hệ nào cần chuyển hoặc bỏ; chỉ các trường trống được điền và hồ sơ bị gộp bị xoá.',
+    mergeMoved: '{count} quan hệ sẽ chuyển sang hồ sơ giữ:',
+    mergeDroppedPair:
+      '{count} quan hệ giữa hai hồ sơ sẽ bị bỏ (sau khi gộp sẽ thành quan hệ với chính mình).',
+    mergeDroppedDuplicates:
+      '{count} quan hệ trùng với quan hệ hồ sơ giữ đã có sẽ bị bỏ:',
+    mergeRelMarriage: 'Kết hôn với',
+    mergeRelChild: 'Là cha/mẹ của',
+    mergeRelAdopted: 'Là cha/mẹ nuôi của',
+    mergeFieldsFilled:
+      '{count} trường trống của hồ sơ giữ sẽ lấy giá trị của hồ sơ bị gộp:',
+    mergeField_birthYear: 'Năm sinh',
+    mergeField_birthMonth: 'Tháng sinh',
+    mergeField_birthDay: 'Ngày sinh',
+    mergeField_deathYear: 'Năm mất',
+    mergeField_deathMonth: 'Tháng mất',
+    mergeField_deathDay: 'Ngày mất',
+    mergeField_deathLunarYear: 'Năm mất (âm lịch)',
+    mergeField_deathLunarMonth: 'Tháng mất (âm lịch)',
+    mergeField_deathLunarDay: 'Ngày mất (âm lịch)',
+    mergeField_isDeceased: 'Đã mất',
+    mergeField_isInLaw: 'Dâu/rể',
+    mergeField_birthOrder: 'Thứ tự con',
+    mergeField_generation: 'Đời',
+    mergeField_avatar: 'Ảnh đại diện',
+    mergeField_burialPlace: 'Nơi an táng',
+    mergePrivateMoved:
+      'Thông tin riêng tư (số điện thoại, nghề nghiệp, nơi ở) của hồ sơ bị gộp chuyển sang hồ sơ giữ.',
+    mergePrivateFilled:
+      '{count} trường riêng tư trống của hồ sơ giữ sẽ lấy giá trị của hồ sơ bị gộp:',
+    mergePrivate_phone: 'Số điện thoại',
+    mergePrivate_occupation: 'Nghề nghiệp',
+    mergePrivate_residence: 'Nơi ở hiện tại',
+    mergeOtherNames: 'Tên khác sẽ được nhớ vào hồ sơ giữ: {names}.',
+    mergeNoteAppended:
+      'Ghi chú của hồ sơ bị gộp sẽ nối vào ghi chú của hồ sơ giữ.',
+    mergeYes: 'Có',
+    mergeNo: 'Không',
+    mergeWarningsTitle: 'Cảnh báo: gộp hai hồ sơ này sẽ làm sai cây gia phả',
+    mergeWarning_tooManyParents:
+      'Hồ sơ giữ sẽ có hơn 2 cha mẹ ruột (cha mẹ của cả hai hồ sơ cộng lại).',
+    mergeWarning_sameGenderParents:
+      'Hồ sơ giữ sẽ có 2 cha mẹ ruột cùng giới tính (ví dụ hai người cha).',
+    mergeWarning_loop:
+      'Một hồ sơ là tổ tiên của hồ sơ kia: sau khi gộp, người này sẽ thành tổ tiên của chính mình và cây sẽ bị vòng lặp.',
+    mergeWarningsAcknowledge:
+      'Tôi hiểu, vẫn gộp (sau đó sửa lại quan hệ trong hồ sơ). Gộp không hoàn tác được.',
+    mergeConfirmLabel: 'Gõ đúng tên hồ sơ bị gộp để xác nhận: "{name}"',
+    mergeConfirmButton: 'Gộp và xoá hồ sơ',
+    mergeMerging: 'Đang gộp...',
+    mergeDone:
+      'Đã gộp xong: {moved} quan hệ chuyển, {dropped} quan hệ bỏ, {filled} trường điền thêm.',
+    mergePreviewFailed: 'Không thể tải xem trước. Vui lòng thử lại.',
+    mergeUpgradeDatabase:
+      'Cơ sở dữ liệu chưa có hàm gộp hồ sơ. Hãy chạy nâng cấp cơ sở dữ liệu (Dashboard → Nâng cấp) rồi thử lại.',
+    mergeFailed: 'Không thể gộp hồ sơ. {error}',
+    mergeFailedGeneric:
+      'Không thể gộp hồ sơ. Hãy kiểm tra kết nối rồi thử lại.',
+    mergeSameMember: 'Hai hồ sơ cần gộp phải khác nhau.',
+    mergeInvalidMember: 'Mã hồ sơ cần gộp không hợp lệ.',
+    mergeMemberMissing: 'Một trong hai hồ sơ không còn tồn tại. Hãy quét lại.',
     galleryTitle: 'Phòng trưng bày',
     galleryDescription: 'Lưu giữ những kỷ niệm và khoảnh khắc đáng nhớ',
     gridView: 'Lưới',
@@ -602,6 +1041,17 @@ export const messages = {
     deleting: 'Đang xóa...',
     deleteImageConfirm: 'Bạn có chắc chắn muốn xóa hình ảnh này?',
     deleteImageError: 'Đã xảy ra lỗi khi xóa hình ảnh.',
+    personNotUpdated:
+      'Không lưu được: bạn không còn quyền sửa hồ sơ này hoặc phiên đã hết hạn. Hãy tải lại trang; dữ liệu bạn nhập vẫn còn trong form.',
+    personChanged:
+      'Người này vừa được người khác sửa nên thay đổi của bạn chưa được lưu (không ghi đè). Hãy tải lại để xem bản mới nhất rồi nhập lại.',
+    reloadPage: 'Tải lại',
+    relationshipNotDeleted:
+      'Không xoá được quan hệ: bạn không còn quyền hoặc quan hệ đã bị xoá. Hãy tải lại trang.',
+    galleryItemNotUpdated:
+      'Không lưu được: bạn không còn quyền sửa ảnh này. Hãy tải lại trang.',
+    deleteImageNotAllowed:
+      'Bạn không có quyền xoá ảnh này nên ảnh vẫn còn nguyên.',
     close: 'Đóng',
     filterLabel: 'Lọc',
     sortLabel: 'Sắp xếp',
@@ -618,6 +1068,13 @@ export const messages = {
     locationPlaceholder: 'VD: Nhà từ đường',
     details: 'Nội dung chi tiết',
     detailsPlaceholder: 'Ghi chú thêm về sự kiện...',
+    eventRecurrence: 'Lặp lại',
+    recurrenceNone: 'Không lặp (chỉ một lần)',
+    recurrenceYearlySolar: 'Hằng năm theo dương lịch',
+    recurrenceYearlyLunar: 'Hằng năm theo âm lịch',
+    recurrenceLunarHint:
+      'Lặp vào ngày âm lịch của ngày diễn ra (như ngày giỗ, giữ tháng nhuận).',
+    recurringYearlySuffix: ' · lặp hằng năm',
     editEvent: 'Sửa sự kiện',
     addCustomEvent: 'Thêm sự kiện tuỳ chỉnh',
     deleteEvent: 'Xoá sự kiện',
@@ -626,9 +1083,24 @@ export const messages = {
     confirmDeleteEvent: 'Bạn có chắc chắn muốn xoá sự kiện này?',
     saveEventError: 'Đã xảy ra lỗi khi lưu sự kiện.',
     deleteEventError: 'Đã xảy ra lỗi khi xoá sự kiện.',
+    eventNotAllowed:
+      'Bạn chỉ có thể sửa hoặc xoá sự kiện do chính mình tạo (quản trị viên sửa được mọi sự kiện).',
     fileTooLarge10: 'Kích thước file phải nhỏ hơn 10MB.',
+    galleryImageTooLarge: 'Ảnh phải nhỏ hơn 20MB (ảnh GIF nhỏ hơn 10MB).',
+    unsupportedImageType: 'Chỉ hỗ trợ ảnh JPG, PNG, GIF hoặc WEBP.',
+    galleryPagination: 'Phân trang phòng trưng bày',
+    galleryImageUnavailable: 'Không tải được ảnh',
+    galleryPrevImage: 'Ảnh trước',
+    galleryNextImage: 'Ảnh sau',
+    galleryImagePosition: 'Ảnh {position}/{total}',
+    galleryLoadErrorTitle: 'Không tải được ảnh của phòng trưng bày',
+    galleryLoadErrorDescription:
+      'Không tạo được đường dẫn xem ảnh. Hãy kiểm tra bucket Supabase Storage "gallery" đã được tạo và chính sách của nó khớp với docs/schema.sql (xem README, mục cài đặt), rồi thử lại.',
+    galleryPageStatus: 'Trang {page}/{pageCount} · {total} ảnh',
+    previousPage: 'Trang trước',
+    nextPage: 'Trang sau',
     chooseImage: 'Kéo thả ảnh vào đây, hoặc click để chọn',
-    imageUploadHint: 'Hỗ trợ JPG, PNG, WEBP (tối đa 10MB)',
+    imageUploadHint: 'Hỗ trợ JPG, PNG, GIF, WEBP (tối đa 20MB, GIF 10MB)',
     chooseImageError: 'Vui lòng chọn ảnh.',
     enterImageTitle: 'Vui lòng nhập tiêu đề.',
     imagePreview: 'Xem trước ảnh',
@@ -648,10 +1120,11 @@ export const messages = {
     backToPrevious: 'Quay lại',
     loadingMember: 'Đang tải...',
     memberLoadError: 'Không thể tải thông tin thành viên.',
+    privateLoadFailed:
+      'Không đọc được thông tin riêng tư (điện thoại, nghề nghiệp, nơi ở). Các ô này bị khoá và sẽ được giữ nguyên khi lưu; đóng rồi mở lại để thử tải lại.',
     systemError: 'Đã xảy ra lỗi hệ thống.',
     pageErrorTitle: 'Không thể tải trang',
     pageErrorDescription: 'Đã có lỗi khi tải dữ liệu. Vui lòng thử lại.',
-    tryAgain: 'Thử lại',
     choosePerson: 'Chọn người...',
     displayRoot: 'Gốc hiển thị',
     generationLabel: 'Đời thứ {generation}',
@@ -725,6 +1198,48 @@ export const messages = {
     lunar: 'Âm lịch',
     unknownDate: 'Chưa rõ',
     zodiacAge: 'Tuổi',
+    zodiacAries: 'Bạch Dương',
+    zodiacTaurus: 'Kim Ngưu',
+    zodiacGemini: 'Song Tử',
+    zodiacCancer: 'Cự Giải',
+    zodiacLeo: 'Sư Tử',
+    zodiacVirgo: 'Xử Nữ',
+    zodiacLibra: 'Thiên Bình',
+    zodiacScorpio: 'Thiên Yết',
+    zodiacSagittarius: 'Nhân Mã',
+    zodiacCapricorn: 'Ma Kết',
+    zodiacAquarius: 'Bảo Bình',
+    zodiacPisces: 'Song Ngư',
+    animalMonkey: 'Thân',
+    animalRooster: 'Dậu',
+    animalDog: 'Tuất',
+    animalPig: 'Hợi',
+    animalRat: 'Tý',
+    animalOx: 'Sửu',
+    animalTiger: 'Dần',
+    animalCat: 'Mão',
+    animalDragon: 'Thìn',
+    animalSnake: 'Tỵ',
+    animalHorse: 'Ngọ',
+    animalGoat: 'Mùi',
+    lunarDayMonth: '{day} tháng {month}',
+    globalSearchOpen: 'Tìm thành viên (Ctrl/⌘ + K)',
+    globalSearchTitle: 'Tìm thành viên',
+    globalSearchPlaceholder: 'Gõ tên thành viên, không cần dấu...',
+    globalSearchLoading: 'Đang tải danh sách thành viên...',
+    globalSearchNoResults: 'Không có thành viên nào khớp.',
+    globalSearchResultCount: '{count} thành viên khớp.',
+    globalSearchResultsCapped:
+      'Hiện {count} thành viên khớp đầu tiên. Gõ tên cụ thể hơn để thu hẹp.',
+    globalSearchLoadError: 'Không tải được danh sách thành viên: {error}.',
+    pickerResultsCount:
+      '{count} kết quả. Dùng mũi tên lên/xuống và Enter để chọn, Esc để đóng.',
+    treeCanvasLabel: 'Khung cây gia phả',
+    treeKeyboardHint:
+      'Phím + và - phóng to, thu nhỏ; phím 0 về mặc định; phím mũi tên cuộn cây.',
+    bubbleTreeLabel:
+      'Sơ đồ bong bóng gia phả. Dùng phím Tab để chọn một gia đình, Enter hoặc Space để chọn và xem nhánh con cháu.',
+    bubbleNodeBorn: '{name}, sinh năm {year}',
     longevity: 'Hưởng thọ',
     livedYears: 'Hưởng dương',
     yearsOldLabel: 'tuổi',
@@ -738,6 +1253,7 @@ export const messages = {
     maternalGrandchildren: 'Cháu ngoại',
     notes: 'Ghi chú',
     collapse: 'Thu gọn',
+    branchOf: 'Nhánh {name}',
     expand: 'Mở rộng',
     noTreeData: 'Không tìm thấy dữ liệu.',
     emptyFamilyTree: 'Gia phả trống',
@@ -793,12 +1309,92 @@ export const messages = {
     autoGenderNote:
       '* Giới tính sẽ tự động gán là {gender} (dựa theo giới tính người hiện tại).',
     relationshipAddError: 'Không thể thêm mối quan hệ: {error}',
+    relationshipSearchLoadError:
+      'Không tải được danh sách thành viên để tìm: {error}. Bấm đóng (×) để thử lại.',
+    relationshipSelfLink: 'Không thể tạo quan hệ của một người với chính mình.',
+    relationshipDuplicateSpouse: 'Hai người này đã là vợ chồng.',
+    relationshipDuplicateParent:
+      'Không thể thêm: hai người này đã có quan hệ cha/mẹ – con.',
+    relationshipTooManyParents:
+      'Không thể thêm: người con đã có đủ cha mẹ ruột (một cha và một mẹ).',
+    relationshipCycle:
+      'Không thể thêm: người cha/mẹ này đang là con cháu của người con, quan hệ sẽ tạo vòng.',
+    relationshipChildOlderThanParent:
+      'Không thể thêm: người con sinh trước cha/mẹ.',
+    relationshipInvalidBirthYear:
+      'Năm sinh không hợp lệ: chỉ nhập số nguyên từ 1 trở lên (ví dụ 1990).',
+    relationshipBirthYearInFuture:
+      'Năm sinh không được sau năm nay. Kiểm tra lại năm.',
+    relationshipInvalidBirthOrder:
+      'Thứ tự con không hợp lệ: chỉ nhập số nguyên từ 1 trở lên.',
+    memberBornBeforeParent:
+      'Ngày sinh không hợp lệ: sớm hơn ngày sinh của cha/mẹ {name}.',
+    memberBornAfterChild:
+      'Ngày sinh không hợp lệ: muộn hơn ngày sinh của con {name}.',
+    fullNameRequired: 'Vui lòng nhập họ và tên.',
+    textTooLong: '{field} quá dài: tối đa {max} ký tự.',
+    restoreTruncated:
+      '{count} giá trị trong file dài quá giới hạn sẽ bị cắt bớt khi khôi phục (tên 200, ghi chú 2.000, thông tin riêng 500 ký tự).',
+    restoreGedcomNameOrder: 'Thứ tự họ tên trong file GEDCOM',
+    restoreGedcomSurnameFirst: 'Họ đứng đầu (Nguyễn Văn An)',
+    restoreGedcomSurnameLast: 'Giữ như trong file (Văn An Nguyễn)',
+    gedcomUnnamedPerson: 'Chưa rõ tên',
+    restoreGedcomUnnamed:
+      '{count} người trong file không có tên; họ sẽ được lưu với tên "{name}", sửa lại sau khi nhập.',
+    restoreGedcomDropped:
+      'File GEDCOM có {sources} bản ghi nguồn/kho lưu trữ (SOUR/REPO), {missingNotes} ghi chú trỏ tới bản ghi không có trong file và {droppedFamilyNotes} gia đình thiếu vợ hoặc chồng có ghi chú/nguồn. Ứng dụng không lưu nguồn: chỉ tên nguồn được chép vào ghi chú ("Nguồn: …"); ghi chú không tìm thấy và ghi chú/nguồn của gia đình thiếu vợ hoặc chồng sẽ bị bỏ qua.',
+    importModeLegend: 'Cách nhập',
+    importModeReplace: 'Thay toàn bộ cây (xoá dữ liệu hiện tại)',
+    importModeAppend: 'Thêm vào cây hiện tại (giữ dữ liệu cũ)',
+    appendConfirmTitle: 'Thêm vào cây hiện tại',
+    appendConfirmText:
+      'Thành viên, quan hệ, thông tin riêng tư và sự kiện trong file {file} sẽ được thêm vào cây; dữ liệu hiện có giữ nguyên.',
+    appendFileContains:
+      'Sẽ thêm {persons} thành viên, {relationships} quan hệ, {events} sự kiện.',
+    appendNotes:
+      'Ảnh đại diện và thư viện ảnh không được nhập. Người có cả trong file lẫn trong cây sẽ thành hai hồ sơ: sau khi thêm, dùng "Người có thể trùng" để gộp họ, cũng là cách nối nhánh mới vào cây.',
+    appendConfirm: 'Thêm vào cây',
+    appending: 'Đang thêm...',
+    appendSuccess: 'Đã thêm {persons} người, {relationships} quan hệ.',
+    appendImportError: 'Không thêm được, dữ liệu hiện tại giữ nguyên: {error}',
+    appendImportUpgradeDatabase:
+      'Database chưa được nâng cấp nên chưa thêm được vào cây hiện tại. Chạy migration ở trang Nâng cấp hệ thống (/dashboard/upgrade) rồi thử lại.',
+    scanDuplicatesNow: 'Rà trùng ngay',
+    memberPossibleDuplicate:
+      'Có {count} người trùng tên và năm sinh: {names}. Vẫn tạo thêm người mới?',
+    memberMotherDiedBeforeBirth:
+      'Ngày mất/ngày sinh không hợp lệ: mẹ {parent} mất trước ngày sinh của {child}.',
+    memberFatherDiedLongBeforeBirth:
+      'Cha {parent} mất hơn 10 tháng trước ngày sinh của {child}. Vẫn lưu?',
+    relationshipMotherDiedBeforeBirth:
+      'Không thể thêm: người mẹ mất trước ngày sinh của người con.',
+    relationshipMarriageWithRelative:
+      'Hai người này là cha/mẹ – con hoặc anh chị em. Vẫn thêm quan hệ vợ chồng?',
+    relationshipMarriageAfterDeath:
+      'Một người đã mất trước khi người kia sinh. Vẫn thêm quan hệ vợ chồng?',
+    relationshipFatherDiedLongBeforeBirth:
+      'Người cha mất hơn 10 tháng trước ngày sinh của người con. Vẫn thêm quan hệ này?',
     childNameRequired: 'Vui lòng nhập ít nhất tên của 1 người con.',
     bulkAddPartial:
       'Đã xảy ra lỗi. Chỉ lưu thành công {success}/{total} người.',
     bulkAddError: 'Không thể thêm danh sách con: {error}',
+    bulkAddChildOrphaned:
+      'đã tạo nhưng chưa gắn được cha mẹ, hãy thêm quan hệ cho người này',
+    bulkAddFailedRowsKept: 'Các dòng lỗi được giữ lại để thử lại.',
+    relationshipSavedTargetNotUpdated:
+      'Đã lưu quan hệ nhưng chưa cập nhật đời / dâu rể cho người kia: {error}',
+    relationshipsLoadError: 'Không tải được thông tin gia đình: {error}',
+    memberSavedPartially:
+      'Đã lưu thành viên, nhưng ảnh hoặc thông tin riêng chưa lưu được: {error}. Bấm lưu lần nữa để thử lại (sẽ cập nhật người này, không tạo thêm), hoặc Tiếp tục để bỏ qua.',
+    memberSavedGenerationNotUpdated:
+      'Đã lưu thành viên nhưng chưa cập nhật thế hệ cho con cháu: {error}. Bấm lưu lần nữa để thử lại, hoặc Tiếp tục để bỏ qua.',
+    continueAction: 'Tiếp tục',
     spouseNameRequired: 'Vui lòng nhập tên Vợ/Chồng.',
     spouseAddError: 'Không thể thêm vợ/chồng: {error}',
+    spouseAddOrphaned:
+      'Đã tạo hồ sơ {name} nhưng chưa gắn được quan hệ vợ/chồng ({error}). Đừng thêm lại: hãy thêm quan hệ cho người này trong danh sách thành viên.',
+    personNotCreated:
+      'Không tạo được hồ sơ: bạn không còn quyền thêm thành viên hoặc phiên đã hết hạn. Hãy tải lại trang.',
     confirmDeleteRelationship: 'Bạn có chắc chắn muốn xóa mối quan hệ này?',
     deleteRelationshipError: 'Không thể xóa: {error}',
     spouseOf: 'Vợ/chồng của {name}',
@@ -806,6 +1402,7 @@ export const messages = {
     sonInLawOf: 'Con rể (chồng của {name})'
   },
   en: {
+    ...globalErrorMessages.en,
     language: 'Language',
     vietnamese: 'Tiếng Việt',
     english: 'English',
@@ -818,6 +1415,7 @@ export const messages = {
     tomorrow: 'Tomorrow',
     daysFromNow: 'in {count} days',
     moreEvents: '+ {count} more events waiting...',
+    moreEvents_one: '+ {count} more event waiting...',
     noUpcomingEvents: 'No events in the next 30 days.',
     viewYearEvents: 'View events for the year',
     commonFeatures: 'Common features',
@@ -825,6 +1423,8 @@ export const messages = {
     noAddMemberPermission: 'You do not have permission to add members.',
     noEditMemberPermission: 'You do not have permission to edit members.',
     backToMembers: 'Back to members',
+    printProfile: 'Print profile',
+    viewOnTree: 'View on tree',
     memberDetails: 'Member details',
     adminSection: 'Administrator',
     adminAddUser: 'Add user',
@@ -847,9 +1447,21 @@ export const messages = {
     adminDemoCreateNotice: 'This is a demo site; creating users is restricted.',
     adminCreated: 'User created successfully! They can log in now.',
     adminUnknownCreateError: 'Unknown error while creating user',
+    userAdminAccessDenied:
+      'Access denied. Only active admins can manage users.',
+    userAdminOwnRole: 'You cannot change your own role.',
+    userAdminLastAdminRole:
+      'You cannot remove the admin role from the last active admin.',
+    userAdminDeleteSelf: 'You cannot delete your own account.',
+    userAdminLastAdminDelete: 'You cannot delete the last active admin.',
+    userAdminInvalidEmail: 'Invalid email address.',
+    userAdminPasswordTooShort: 'The password must be at least 8 characters.',
+    userAdminEmailTaken: 'An account with this email already exists.',
+    userAdminOwnStatus: 'You cannot lock or unlock your own account.',
+    userAdminLastAdminDeactivate: 'You cannot lock the last active admin.',
     adminNoUsers: 'No users found.',
     adminCreateTitle: 'Create new user',
-    adminPasswordMinLength: 'At least 6 characters',
+    adminPasswordMinLength: 'At least 8 characters',
     adminMemberRole: 'Member',
     adminEditorRole: 'Editor',
     adminAdminRole: 'Administrator',
@@ -868,6 +1480,9 @@ export const messages = {
     dataAccessDenied: 'Access denied. Only admins can perform this action.',
     invalidData: 'Invalid data.',
     invalidDataStructure: 'Invalid data. Please check the JSON file again.',
+    invalidBackupVersion: 'The backup file has an invalid version number.',
+    backupFromNewerVersion:
+      'This backup was made by a newer version of the app (format v{version}, this version reads up to v{supported}). Upgrade the app, then restore again.',
     emptyBackup: 'The backup file is empty — there are no members to restore.',
     tooManyPersons: 'The file exceeds the limit of {count} members.',
     tooManyRelationships:
@@ -878,17 +1493,32 @@ export const messages = {
     invalidPersonName: 'Invalid member name.',
     invalidGender: 'Invalid gender.',
     fieldTooLong: 'The {field} field is too long.',
+    invalidPersonDate:
+      'Member "{name}" ({id}) has an invalid value in the {field} field (date, generation or birth order).',
     invalidRelationship: 'An invalid relationship was found.',
     invalidRelationshipData: 'The relationship contains invalid data.',
     relationshipNoteTooLong: 'The relationship note is too long.',
+    duplicateRelationship:
+      'The parent–child relationship between "{a}" and "{b}" appears more than once.',
+    backupRelationshipIssues:
+      'The backup has invalid relationships (showing at most the first {max}); nothing was restored:',
+    backupRelationshipCycle: 'Parent–child loop: {path}',
+    backupDuplicateSpouse: 'Couple stored twice: {a} – {b}',
     privateDetailsLimit: 'Private information exceeds the allowed limit.',
     invalidPrivateDetails: 'Invalid private information.',
     invalidPrivateDetailsPerson:
       'Private information points to an invalid member profile.',
+    duplicatePrivateDetail:
+      'The private details of member {id} appear more than once.',
     eventsLimit: 'The number of events exceeds the allowed limit.',
     invalidEvent: 'Invalid event.',
     invalidEventId: 'Invalid event ID.',
+    duplicateEventId: 'Duplicate event ID in the file: {id}.',
     invalidEventName: 'Invalid event name.',
+    invalidEventDate:
+      'Event "{name}" ({id}) has an invalid date (expected YYYY-MM-DD).',
+    invalidEventRecurrence:
+      'Invalid event recurrence (none, yearly_solar or yearly_lunar).',
     loadDataError: 'Could not load data: {error}',
     deleteEventsError: 'Could not delete old custom events: {error}',
     deleteRelationshipsError: 'Could not delete old relationships: {error}',
@@ -902,7 +1532,20 @@ export const messages = {
       'Could not import private member details (chunk {chunk}): {error}',
     importEventsError:
       'Could not import custom events (chunk {chunk}): {error}',
+    restoreTransactionError:
+      'Restore failed, the current data is unchanged: {error}',
+    restoreUpgradeDatabase:
+      'The database is not upgraded, so the restore did not run in a single transaction (a failure halfway can lose data). Run the migrations on the System upgrade page (/dashboard/upgrade).',
     familyTreeDescription: 'View and interact with the family tree',
+    approvalEmailSubject: 'A new account is waiting for approval: {email}',
+    approvalEmailTitle: 'New account waiting for approval',
+    approvalEmailIntro:
+      'Someone just confirmed their email and is waiting to be approved before they can see the family data:',
+    approvalEmailButton: 'Review and approve the account',
+    approvalEmailExpiry:
+      'The link is valid for {days} days. You can also sign in to the app and approve the account under User management.',
+    approvalEmailText:
+      'The account {email} is waiting for approval. Approve it here: {url}\n\nYou can also sign in to the app and approve the account under User management.',
     approvalTitle: 'Approve account',
     approvalInvalidTitle: 'Invalid link',
     approvalInvalidText:
@@ -910,6 +1553,9 @@ export const messages = {
     approvalProcessedTitle: 'Already processed',
     approvalProcessedText:
       'This account approval request has already been used.',
+    approvalRevokedTitle: 'Request revoked',
+    approvalRevokedText:
+      'This account was locked in Manage users, so the approval link no longer works. To restore access, sign in to the app and unlock the account there.',
     approvalPendingText:
       'The following account is waiting for access to family tree data:',
     approvalConfirm: 'Confirm approval',
@@ -927,6 +1573,9 @@ export const messages = {
     approvalFailureTitle: 'Approval failed',
     approvalFailureText:
       'An error occurred while updating the status. Please try again or approve it in the app.',
+    approvalUpgradeTitle: 'Database upgrade needed',
+    approvalUpgradeText:
+      'The database does not have the new approval function yet, so this link cannot approve the account. Run the migrations on the System upgrade page (/dashboard/upgrade) and open the link again, or sign in and approve the account in Manage users.',
     kinshipDescription: 'Accurate family relationship terminology',
     kinshipPageTitle: 'Kinship finder',
     kinshipPageDescription:
@@ -934,6 +1583,34 @@ export const messages = {
     lineagePageTitle: 'Lineage order',
     lineagePageDescription:
       'Automatically calculate and update generations, birth order, and in-law status for all members. Preview the changes before applying them.',
+    lineageBookTitle: 'Family book',
+    lineageBookTitleSurname: 'Family book of the {surname} family',
+    lineageBookDescription:
+      'The whole tree as a printable book, generation by generation: each member with parents, spouses, children and the lunar death date.',
+    lineageBookPrintedOn: 'Printed on {date}',
+    lineageBookToc: 'Contents',
+    lineageBookGeneration: 'Generation {n}',
+    lineageBookUnknownGeneration: 'Unknown generation',
+    lineageBookOpen: 'Open the family book',
+    lineageBookMembers: '{count} people',
+    lineageBookMembers_one: '{count} person',
+    lineageBookBorn: 'Born {date}',
+    lineageBookDied: 'Died {date}',
+    lineageBookDeathLunar: 'Lunar death date: {date}',
+    lineageBookBuried: 'Buried at {place}',
+    lineageBookParents: 'Parents',
+    lineageBookSpouses: 'Spouses',
+    lineageBookChildren: 'Children',
+    lineageBookFather: 'Father',
+    lineageBookMother: 'Mother',
+    lineageBookParent: 'Parent',
+    lineageBookWife: 'wife',
+    lineageBookHusband: 'husband',
+    lineageBookSpouse: 'spouse',
+    lineageBookInLaw: '(in-law)',
+    lineageBookAdopted: '(adopted)',
+    lineageBookOtherNames: 'Other names: {names}',
+    lineageBookEmpty: 'No members yet.',
     lineageGenerationCardTitle: 'Generation',
     lineageGenerationCardText:
       'Uses BFS from root ancestors (people without parent information in the system). Ancestors are Generation 1, children Generation 2, grandchildren Generation 3, and so on. Children-in-law inherit their spouse’s generation.',
@@ -958,6 +1635,68 @@ export const messages = {
     relationPathAnalysis: 'Relationship path analysis',
     kinshipDisclaimer:
       '* The exact term depends on gender, birth order, and the paternal/maternal side.',
+    kinshipUncertainHint:
+      'It is not known who is older, so both terms are shown. Add a birth year or birth order for',
+    kinshipUncertainOr: 'or',
+    kinshipNeutralGenderHint:
+      'Someone’s gender is Other, so the term lists both the male and female forms.',
+    kinshipDescDirect: 'Direct line',
+    kinshipDescSiblings: 'Siblings',
+    kinshipDescUpperPaternal: 'Father’s side (older generation)',
+    kinshipDescUpperMaternal: 'Mother’s side (older generation)',
+    kinshipDescUpperUnknownSide:
+      'Older generation, father’s or mother’s side not known (a parent’s gender is Other)',
+    kinshipDescCousinsPaternal: 'Cousins on the father’s side',
+    kinshipDescCousinsMaternal: 'Cousins on the mother’s side',
+    kinshipDescCousinsUnknownSide:
+      'Cousins, father’s or mother’s side not known (a parent’s gender is Other)',
+    kinshipDescRelativesPaternal: 'Relatives on the father’s side',
+    kinshipDescRelativesMaternal: 'Relatives on the mother’s side',
+    kinshipDescRelativesUnknownSide:
+      'Relatives, father’s or mother’s side not known (a parent’s gender is Other)',
+    kinshipDescRelativesGeneric: 'Extended family',
+    kinshipDescMarriage: 'Marriage',
+    kinshipDescViaSpouse: 'Through the marriage of {name}',
+    kinshipDescStepParent: 'Step-parent (through the marriage of {name})',
+    kinshipDescStepChild: 'Stepchild (through the marriage of {name})',
+    kinshipDescWifeOfAncestor:
+      '{spouse} is the wife of {ancestor} but not recorded as the mother of {child}',
+    kinshipDescHusbandOfAncestor:
+      '{spouse} is the husband of {ancestor} but not recorded as the father of {child}',
+    kinshipDescSpouseOfAncestor:
+      '{spouse} is the spouse of {ancestor} but not recorded as a parent of {child}',
+    kinshipSpouseOfAncestorHint:
+      'This may be a later spouse rather than the parent, so the term is a guess. If they are the parent, add the link on the profile of',
+    kinshipDescViaBothSpouses:
+      'Through the marriages of both {nameA} and {nameB}',
+    kinshipDescCoParentsInLaw:
+      'Co-parents-in-law: their children {childA} and {childB} are married',
+    kinshipDescStepSiblings:
+      'Step-siblings: children of {stepParent} and of {parent}, who are married',
+    kinshipDescCoWives: 'Both are wives of {name}',
+    kinshipDescCoHusbands: 'Both are husbands of {name}',
+    kinshipDescCoSpouses: 'Both are married to {name}',
+    kinshipNoTerm: 'No specific term',
+    kinshipDescNone: 'No relationship found within the data',
+    kinshipCommonAncestor: '(Common ancestor: {name})',
+    kinshipCommonAncestorFallback: 'the common ancestor',
+    kinshipPathGenerations: '{name} is {depth} generation(s) from {ancestor}.',
+    kinshipPathSpouses: '{nameA} and {nameB} are married.',
+    kinshipPathHusbandOf: '{name} is the husband of {spouse}.',
+    kinshipPathWifeOf: '{name} is the wife of {spouse}.',
+    kinshipPathSpouseOf: '{name} is the spouse of {spouse}.',
+    kinshipPathChildOf: '{name} is the child of {parent}.',
+    kinshipUnknownTerm: 'Undetermined',
+    personNotUpdatedShort:
+      'this person no longer exists or you may no longer edit them',
+    csvZipInvalid:
+      'Invalid ZIP file: persons.csv or relationships.csv is missing.',
+    csvParseError:
+      '{file} line {line}: {problem} Nothing was restored; fix the file and choose it again.',
+    csvTooFewFields: 'this row has fewer cells than the header row.',
+    csvTooManyFields: 'this row has more cells than the header row.',
+    csvBrokenQuotes: 'a double quote (") is not closed or is misplaced.',
+    logoutFailed: 'Could not log out, please try again.',
     usageGuide: 'How to use',
     kinshipReference: 'Kinship reference',
     regionalTerms: 'Regional terms',
@@ -1041,6 +1780,8 @@ export const messages = {
     galleryDescriptionShort: 'Preserve and share family photos and memories',
     aboutDescriptionShort: 'Information about the app and development team',
     manageUsersDescription: 'Approve accounts and manage permissions',
+    manageUsersLoadError:
+      "Couldn't load the user list. If you just updated the code, run the migrations on the System upgrade page (/dashboard/upgrade), then try again.",
     lineageDescription: 'Arrange and view the system structure',
     backupDescriptionShort: 'Export/import all system data',
     upgradeDescriptionShort: 'Check and synchronize source code and database',
@@ -1049,11 +1790,23 @@ export const messages = {
     totalMembers: 'Total members',
     married: 'Married',
     unmarried: 'Unmarried',
+    lifespanTitle: 'Lifespan',
+    lifespanAverage: 'Average lifespan',
+    lifespanLongestLived: 'Longest-lived',
+    lifespanOldestLiving: 'Oldest living member',
+    lifespanByDecade: 'Average lifespan by birth decade',
+    lifespanDecade: '{decade}s',
+    lifespanAge: '{age} years',
+    lifespanCountedHint:
+      'Based on {count} deceased people with both a birth and a death year; people missing either are left out.',
+    lifespanCountedHint_one:
+      'Based on {count} deceased person with both a birth and a death year; people missing either are left out.',
     generationDistribution: 'Distribution by generation',
     generationAssignedHint:
       '* Only members with an assigned generation are included',
     genderRatio: 'Gender ratio',
     peopleCount: '{count} people',
+    peopleCount_one: '{count} person',
     zodiacSigns: 'Zodiac signs',
     zodiacSolarHint: '* Estimated from solar birth day/month',
     chineseZodiac: 'Chinese zodiac',
@@ -1074,6 +1827,12 @@ export const messages = {
     generationsFetchError: 'Could not load generations.',
     descendantGenerationUpdateError:
       'Some descendant generations could not be updated.',
+    generationTransactionError: 'nothing was saved ({error})',
+    generationUpgradeDatabase:
+      'The database is not upgraded, so generations are updated one member at a time, not in a single transaction (a failure halfway can leave generations partly updated). Run the migrations on the System upgrade page (/dashboard/upgrade).',
+    lineageTransactionError: 'No changes were applied: {error}',
+    lineagePartialUpdateError:
+      'Could not update {failed} of {total} members ({error}); the other members were saved.',
     calculating: 'Calculating...',
     calculate: 'Calculate',
     updating: 'Updating...',
@@ -1122,7 +1881,7 @@ export const messages = {
     logout: 'Log out',
     processing: 'Processing...',
     back: 'Back',
-    home: 'Home',
+    footerBy: 'by',
     footerDisclaimer:
       'Content may contain omissions. Please contribute to make the family tree more accurate.',
     pendingTitle: 'Account pending approval',
@@ -1166,6 +1925,9 @@ export const messages = {
     ssoError:
       'SSO is not fully configured. Please contact an administrator or view the setup guide.',
     ssoGuide: 'View the SSO setup guide',
+    ssoGuideUrl:
+      'https://github.com/homielab/giapha-os/blob/main/README.en.md#sign-in-with-google-and-facebook',
+    sourceCodeLabel: 'Source code',
     noAccount: "Don't have an account? Sign up now",
     hasAccount: 'Already have an account? Log in',
     demoLoginNotice:
@@ -1175,11 +1937,19 @@ export const messages = {
     signupSuccess:
       'Registration successful! Please wait for an administrator to activate your account.',
     passwordMismatch: 'The confirmation password does not match.',
+    authInvalidCredentials: 'The email or password is incorrect.',
+    authEmailNotConfirmed:
+      'Your email is not confirmed yet. Please open the confirmation email in your inbox.',
+    authUserExists: 'This email is already registered. Please sign in.',
+    authWeakPassword:
+      'The password is too weak. Please choose a longer, harder to guess one.',
+    authRateLimited: 'Too many attempts. Please wait a moment and try again.',
+    authEmailInvalid: 'The email address is invalid.',
     unexpectedError: 'An unexpected error occurred',
     oauthNotConfigured: '{provider} sign-in is not configured on this system.',
     aboutTitle: 'About the project',
     aboutDescription:
-      'Gia Phả OS is an open-source solution that helps families build and manage their own family tree. It preserves and presents family history in a visual, modern, and secure way.',
+      '{siteName} is an open-source solution that helps families build and manage their own family tree. It preserves and presents family history in a visual, modern, and secure way.',
     privacyTitle: 'Disclaimer & privacy',
     sourceOnly:
       'This project provides source code only. The author does not collect or store any personal data.',
@@ -1213,8 +1983,13 @@ export const messages = {
     exportFile: 'Export file',
     exporting: 'Exporting...',
     saveAsImage: 'Save as image (PNG)',
-    saveAsPdf: 'Save as PDF',
+    saveAsPdf: 'PDF, single page',
+    saveAsPdfA4: 'PDF, multi-page A4',
+    saveAsPdfA3: 'PDF, multi-page A3',
+    pdfPageLabel: 'Page',
     exportError: 'An error occurred while exporting. Please try again.',
+    exportTooLarge:
+      'The tree is too large to export on this device. Pick a smaller root (export one branch at a time) or export on a computer.',
     hidePhoto: 'Hide photo',
     showPhoto: 'Show photo',
     searchMembers: 'Search members...',
@@ -1225,10 +2000,14 @@ export const messages = {
     sonInLaw: 'Son-in-law',
     deceased: 'Deceased',
     firstChild: 'First child',
+    filterAlive: 'Living',
+    filterMissingBirthYear: 'Missing birth year',
+    filterGeneration: 'Generation {n}',
+    filterGenerationGroup: 'By generation',
     birthAsc: 'Birth year (ascending)',
     birthDesc: 'Birth year (descending)',
-    nameAsc: 'Name (A-Z)',
-    nameDesc: 'Name (Z-A)',
+    nameAsc: 'Given name (A-Z)',
+    nameDesc: 'Given name (Z-A)',
     updatedDesc: 'Updated (newest)',
     updatedAsc: 'Updated (oldest)',
     generationAsc: 'Generation (ascending)',
@@ -1238,12 +2017,19 @@ export const messages = {
     clearSearch: 'Clear search',
     clearFilters: 'Clear filters',
     showingMembers: 'Showing {shown} of {total} members',
+    showMoreMembers: 'Show {count} more',
+    membersShownOfTotal: 'Showing {shown} of {total} members',
     noMembers: 'No members yet. Add the first member.',
     invalidBirthDate: 'The birth date is invalid. Please check it again.',
+    dayNeedsMonth: 'Enter the month when you enter a day.',
     invalidLunarDate: 'The lunar date is invalid. Please check it again.',
     invalidDeathDate: 'The death date is invalid. Please check it again.',
-    deathBeforeBirth:
-      'The death year must be greater than or equal to the birth year.',
+    deathBeforeBirth: 'The death date cannot be before the birth date.',
+    birthInFuture: 'The birth date cannot be after today. Check the year.',
+    deathInFuture: 'The death date cannot be after today. Check the year.',
+    yearNotFourDigits:
+      'Years must have four digits (for example 1985, not 85).',
+    invalidWholeNumber: 'Birth order and generation must be whole numbers.',
     saveIdError: 'Could not get the member ID after saving.',
     saveMemberError: 'Could not save the member.',
     generalInfo: 'General information',
@@ -1277,7 +2063,10 @@ export const messages = {
     dateHint:
       '* Enter a solar or lunar date. The system will calculate and fill in the other date automatically.',
     lunarDeathDate: 'Lunar death date',
+    lunarLeapMonth: 'Leap month (only used to convert to the solar date)',
     solarDeathDate: 'Solar death date',
+    burialPlace: 'Burial place',
+    burialPlacePlaceholder: 'e.g. X Cemetery, Y commune',
     note: 'Notes',
     notePlaceholder: 'Add additional information or biography...',
     privateInfo: 'Private information',
@@ -1290,6 +2079,10 @@ export const messages = {
     residence: 'Current residence',
     residencePlaceholder: 'Residential address...',
     cancel: 'Cancel',
+    discardChangesTitle: 'Discard changes?',
+    discardChangesBody: 'What you just entered will not be saved.',
+    discardChanges: 'Discard',
+    keepEditing: 'Keep editing',
     saving: 'Saving...',
     saveChanges: 'Save changes',
     dbMissingTitle: 'Database is not connected',
@@ -1323,6 +2116,23 @@ export const messages = {
     eventsDescription:
       'Birthdays, lunar death anniversaries, and custom events',
     addEvent: 'Add event',
+    addToCalendar: 'Add to calendar (.ics)',
+    addToCalendarHint:
+      'Download a calendar file with birthdays (repeating every year), death anniversaries for this year and the next four, and custom events, to import into Google/Apple Calendar',
+    icsCalendarName: 'Family tree: birthdays and death anniversaries',
+    icsBirthdaySummary: "{name}'s birthday",
+    icsDeathSummary: 'Death anniversary of {name}',
+    icsBirthYear: 'Born in {year}',
+    icsLunarDate: 'Lunar date of the anniversary: {date}',
+    icsCustomLunarDate: 'Lunar date: {date}',
+    icsApproximate:
+      'Estimated date: the death year or lunar death date is not recorded.',
+    icsRemindUntil:
+      'Created by Giapha OS, reminds until the end of {year}. Export the calendar again after that.',
+    addToCalendarUntil: 'Reminds until the end of {year}',
+    icsRemindLabel: 'Remind me',
+    icsRemindNone: 'No reminder',
+    icsRemindDays: '{days} day(s) before, 8 AM',
     lunarCalendar: 'Lunar calendar',
     weekdaySunday: 'Sunday',
     weekdayMonday: 'Monday',
@@ -1334,50 +2144,78 @@ export const messages = {
     calendarDate: '{weekday}, {day}/{month}',
     calendarDateWithYear: '{weekday}, {day}/{month}/{year}',
     lunarDateSuffix: ' (Lunar: {date})',
+    approximateDateSuffix: ' (estimated)',
     leapMonth: ' leap',
     lunarSuffix: ' L',
     todaySolarDate: '{weekday}, {month}/{day}/{year}',
     eventsToday: '{count} events today',
+    eventsToday_one: '{count} event today',
     eventsNext7Days: '{count} events in the next 7 days',
+    eventsNext7Days_one: '{count} event in the next 7 days',
     eventAll: 'All',
     eventBirthdays: 'Birthdays',
     eventDeaths: 'Death anniversaries',
     eventCustom: 'Custom',
     eventPast: 'Past',
     eventCount: '{count} events',
+    eventCount_one: '{count} event',
     eventPastYear: ' in the past year',
     showDeceasedBirthdays: 'Show birthdays of deceased members',
     noEvents: 'No events',
     noEventsHint: 'Add birth or death dates for family members',
     loadMoreEvents: 'Show {count} more events…',
+    loadMoreEvents_one: 'Show {count} more event…',
     yesterday: 'Yesterday',
     daysAgo: '{count} days ago',
     weeksAgo: '{count} weeks ago',
+    weeksAgo_one: '{count} week ago',
     monthsAgo: '{count} months ago',
+    monthsAgo_one: '{count} month ago',
     weeksFromNow: 'in {count} weeks',
+    weeksFromNow_one: 'in {count} week',
     monthsFromNow: 'in {count} months',
+    monthsFromNow_one: 'in {count} month',
     yearsOld: '{count} years old',
+    yearsOld_one: '{count} year old',
     yearsSince: '{count} years',
+    yearsSince_one: '{count} year',
     backupTitle: 'Backup & restore',
     backupDescription:
       'Manage your data safely. Download a backup for storage or restore data from a saved file. This feature is for administrators only.',
     backupData: 'Back up data',
     backupDataDescription:
       'Download JSON, GEDCOM, or CSV (Zip) files. Choose a root below to back up only that family branch, or choose "All data" to export the entire tree.',
+    backupPhotosNote:
+      'JSON/CSV/GEDCOM backups do not include profile photos or the photo gallery (nor photo titles and descriptions); download the avatars and gallery buckets from Supabase Storage separately.',
     exportRoot: 'Root for data export',
+    exportPersonsLoadError:
+      'Could not load the member list for choosing a root: {error}. Reload the page to retry; you can still export all data.',
     allData: 'All data',
     exportJson: 'Export JSON',
     exportGedcom: 'Export GEDCOM',
     exportCsv: 'Export CSV (Zip)',
     restoreData: 'Restore data',
     restoreDataDescription:
-      'Restore the family tree from a backup file (.json, .ged, or .zip).',
-    restoreWarning: 'Warning: This will delete all current data!',
+      'Restore the family tree from a backup file (.json, .ged, or .zip), or add the branch in the file to the current tree.',
+    restoreWarning:
+      'Warning: "Replace the whole tree" deletes all current data!',
     chooseRestoreFile: 'Choose restore file',
     restoreConfirmTitle: 'Confirm restore',
     restoreConfirmText:
       'The system will delete all current members, relationships, private information, and events and replace them with data from {file}.',
     restoreIrreversible: 'This action cannot be undone. Are you sure?',
+    restoreFileContains:
+      'This file contains {persons} members, {relationships} relationships, {events} events.',
+    restoreFileExportedAt: 'Exported on {date}.',
+    restoreDownloadCurrent: 'Download the current backup first',
+    restoreEncodingAnsel:
+      'This GEDCOM uses the ANSEL character set, which is not fully supported: check names with accents before continuing.',
+    restoreEncodingReplaced:
+      'Some characters in the file could not be read (shown as �): accented names may be wrong. Re-save the GEDCOM as UTF-8 and import it again.',
+    restoreFileUnreadable: 'Could not read the file: it is not valid JSON.',
+    notFoundTitle: 'Page not found',
+    notFoundDescription:
+      'The page you are looking for does not exist or this member was deleted.',
     restoreCancel: 'Cancel',
     restoreContinue: 'Continue',
     restoring: 'Restoring...',
@@ -1389,9 +2227,204 @@ export const messages = {
       'Restore successful! Imported {persons} members and {relationships} relationships.',
     restoreFailed: 'The restore process failed.',
     fileTooLarge: 'The restore file must not exceed 25MB.',
+    restoreTooLargeForHost:
+      'The restore data is larger than 4.5 MB, the most a Vercel server accepts (like the demo). A self-hosted copy (Docker, your own server) has no such limit.',
     csvRestoreZipOnly:
       'Please restore using the .zip file created by the CSV export function.',
     invalidRestoreFile: 'Please choose a valid .json, .ged, or .zip file.',
+    lunarRecomputeTitle: 'Recompute lunar death dates',
+    lunarRecomputeDescription:
+      'Lunar dates saved before the app switched to the Vietnamese lunar calendar were computed with the Chinese calendar, which is a day or a month off in some years. This tool compares each saved lunar date with the one computed from the solar death date and only changes the rows you select.',
+    lunarRecomputeWarning:
+      'If a lunar date was typed in by hand (the solar death date was derived from it and may be wrong), do not apply it to that row. The app cannot tell which dates were typed in, so review each row.',
+    lunarRecomputeBackupHint:
+      'Download a JSON backup under "Back up data" above before applying.',
+    lunarRecomputeCheck: 'Check death anniversaries',
+    lunarRecomputeChecking: 'Checking...',
+    lunarRecomputeNone:
+      'Every saved lunar date matches the Vietnamese lunar calendar.',
+    lunarRecomputeFound:
+      '{count} members have a lunar date that differs from the recomputed one. {selected} selected.',
+    lunarRecomputeSelectAll: 'Select all',
+    lunarRecomputeSelectRow: 'Select {name}',
+    lunarRecomputeSolar: 'Death date (solar)',
+    lunarRecomputeStored: 'Saved lunar date',
+    lunarRecomputeNew: 'Recomputed lunar date',
+    lunarRecomputeLeap: 'leap',
+    lunarRecomputeApply: 'Apply to {count} selected rows',
+    lunarRecomputeApplying: 'Applying...',
+    lunarRecomputeConfirmTitle: 'Confirm recompute',
+    lunarRecomputeConfirmText:
+      'The lunar death date of the {count} selected members will be replaced with the date computed with the Vietnamese lunar calendar. Their death anniversaries in the events list change accordingly.',
+    lunarRecomputeConfirmContinue: 'Apply',
+    lunarRecomputeResult:
+      'Updated {updated} members. Skipped {skipped} (already correct, deleted or edited meanwhile), {failed} failed.',
+    lunarRecomputeInvalidSelection: 'The selected member list is not valid.',
+    lunarRecomputeFailed: 'Could not recompute the dates. Please try again.',
+    dataCheckTitle: 'Data check',
+    dataCheckDescription:
+      'Looks through the whole tree for impossible dates, common in data imported from GEDCOM or CSV: death before birth, a child born after the mother died, a father who died more than 10 months before the child was born, a parent less than 12 or more than 70 years older than the child (only when both birth years are known; adopted children are skipped), birth or death dates in the future, repeated relationships, a child with too many biological parents, spouses who are parent and child or siblings (sharing a biological parent), spouses one of whom died before the other was born, parent–child loops (someone who is both an ancestor and a descendant of themselves), people linked to themselves, children of the same parents sharing a birth order or numbered against their birth dates (birth orders are compared only within the same pair of parents, not between children of different wives); and a group of missing information: no birth year, deceased but no death year, gender unknown. View only; nothing is changed. Open each profile to fix it.',
+    dataCheckRun: 'Check the data',
+    dataCheckRunning: 'Checking...',
+    dataCheckNone: 'Nothing found.',
+    dataCheckFound: '{count} things to look at.',
+    dataCheckLimited: 'Showing the first {shown} of each group.',
+    dataCheckFailed: 'Could not check. Please try again.',
+    dataCheckOpen: 'Open profile',
+    dataCheckKindDeathBeforeBirth: 'Death before birth',
+    dataCheckKindBornAfterMotherDeath: 'Child born after the mother died',
+    dataCheckKindFatherDiedBeforeBirth:
+      'Father died long before the child was born',
+    dataCheckKindParentTooYoung: 'Parent less than 12 years older than child',
+    dataCheckKindParentTooOld: 'Parent more than 70 years older than child',
+    dataCheckKindFutureDate: 'Date in the future',
+    dataCheckKindImplausibleAge: 'Older than 120',
+    dataCheckKindDuplicateRelationship: 'Repeated relationship',
+    dataCheckKindTooManyParents: 'Child with too many biological parents',
+    dataCheckKindMissingBirthYear: 'Missing info: no birth year',
+    dataCheckKindMissingDeathYear: 'Missing info: deceased but no death year',
+    dataCheckKindDeceasedFlagMissing:
+      'Has a date of death but not marked deceased',
+    dataCheckKindMissingGender: 'Missing info: gender unknown',
+    dataCheckMissingPerson: '{name}',
+    dataCheckDeathBeforeBirth: '{name}: born {birth}, died {death}.',
+    dataCheckBornAfterMotherDeath:
+      '{child} was born {birth}, after the mother {mother} died ({death}).',
+    dataCheckFatherDiedBeforeBirth:
+      '{child} was born {birth}, long after the father {father} died ({death}).',
+    dataCheckParentAge:
+      '{parent} ({parentBirth}) and child {child} ({childBirth}) are {age} years apart.',
+    dataCheckFutureBirth: '{name}: birth date {date} has not come yet.',
+    dataCheckFutureDeath: '{name}: death date {date} has not come yet.',
+    dataCheckLivingTooOld:
+      '{name}: born {birth}, not marked deceased, now {age} years old. The date of death may be missing.',
+    dataCheckDiedTooOld: '{name}: born {birth}, died {death}, aged {age}.',
+    dataCheckDuplicateMarriage: '{a} and {b} have two marriage links.',
+    dataCheckDuplicateChild: '{a} and {b} have two parent–child links.',
+    dataCheckKindMarriageWithRelative: 'Married to a parent, child or sibling',
+    dataCheckKindMarriageAfterDeath: 'Spouse died before the other was born',
+    dataCheckMarriageParent:
+      '{a} and {b} are both spouses and parent and child.',
+    dataCheckMarriageSibling: '{a} and {b} are both spouses and siblings.',
+    dataCheckMarriageAfterDeath:
+      '{dead} died {death}, before their spouse {other} was born ({birth}).',
+    dataCheckTooManyParents:
+      '{child} has {count} biological parents: {parents}.',
+    dataCheckKindSingleParentWithSpouse:
+      'Child with one parent recorded whose parent has a spouse',
+    dataCheckSingleParentWithSpouse:
+      '{child} has only {parent} as a parent, but {parent} has a spouse: {spouses}. If one is the other parent of {child}, add the link on the profile of {child}.',
+    dataCheckKindParentChildLoop: 'Parent–child loop',
+    dataCheckKindSelfLink: 'Linked to themselves',
+    dataCheckParentChildLoop:
+      'Loop of {count} people, each a parent of the next: {path}.',
+    dataCheckSelfMarriage: '{name} is married to themselves.',
+    dataCheckSelfChild: '{name} is their own parent.',
+    dataCheckKindGenerationMismatch:
+      "Child's generation is not the parent's plus one",
+    dataCheckKindBirthOrderConflict:
+      'Birth order repeated or against birth dates',
+    dataCheckKindIsolatedPerson: 'Person with no relationships',
+    dataCheckGenerationMismatch:
+      '{child} is in generation {childGeneration}, parent {parent} in generation {parentGeneration} (the child should be in {expected}).',
+    dataCheckBirthOrderSame:
+      '{names} (children of {parent}) are all child no. {order}.',
+    dataCheckBirthOrderReversed:
+      '{a} is child no. {orderA} (born {birthA}) but was born after {b}, child no. {orderB} (born {birthB}); both children of {parent}.',
+    dataCheckIsolatedPerson:
+      '{name} has no parent, spouse or child in the tree.',
+    duplicateScanTitle: 'Possible duplicates',
+    duplicateScanDescription:
+      'Scans the whole tree for members who may have been entered twice: the same name (ignoring accents) and birth year, or the same name and a shared parent. View only; nothing is changed or deleted. Open each profile and fix or delete it with the usual tools.',
+    duplicateScanRun: 'Scan for possible duplicates',
+    duplicateScanScanning: 'Scanning...',
+    duplicateScanNone: 'No possible duplicates found (0 groups).',
+    duplicateScanFound: '{count} groups of possible duplicates found.',
+    duplicateScanLimited: 'Showing the first {shown}; {remaining} more groups.',
+    duplicateScanYears: 'Born – died',
+    duplicateScanRelationships: 'Relationships',
+    duplicateScanOpen: 'Open profile',
+    duplicateScanFailed: 'Could not scan. Please try again.',
+    duplicateScanGroup: 'Duplicate group',
+    mergeButton: 'Merge…',
+    mergeTitle: 'Merge two duplicate profiles',
+    mergeDescription:
+      'Everything the merged-away profile holds moves to the kept profile, and the merged-away profile is deleted. This cannot be undone — download a backup first.',
+    mergeBackupFirst: 'Recommended: download a backup before merging.',
+    mergeBackupLink: 'Download backup',
+    mergeKeepTag: 'Keep',
+    mergeDropTag: 'Merge away',
+    mergeKeeperHint:
+      'The kept profile keeps its name and dates; its empty fields take the merged-away profile’s values.',
+    mergePreviewButton: 'Preview what will be merged',
+    mergePreviewLoading: 'Loading...',
+    mergeNothingToMove: 'The two profiles share no unique data to move.',
+    mergeNoRelationships:
+      'No relationships to move or remove; only empty fields are filled and the merged-away profile is deleted.',
+    mergeMoved: '{count} relationships will be re-pointed to the kept profile:',
+    mergeDroppedPair:
+      '{count} relationships between the two profiles will be removed (they would point at the same person twice).',
+    mergeDroppedDuplicates:
+      '{count} relationships the kept profile already has will be removed:',
+    mergeRelMarriage: 'Married to',
+    mergeRelChild: 'Parent of',
+    mergeRelAdopted: 'Adoptive parent of',
+    mergeFieldsFilled:
+      '{count} empty fields of the kept profile take the merged-away profile’s values:',
+    mergeField_birthYear: 'Birth year',
+    mergeField_birthMonth: 'Birth month',
+    mergeField_birthDay: 'Birth day',
+    mergeField_deathYear: 'Death year',
+    mergeField_deathMonth: 'Death month',
+    mergeField_deathDay: 'Death day',
+    mergeField_deathLunarYear: 'Death year (lunar)',
+    mergeField_deathLunarMonth: 'Death month (lunar)',
+    mergeField_deathLunarDay: 'Death day (lunar)',
+    mergeField_isDeceased: 'Deceased',
+    mergeField_isInLaw: 'In-law',
+    mergeField_birthOrder: 'Birth order',
+    mergeField_generation: 'Generation',
+    mergeField_avatar: 'Avatar',
+    mergeField_burialPlace: 'Burial place',
+    mergePrivateMoved:
+      'The merged-away profile’s private details (phone, occupation, residence) move to the kept profile.',
+    mergePrivateFilled:
+      '{count} empty private fields of the kept profile take the merged-away profile’s values:',
+    mergePrivate_phone: 'Phone number',
+    mergePrivate_occupation: 'Occupation',
+    mergePrivate_residence: 'Current residence',
+    mergeOtherNames:
+      'These names are remembered as other names of the kept profile: {names}.',
+    mergeNoteAppended:
+      'The merged-away profile’s note is appended to the kept profile’s note.',
+    mergeYes: 'Yes',
+    mergeNo: 'No',
+    mergeWarningsTitle:
+      'Warning: merging these profiles will break the family tree',
+    mergeWarning_tooManyParents:
+      'The kept profile will have more than 2 birth parents (both profiles’ parents together).',
+    mergeWarning_sameGenderParents:
+      'The kept profile will have 2 birth parents of the same gender (for example two fathers).',
+    mergeWarning_loop:
+      'One profile is an ancestor of the other: after merging, this person becomes their own ancestor and the tree has a loop.',
+    mergeWarningsAcknowledge:
+      'I understand, merge anyway (then fix the relationships in the profile). A merge cannot be undone.',
+    mergeConfirmLabel:
+      'Type the merged-away profile’s name to confirm: "{name}"',
+    mergeConfirmButton: 'Merge and delete profile',
+    mergeMerging: 'Merging...',
+    mergeDone:
+      'Merged: {moved} relationships moved, {dropped} removed, {filled} fields filled.',
+    mergePreviewFailed: 'Could not load the preview. Please try again.',
+    mergeUpgradeDatabase:
+      'The database does not have the merge function yet. Run the database upgrade (Dashboard → Upgrade) and try again.',
+    mergeFailed: 'Could not merge the profiles. {error}',
+    mergeFailedGeneric:
+      'Could not merge the profiles. Check your connection and try again.',
+    mergeSameMember: 'The two profiles to merge must be different.',
+    mergeInvalidMember: 'The profile IDs to merge are not valid.',
+    mergeMemberMissing:
+      'One of the two profiles no longer exists. Please scan again.',
     galleryTitle: 'Gallery',
     galleryDescription: 'Preserve memorable moments and family memories',
     gridView: 'Grid',
@@ -1408,6 +2441,17 @@ export const messages = {
     deleting: 'Deleting...',
     deleteImageConfirm: 'Are you sure you want to delete this image?',
     deleteImageError: 'An error occurred while deleting the image.',
+    personNotUpdated:
+      'Not saved: you can no longer edit this profile, or your session expired. Reload the page; what you typed is still in the form.',
+    personChanged:
+      'Someone else just edited this person, so your changes were not saved (nothing was overwritten). Reload to see the latest version, then re-enter your changes.',
+    reloadPage: 'Reload',
+    relationshipNotDeleted:
+      'The relationship was not deleted: you no longer have permission, or it was already removed. Reload the page.',
+    galleryItemNotUpdated:
+      'Not saved: you can no longer edit this photo. Reload the page.',
+    deleteImageNotAllowed:
+      'You are not allowed to delete this image, so it was kept.',
     close: 'Close',
     filterLabel: 'Filter',
     sortLabel: 'Sort',
@@ -1424,6 +2468,13 @@ export const messages = {
     locationPlaceholder: 'Example: Family ancestral house',
     details: 'Details',
     detailsPlaceholder: 'Add notes about the event...',
+    eventRecurrence: 'Repeats',
+    recurrenceNone: 'Does not repeat (once)',
+    recurrenceYearlySolar: 'Every year (solar calendar)',
+    recurrenceYearlyLunar: 'Every year (lunar calendar)',
+    recurrenceLunarHint:
+      'Repeats on the lunar date of the event date (like a death anniversary, leap month kept).',
+    recurringYearlySuffix: ' · every year',
     editEvent: 'Edit event',
     addCustomEvent: 'Add custom event',
     deleteEvent: 'Delete event',
@@ -1432,9 +2483,25 @@ export const messages = {
     confirmDeleteEvent: 'Are you sure you want to delete this event?',
     saveEventError: 'An error occurred while saving the event.',
     deleteEventError: 'An error occurred while deleting the event.',
+    eventNotAllowed:
+      'You can only edit or delete events you created (admins can change any event).',
     fileTooLarge10: 'The file must be smaller than 10MB.',
+    galleryImageTooLarge:
+      'The photo must be smaller than 20MB (GIFs smaller than 10MB).',
+    unsupportedImageType: 'Only JPG, PNG, GIF or WEBP images are supported.',
+    galleryPagination: 'Gallery pages',
+    galleryImageUnavailable: 'Image could not be loaded',
+    galleryPrevImage: 'Previous image',
+    galleryNextImage: 'Next image',
+    galleryImagePosition: 'Image {position} of {total}',
+    galleryLoadErrorTitle: 'The gallery images could not be loaded',
+    galleryLoadErrorDescription:
+      'Image links could not be created. Check that the Supabase Storage bucket "gallery" exists and its policies match docs/schema.sql (see the README setup section), then try again.',
+    galleryPageStatus: 'Page {page} of {pageCount} · {total} images',
+    previousPage: 'Previous page',
+    nextPage: 'Next page',
     chooseImage: 'Drag an image here, or click to choose',
-    imageUploadHint: 'JPG, PNG, and WEBP supported (up to 10MB)',
+    imageUploadHint: 'JPG, PNG, GIF and WEBP supported (up to 20MB, GIF 10MB)',
     chooseImageError: 'Please choose an image.',
     enterImageTitle: 'Please enter a title.',
     imagePreview: 'Image preview',
@@ -1454,11 +2521,12 @@ export const messages = {
     backToPrevious: 'Back',
     loadingMember: 'Loading...',
     memberLoadError: 'Could not load member information.',
+    privateLoadFailed:
+      'The private details (phone, occupation, residence) could not be read. These fields are locked and stay as they are when you save; close and reopen to try again.',
     systemError: 'A system error occurred.',
     pageErrorTitle: 'This page could not load',
     pageErrorDescription:
       'Something went wrong while loading the data. Please try again.',
-    tryAgain: 'Try again',
     choosePerson: 'Choose a person...',
     displayRoot: 'Display root',
     generationLabel: 'Generation {generation}',
@@ -1532,6 +2600,48 @@ export const messages = {
     lunar: 'Lunar',
     unknownDate: 'Unknown',
     zodiacAge: 'Age',
+    zodiacAries: 'Aries',
+    zodiacTaurus: 'Taurus',
+    zodiacGemini: 'Gemini',
+    zodiacCancer: 'Cancer',
+    zodiacLeo: 'Leo',
+    zodiacVirgo: 'Virgo',
+    zodiacLibra: 'Libra',
+    zodiacScorpio: 'Scorpio',
+    zodiacSagittarius: 'Sagittarius',
+    zodiacCapricorn: 'Capricorn',
+    zodiacAquarius: 'Aquarius',
+    zodiacPisces: 'Pisces',
+    animalMonkey: 'Monkey',
+    animalRooster: 'Rooster',
+    animalDog: 'Dog',
+    animalPig: 'Pig',
+    animalRat: 'Rat',
+    animalOx: 'Ox',
+    animalTiger: 'Tiger',
+    animalCat: 'Rabbit',
+    animalDragon: 'Dragon',
+    animalSnake: 'Snake',
+    animalHorse: 'Horse',
+    animalGoat: 'Goat',
+    lunarDayMonth: 'Month {month}, day {day}',
+    globalSearchOpen: 'Find a member (Ctrl/⌘ + K)',
+    globalSearchTitle: 'Find a member',
+    globalSearchPlaceholder: 'Type a member name, accents optional...',
+    globalSearchLoading: 'Loading the member list...',
+    globalSearchNoResults: 'No matching member.',
+    globalSearchResultCount: 'Matching members: {count}.',
+    globalSearchResultsCapped:
+      'Showing the first {count} matching members. Type a more precise name to narrow it down.',
+    globalSearchLoadError: 'Could not load the member list: {error}.',
+    pickerResultsCount:
+      '{count} results. Use the up/down arrows and Enter to choose, Esc to close.',
+    treeCanvasLabel: 'Family tree canvas',
+    treeKeyboardHint:
+      'Press + and - to zoom in and out, 0 to reset the zoom, and the arrow keys to scroll the tree.',
+    bubbleTreeLabel:
+      'Family bubble map. Use Tab to move between families and Enter or Space to select one and highlight its descendants.',
+    bubbleNodeBorn: '{name}, born {year}',
     longevity: 'Longevity',
     livedYears: 'Years lived',
     yearsOldLabel: 'years old',
@@ -1545,6 +2655,7 @@ export const messages = {
     maternalGrandchildren: 'Maternal grandchildren',
     notes: 'Notes',
     collapse: 'Show less',
+    branchOf: "{name}'s branch",
     expand: 'Expand',
     noTreeData: 'No data found.',
     emptyFamilyTree: 'Family tree is empty',
@@ -1602,12 +2713,93 @@ export const messages = {
     autoGenderNote:
       '* Gender will be automatically set to {gender} (based on the current person’s gender).',
     relationshipAddError: 'Could not add relationship: {error}',
+    relationshipSearchLoadError:
+      'Could not load the member list for search: {error}. Dismiss (×) to retry.',
+    relationshipSelfLink: 'A person cannot be related to themselves.',
+    relationshipDuplicateSpouse: 'These two people are already married.',
+    relationshipDuplicateParent:
+      'Cannot add: these two people already have a parent–child link.',
+    relationshipTooManyParents:
+      'Cannot add: the child already has both biological parents (one father and one mother).',
+    relationshipCycle:
+      'Cannot add: this parent is already a descendant of the child, which would create a loop.',
+    relationshipChildOlderThanParent:
+      'Cannot add: the child was born before the parent.',
+    relationshipInvalidBirthYear:
+      'Invalid birth year: enter a whole number from 1 up (for example 1990).',
+    relationshipBirthYearInFuture:
+      'The birth year cannot be after this year. Check the year.',
+    relationshipInvalidBirthOrder:
+      'Invalid birth order: enter a whole number from 1 up.',
+    memberBornBeforeParent:
+      'Invalid birth date: earlier than the birth date of parent {name}.',
+    memberBornAfterChild:
+      'Invalid birth date: later than the birth date of child {name}.',
+    fullNameRequired: 'Please enter the full name.',
+    textTooLong: '{field} is too long: at most {max} characters.',
+    restoreTruncated:
+      '{count} values in the file are over the length limits and will be cut when restored (names 200, notes 2,000, private details 500 characters).',
+    restoreGedcomNameOrder: 'Name order in the GEDCOM file',
+    restoreGedcomSurnameFirst: 'Surname first (Nguyễn Văn An)',
+    restoreGedcomSurnameLast: 'As written in the file (Văn An Nguyễn)',
+    gedcomUnnamedPerson: 'Unknown',
+    restoreGedcomUnnamed:
+      '{count} people in the file have no name; they are saved as "{name}", rename them after the import.',
+    restoreGedcomDropped:
+      'The GEDCOM file has {sources} source/repository records (SOUR/REPO), {missingNotes} notes pointing to records missing from the file and {droppedFamilyNotes} families without both spouses that have notes or sources. The app does not store sources: only source titles are copied into notes ("Nguồn: …"); missing notes and the notes/sources of families without both spouses are skipped.',
+    importModeLegend: 'How to import',
+    importModeReplace: 'Replace the whole tree (deletes the current data)',
+    importModeAppend: 'Add to the current tree (keeps the current data)',
+    appendConfirmTitle: 'Add to the current tree',
+    appendConfirmText:
+      'The members, relationships, private details and events in {file} will be added to the tree; the current data stays as it is.',
+    appendFileContains:
+      'Adds {persons} members, {relationships} relationships, {events} events.',
+    appendNotes:
+      'Profile photos and the gallery are not imported. People who are both in the file and in the tree end up as two profiles: after adding, use "Possible duplicates" to merge them, which also links the new branch to the tree.',
+    appendConfirm: 'Add to tree',
+    appending: 'Adding...',
+    appendSuccess: 'Added {persons} people and {relationships} relationships.',
+    appendImportError:
+      'Nothing was added, the current data is unchanged: {error}',
+    appendImportUpgradeDatabase:
+      'The database is not upgraded, so the file cannot be added to the current tree yet. Run the migrations on the System upgrade page (/dashboard/upgrade), then try again.',
+    scanDuplicatesNow: 'Scan for duplicates now',
+    memberPossibleDuplicate:
+      '{count} existing people have the same name and birth year: {names}. Create another one anyway?',
+    memberMotherDiedBeforeBirth:
+      'Invalid dates: mother {parent} died before the birth of {child}.',
+    memberFatherDiedLongBeforeBirth:
+      'Father {parent} died more than 10 months before the birth of {child}. Save anyway?',
+    relationshipMotherDiedBeforeBirth:
+      'Cannot add: the mother died before the child was born.',
+    relationshipMarriageWithRelative:
+      'These two are parent and child or siblings. Add the marriage anyway?',
+    relationshipMarriageAfterDeath:
+      'One of them died before the other was born. Add the marriage anyway?',
+    relationshipFatherDiedLongBeforeBirth:
+      'The father died more than 10 months before the child was born. Add this relationship anyway?',
     childNameRequired: 'Please enter at least one child’s name.',
     bulkAddPartial:
       'An error occurred. Only {success}/{total} people were saved.',
     bulkAddError: 'Could not add the children list: {error}',
+    bulkAddChildOrphaned:
+      'created but not linked to the parents, add the relationship for this person',
+    bulkAddFailedRowsKept: 'The failed rows are kept so you can try again.',
+    relationshipSavedTargetNotUpdated:
+      'The relationship was saved, but the other person’s generation / in-law flag was not updated: {error}',
+    relationshipsLoadError: 'Could not load family information: {error}',
+    memberSavedPartially:
+      'The member was saved, but the photo or private details could not be saved: {error}. Save again to retry (this updates the same person, it does not create another), or Continue to skip.',
+    memberSavedGenerationNotUpdated:
+      'The member was saved, but the descendants’ generations were not updated: {error}. Save again to retry, or Continue to skip.',
+    continueAction: 'Continue',
     spouseNameRequired: 'Please enter the spouse’s name.',
     spouseAddError: 'Could not add spouse: {error}',
+    spouseAddOrphaned:
+      'The profile {name} was created but the marriage was not saved ({error}). Do not add it again: add the relationship for this person from the members list.',
+    personNotCreated:
+      'The profile was not created: you can no longer add members, or your session expired. Reload the page.',
     confirmDeleteRelationship:
       'Are you sure you want to delete this relationship?',
     deleteRelationshipError: 'Could not delete: {error}',
@@ -1618,13 +2810,9 @@ export const messages = {
 } as const
 
 export type TranslationKey = keyof (typeof messages)['vi']
-export type TranslationValues = Record<string, string | number>
+export type Messages = (typeof messages)[Locale]
 
-export function getLocale(value?: string | null): Locale {
-  return value === 'en' ? 'en' : 'vi'
-}
-
-export function getMessages(locale: Locale) {
+export function getMessages(locale: Locale): Messages {
   return messages[locale]
 }
 
@@ -1633,13 +2821,5 @@ export function translate(
   key: TranslationKey,
   values?: TranslationValues
 ) {
-  let value: string = messages[locale][key]
-
-  if (values) {
-    Object.entries(values).forEach(([name, replacement]) => {
-      value = value.replace(`{${name}}`, String(replacement))
-    })
-  }
-
-  return value
+  return translateWith(messages[locale], locale, key, values)
 }

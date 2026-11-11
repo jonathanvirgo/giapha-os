@@ -4,8 +4,9 @@ import EventsList from '@/components/EventsList'
 import MemberDetailModal from '@/components/modal/MemberDetailModal'
 import { MemberListProvider } from '@/context/MemberListContext'
 import { getServerTranslations } from '@/lib/i18n/server'
-import { fetchAllRows } from '@/utils/supabase/fetchAll'
-import { getSupabase } from '@/utils/supabase/queries'
+import { EVENT_PERSON_COLUMNS, EVENT_PERSON_FILTER } from '@/utils/eventPersons'
+import { fetchAllRowsOrThrow } from '@/utils/supabase/fetchAll'
+import { getIsAdmin, getSupabase, getUser } from '@/utils/supabase/queries'
 
 export async function generateMetadata() {
   const { t } = await getServerTranslations()
@@ -13,25 +14,27 @@ export async function generateMetadata() {
 }
 
 export default async function EventsPage() {
-  const [{ t }, supabase] = await Promise.all([
+  const [{ t }, supabase, user, isAdmin] = await Promise.all([
     getServerTranslations(),
-    getSupabase()
+    getSupabase(),
+    getUser(),
+    getIsAdmin()
   ])
 
   const [personsRes, customEventsRes] = await Promise.all([
-    fetchAllRows((from, to) =>
+    fetchAllRowsOrThrow((from, to) =>
       supabase
         .from('persons')
-        .select(
-          'id, full_name, birth_year, birth_month, birth_day, death_year, death_month, death_day, death_lunar_year, death_lunar_month, death_lunar_day, is_deceased, avatar_url'
-        )
+        .select(EVENT_PERSON_COLUMNS)
+        .or(EVENT_PERSON_FILTER)
         .order('id')
         .range(from, to)
     ),
-    fetchAllRows((from, to) =>
+    fetchAllRowsOrThrow((from, to) =>
       supabase
         .from('custom_events')
-        .select('id, name, content, event_date, location, created_by')
+        // '*' includes recurrence once the database has the column.
+        .select('*')
         .order('id')
         .range(from, to)
     )
@@ -55,6 +58,8 @@ export default async function EventsPage() {
             <EventsList
               persons={persons ?? []}
               customEvents={customEvents ?? []}
+              currentUserId={user?.id ?? null}
+              isAdmin={Boolean(isAdmin)}
             />
           </main>
         </div>

@@ -1,9 +1,11 @@
 'use client'
 
 import dayjs from 'dayjs'
-import { CalendarDays, X } from 'lucide-react'
-import Image from 'next/image'
+import { CalendarDays, ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { useId } from 'react'
 
+import GalleryImage from '@/components/GalleryImage'
+import { useModalA11y } from '@/hooks/useModalA11y'
 import { useI18n } from '@/lib/i18n/useI18n'
 import { GalleryItem } from '@/types'
 
@@ -14,6 +16,11 @@ interface GalleryLightboxProps {
   onClose: () => void
   onEdit?: (item: GalleryItem) => void
   onDelete: (item: GalleryItem) => void
+  /** 1-based position of `item` among `total` browsable items. */
+  position?: number
+  total?: number
+  onPrev?: () => void
+  onNext?: () => void
 }
 
 export default function GalleryLightbox({
@@ -22,11 +29,37 @@ export default function GalleryLightbox({
   isDeleting,
   onClose,
   onEdit,
-  onDelete
+  onDelete,
+  position = 1,
+  total = 1,
+  onPrev,
+  onNext
 }: GalleryLightboxProps) {
   const { t } = useI18n()
+  const titleId = useId()
+  const dialogRef = useModalA11y(onClose)
+  const hasPrev = !!onPrev && position > 1
+  const hasNext = !!onNext && position < total
+  const navButton =
+    'absolute top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/40 p-3 text-white/80 transition-colors hover:bg-black/60 hover:text-white disabled:cursor-not-allowed disabled:opacity-30'
   return (
-    <div className='animate-in fade-in fixed inset-0 z-60 flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm duration-200'>
+    <div
+      ref={dialogRef}
+      role='dialog'
+      aria-modal='true'
+      aria-labelledby={titleId}
+      tabIndex={-1}
+      onKeyDown={(e) => {
+        if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return
+        if (e.key === 'ArrowLeft' && hasPrev) {
+          e.preventDefault()
+          onPrev?.()
+        } else if (e.key === 'ArrowRight' && hasNext) {
+          e.preventDefault()
+          onNext?.()
+        }
+      }}
+      className='animate-in fade-in fixed inset-0 z-60 flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm duration-200 outline-none'>
       <button
         onClick={onClose}
         aria-label={t('close')}
@@ -37,20 +70,45 @@ export default function GalleryLightbox({
       <div className='flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-stone-950 shadow-2xl lg:flex-row'>
         {/* Image Section */}
         <div className='relative flex min-h-[50vh] flex-1 items-center justify-center bg-black/50 p-4 lg:min-h-0'>
-          <Image
-            unoptimized
-            src={item.image_url}
-            alt={item.title}
+          <GalleryImage
+            item={item}
             width={1200}
             height={800}
             className='max-h-[80vh] max-w-full rounded-lg object-contain'
           />
+          {total > 1 && (
+            <>
+              <button
+                type='button'
+                onClick={onPrev}
+                disabled={!hasPrev}
+                aria-label={t('galleryPrevImage')}
+                className={`${navButton} left-3`}>
+                <ChevronLeft className='size-6' />
+              </button>
+              <button
+                type='button'
+                onClick={onNext}
+                disabled={!hasNext}
+                aria-label={t('galleryNextImage')}
+                className={`${navButton} right-3`}>
+                <ChevronRight className='size-6' />
+              </button>
+              <p
+                aria-live='polite'
+                className='absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/50 px-3 py-1 text-sm font-medium text-white tabular-nums'>
+                {t('galleryImagePosition', { position, total })}
+              </p>
+            </>
+          )}
         </div>
 
         {/* Content Section */}
         <div className='flex max-h-[40vh] w-full flex-col overflow-y-auto bg-white lg:max-h-none lg:w-96'>
           <div className='flex-1 p-6 sm:p-8'>
-            <h2 className='mb-4 text-2xl leading-tight font-semibold text-stone-800'>
+            <h2
+              id={titleId}
+              className='mb-4 text-2xl leading-tight font-semibold text-stone-800'>
               {item.title}
             </h2>
 

@@ -4,11 +4,14 @@ import { ArrowUpDown, Filter, Plus, Search, X } from 'lucide-react'
 
 import { useMemberListView } from '@/context/useMemberListView'
 import { useI18n } from '@/lib/i18n/useI18n'
+import { generationFilterOption } from '@/utils/memberFilters'
+import { isImeComposing } from '@/utils/pickerNavigation'
 
 interface MemberListToolbarProps {
   searchTerm: string
   onSearchTermChange: (value: string) => void
   filterOption: string
+  generations: number[]
   onFilterOptionChange: (value: string) => void
   sortOption: string
   onSortOptionChange: (value: string) => void
@@ -19,6 +22,7 @@ export default function MemberListToolbar({
   searchTerm,
   onSearchTermChange,
   filterOption,
+  generations,
   onFilterOptionChange,
   sortOption,
   onSortOptionChange,
@@ -41,7 +45,8 @@ export default function MemberListToolbar({
               value={searchTerm}
               onChange={(e) => onSearchTermChange(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Escape') onSearchTermChange('')
+                if (e.key === 'Escape' && !isImeComposing(e))
+                  onSearchTermChange('')
               }}
             />
             {searchTerm && (
@@ -70,6 +75,19 @@ export default function MemberListToolbar({
                 <option value='in_law_male'>{t('sonInLaw')}</option>
                 <option value='deceased'>{t('deceased')}</option>
                 <option value='first_child'>{t('firstChild')}</option>
+                <option value='alive'>{t('filterAlive')}</option>
+                <option value='missingBirthYear'>
+                  {t('filterMissingBirthYear')}
+                </option>
+                {generations.length > 0 && (
+                  <optgroup label={t('filterGenerationGroup')}>
+                    {generations.map((n) => (
+                      <option key={n} value={generationFilterOption(n)}>
+                        {t('filterGeneration', { n })}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
               <div className='pointer-events-none absolute inset-y-0 right-0 flex items-center px-2'>
                 <svg

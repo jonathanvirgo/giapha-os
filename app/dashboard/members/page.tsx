@@ -1,19 +1,37 @@
+import type { Metadata } from 'next'
 import { Suspense } from 'react'
 
 import { getDefaultRootId } from '@/app/actions/settings'
 import MembersViews from '@/components/MembersViews'
 import MemberDetailModal from '@/components/modal/MemberDetailModal'
-import ViewToggle, { ViewMode } from '@/components/ViewToggle'
+import ViewToggle from '@/components/ViewToggle'
+import { AvatarUrlProvider } from '@/context/AvatarUrlContext'
 import { MemberListProvider } from '@/context/MemberListContext'
-import { fetchAllRows } from '@/utils/supabase/fetchAll'
+import { getServerTranslations } from '@/lib/i18n/server'
+import { Person, Relationship } from '@/types'
+import { NO_SIGNED_AVATAR_URLS } from '@/utils/avatar'
+import { signAvatarUrls } from '@/utils/avatarSigning'
+import {
+  PERSON_LIST_COLUMNS,
+  RELATIONSHIP_COLUMNS
+} from '@/utils/personColumns'
+import { fetchAllRowsOrThrow } from '@/utils/supabase/fetchAll'
 import { getProfile, getSupabase } from '@/utils/supabase/queries'
+import { pickDefaultRootId } from '@/utils/treeRoot'
+import { parseViewMode } from '@/utils/viewMode'
 
 interface PageProps {
   searchParams: Promise<{ view?: string; rootId?: string; avatar?: string }>
 }
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getServerTranslations()
+
+  return { title: t('familyTree') }
+}
+
 export default async function FamilyTreePage({ searchParams }: PageProps) {
   const { view, rootId, avatar } = await searchParams
-  const initialView = view as ViewMode | undefined
+  const initialView = view === undefined ? undefined : parseViewMode(view)
   const initialShowAvatar = avatar !== 'hide'
 
   const profile = await getProfile()
@@ -28,33 +46,40 @@ export default async function FamilyTreePage({ searchParams }: PageProps) {
   const supabase = await getSupabase()
 
   const [personsRes, relsRes] = await Promise.all([
-    fetchAllRows((from, to) =>
+    fetchAllRowsOrThrow((from, to) =>
       supabase
         .from('persons')
-        .select('*')
+        .select(PERSON_LIST_COLUMNS)
         .order('birth_year', { ascending: true, nullsFirst: false })
         .order('id')
         .range(from, to)
     ),
-    fetchAllRows((from, to) =>
-      supabase.from('relationships').select('*').order('id').range(from, to)
+    fetchAllRowsOrThrow((from, to) =>
+      supabase
+        .from('relationships')
+        .select(RELATIONSHIP_COLUMNS)
+        .order('created_at')
+        .order('id')
+        .range(from, to)
     )
   ])
 
-  const persons = personsRes.data || []
-  const relationships = relsRes.data || []
+  // PERSON_LIST_COLUMNS leaves out note/created_at; no view reads them.
+  const persons = (personsRes.data || []) as Person[]
+  // RELATIONSHIP_COLUMNS leaves out note/updated_at; no view reads them.
+  const relationships = (relsRes.data || []) as Relationship[]
+
+  // One storage request signs every avatar of the tree/list/mindmap instead
+  // of one /api/avatar round trip per member. Storage RLS only lets active
+  // users sign, the same rule the /api/avatar route applies; the same URLs
+  // come back on the next load, so the browser serves the photos from cache.
+  const signedAvatarUrls = profile?.is_active
+    ? await signAvatarUrls(supabase, persons)
+    : NO_SIGNED_AVATAR_URLS
 
   // Prepare map and roots for tree views
   const personsMap = new Map()
   persons.forEach((p) => personsMap.set(p.id, p))
-
-  const childIds = new Set(
-    relationships
-      .filter(
-        (r) => r.type === 'biological_child' || r.type === 'adopted_child'
-      )
-      .map((r) => r.person_b)
-  )
 
   let finalRootId = rootId
 
@@ -64,30 +89,27 @@ export default async function FamilyTreePage({ searchParams }: PageProps) {
     if (defaultRootId && personsMap.has(defaultRootId)) {
       finalRootId = defaultRootId
     } else {
-      const rootsFallback = persons.filter((p) => !childIds.has(p.id))
-      if (rootsFallback.length > 0) {
-        finalRootId = rootsFallback[0].id
-      } else if (persons.length > 0) {
-        finalRootId = persons[0].id
-      }
+      finalRootId = pickDefaultRootId(persons, relationships)
     }
   }
 
   return (
     <Suspense fallback={null}>
-      <MemberListProvider
-        initialView={initialView}
-        initialRootId={finalRootId}
-        initialShowAvatar={initialShowAvatar}>
-        <ViewToggle />
-        <MembersViews
-          persons={persons}
-          relationships={relationships}
-          canEdit={canEdit}
-        />
+      <AvatarUrlProvider signedUrls={signedAvatarUrls}>
+        <MemberListProvider
+          initialView={initialView}
+          initialRootId={finalRootId}
+          initialShowAvatar={initialShowAvatar}>
+          <ViewToggle />
+          <MembersViews
+            persons={persons}
+            relationships={relationships}
+            canEdit={canEdit}
+          />
 
-        <MemberDetailModal />
-      </MemberListProvider>
+          <MemberDetailModal />
+        </MemberListProvider>
+      </AvatarUrlProvider>
     </Suspense>
   )
 }

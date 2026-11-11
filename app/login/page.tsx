@@ -4,8 +4,9 @@ import { AnimatePresence, m } from 'framer-motion'
 import { ArrowLeft, Info, KeyRound, Mail, Shield } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { useMemo, useState, useSyncExternalStore } from 'react'
 
+import { notifyAdminIfAccountPending } from '@/app/actions/user'
 import config from '@/app/config'
 import {
   AuthAlerts,
@@ -20,6 +21,8 @@ import SsoButtons from '@/components/auth/SsoButtons'
 import Footer from '@/components/Footer'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useI18n } from '@/lib/i18n/useI18n'
+import { authErrorKey } from '@/utils/authErrors'
+import { oauthRedirectTo, safeNextPath } from '@/utils/safeNextPath'
 import { createClient } from '@/utils/supabase/client'
 
 export default function LoginPage() {
@@ -31,20 +34,16 @@ export default function LoginPage() {
     () => window.location.hostname === config.demoDomain,
     () => false
   )
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  // Until the user types, the demo site shows the demo account.
+  const [emailInput, setEmail] = useState<string | null>(null)
+  const [passwordInput, setPassword] = useState<string | null>(null)
+  const email = emailInput ?? (isDemo ? 'giaphaos@homielab.com' : '')
+  const password = passwordInput ?? (isDemo ? 'giaphaos' : '')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
-
-  useEffect(() => {
-    if (isDemo) {
-      setEmail('giaphaos@homielab.com')
-      setPassword('giaphaos')
-    }
-  }, [isDemo])
 
   const [isLogin, setIsLogin] = useState(true)
   const [isForgotPassword, setIsForgotPassword] = useState(false)
@@ -69,7 +68,7 @@ export default function LoginPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`
+          redirectTo: oauthRedirectTo(window.location.origin, nextPath())
         }
       })
 
@@ -111,6 +110,18 @@ export default function LoginPage() {
     }
   }
 
+  // The page a shared link pointed to before the middleware sent the visitor
+  // here (?next=), or /dashboard. Read on submit, so no Suspense boundary is
+  // needed for useSearchParams.
+  const nextPath = () =>
+    safeNextPath(new URLSearchParams(window.location.search).get('next'))
+
+  // Mails the administrators when this account still waits for approval (the
+  // password sign-in and a sign-up without email confirmation skip
+  // /auth/callback). A failure never blocks the sign-in.
+  const notifyIfPending = () =>
+    notifyAdminIfAccountPending().catch((err: unknown) => console.error(err))
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -126,9 +137,10 @@ export default function LoginPage() {
         })
 
         if (error) {
-          setError(error.message)
+          setError(t(authErrorKey(error)))
         } else {
-          router.push('/dashboard')
+          await notifyIfPending()
+          router.push(nextPath())
           router.refresh()
         }
       } else {
@@ -157,10 +169,11 @@ export default function LoginPage() {
             return
           }
 
-          setError(error.message)
+          setError(t(authErrorKey(error)))
         } else {
           if (data.session) {
-            router.push('/dashboard')
+            await notifyIfPending()
+            router.push(nextPath())
             router.refresh()
           } else {
             // Attempt to sign in immediately (catches auto-confirmed first admin)
@@ -171,7 +184,8 @@ export default function LoginPage() {
               })
 
             if (!signInError && signInData.session) {
-              router.push('/dashboard')
+              await notifyIfPending()
+              router.push(nextPath())
               router.refresh()
             } else {
               setSuccessMessage(t('signupSuccess'))
@@ -227,13 +241,13 @@ export default function LoginPage() {
               className='mb-5 inline-flex items-center justify-center rounded-2xl bg-white p-3.5 shadow-sm ring-1 ring-stone-100 transition duration-300 hover:scale-105 hover:shadow-md'>
               <Shield className='size-8 text-amber-600' />
             </Link>
-            <h2 className='font-serif text-3xl font-semibold text-stone-900 sm:text-4xl'>
+            <h1 className='font-serif text-3xl font-semibold text-stone-900 sm:text-4xl'>
               {isForgotPassword
                 ? t('forgotPassword')
                 : isLogin
                   ? t('login')
                   : t('signUp')}
-            </h2>
+            </h1>
             <p className='mt-3 text-sm font-medium text-stone-500'>
               {isForgotPassword
                 ? t('forgotPasswordDescription')

@@ -4,9 +4,10 @@ import Image from 'next/image'
 
 import DefaultAvatar from '@/components/DefaultAvatar'
 import { EnrichedRelationship } from '@/components/relationship/relationshipTypes'
+import { useAvatarUrl } from '@/context/AvatarUrlContext'
 import { useI18n } from '@/lib/i18n/useI18n'
-import { getAvatarUrl } from '@/utils/avatar'
-import { getAvatarBg } from '@/utils/styleHelprs'
+import { sortRelationshipGroup } from '@/utils/relationshipOrder'
+import { getAvatarBg } from '@/utils/styleHelpers'
 
 interface RelationshipListProps {
   relationships: EnrichedRelationship[]
@@ -25,33 +26,14 @@ export default function RelationshipList({
   onPersonClick,
   onDelete
 }: RelationshipListProps) {
+  const avatarUrl = useAvatarUrl()
   const { t } = useI18n()
 
-  const groupByType = (type: string) => {
-    const items = relationships.filter((r) => r.direction === type)
-
-    // Nếu là nhóm con cái → sắp xếp theo birth_order
-    if (type === 'child') {
-      return items.sort((a, b) => {
-        const orderA = a.targetPerson.birth_order
-        const orderB = b.targetPerson.birth_order
-
-        if (orderA != null && orderB != null) {
-          return orderA - orderB
-        }
-
-        if (orderA != null) return -1
-        if (orderB != null) return 1
-
-        return (
-          (a.targetPerson.birth_year ?? 9999) -
-          (b.targetPerson.birth_year ?? 9999)
-        )
-      })
-    }
-
-    return items
-  }
+  const groupByType = (type: (typeof GROUP_ORDER)[number]) =>
+    sortRelationshipGroup(
+      type,
+      relationships.filter((r) => r.direction === type)
+    )
 
   return (
     <>
@@ -84,11 +66,11 @@ export default function RelationshipList({
                       className='-mx-2.5 flex flex-1 items-center gap-3 rounded-xl p-2.5 text-left transition-colors duration-200 hover:bg-stone-100'>
                       <div
                         className={`flex size-8 items-center justify-center overflow-hidden rounded-full text-sm text-white ${getAvatarBg(rel.targetPerson.gender)}`}>
-                        {getAvatarUrl(rel.targetPerson.avatar_url) ? (
+                        {avatarUrl(rel.targetPerson.avatar_url) ? (
                           <Image
                             unoptimized
-                            src={getAvatarUrl(rel.targetPerson.avatar_url)!}
-                            alt={rel.targetPerson.full_name}
+                            src={avatarUrl(rel.targetPerson.avatar_url)!}
+                            alt=''
                             className='h-full w-full object-cover'
                             width={32}
                             height={32}
@@ -119,7 +101,7 @@ export default function RelationshipList({
                     {canEdit && rel.direction !== 'child_in_law' && (
                       <button
                         onClick={() => onDelete(rel.id)}
-                        className='ml-2 flex items-center justify-center rounded-lg p-2 text-stone-300 transition-colors hover:bg-red-50 hover:text-red-500 sm:p-2.5'
+                        className='ml-2 flex items-center justify-center rounded-lg p-2 text-stone-300 transition-colors hover:bg-red-50 hover:text-red-500 sm:p-2.5 print:hidden'
                         title={t('deleteRelationship')}
                         aria-label={t('deleteRelationship')}>
                         <svg

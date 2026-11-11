@@ -1,14 +1,12 @@
 'use client'
 
 import { AnimatePresence, m } from 'framer-motion'
-import { Settings2, User } from 'lucide-react'
+import { Settings2 } from 'lucide-react'
 
-import {
-  formSectionVariants,
-  inputClasses
-} from '@/components/member/memberFormStyles'
+import { inputClasses } from '@/components/member/memberFormStyles'
 import { useI18n } from '@/lib/i18n/useI18n'
 import { Gender } from '@/types'
+import { MAX_NAME, MAX_NOTE } from '@/utils/limits'
 
 interface MemberGeneralFieldsProps {
   fullName: string
@@ -89,6 +87,7 @@ export default function MemberGeneralFields({
           id='member-full-name'
           type='text'
           required
+          maxLength={MAX_NAME}
           value={fullName}
           onChange={(e) => onFullNameChange(e.target.value)}
           className={inputClasses}
@@ -105,6 +104,7 @@ export default function MemberGeneralFields({
         <input
           id='member-other-names'
           type='text'
+          maxLength={MAX_NOTE}
           value={otherNames}
           onChange={(e) => onOtherNamesChange(e.target.value)}
           className={inputClasses}
@@ -162,6 +162,7 @@ export default function MemberGeneralFields({
         <input
           id='member-birth-order'
           type='number'
+          step='1'
           min='1'
           placeholder={t('birthOrderPlaceholder')}
           value={birthOrder}
@@ -184,6 +185,7 @@ export default function MemberGeneralFields({
         <input
           id='member-generation'
           type='number'
+          step='1'
           min='1'
           placeholder={t('generationPlaceholder')}
           value={generation}
@@ -233,14 +235,19 @@ export default function MemberGeneralFields({
 
       <div className='md:col-span-2'>
         <label
+          id='member-birth-date-label'
           htmlFor='member-birth-day'
           className='mb-1.5 block text-sm font-medium text-stone-700'>
           {t('solarBirthDate')}
         </label>
-        <div className='grid grid-cols-3 gap-3'>
+        <div
+          role='group'
+          aria-labelledby='member-birth-date-label'
+          className='grid grid-cols-3 gap-3'>
           <input
             id='member-birth-day'
             type='number'
+            step='1'
             aria-label={t('day')}
             placeholder={t('day')}
             min='1'
@@ -253,6 +260,7 @@ export default function MemberGeneralFields({
           />
           <input
             type='number'
+            step='1'
             aria-label={t('month')}
             placeholder={t('month')}
             min='1'
@@ -265,7 +273,10 @@ export default function MemberGeneralFields({
           />
           <input
             type='number'
+            step='1'
             aria-label={t('year')}
+            min='1000'
+            max='9999'
             placeholder={t('year')}
             value={birthYear}
             onChange={(e) =>
@@ -285,11 +296,15 @@ export default function MemberGeneralFields({
         <textarea
           id='member-note'
           rows={3}
+          maxLength={MAX_NOTE}
           value={note}
           onChange={(e) => onNoteChange(e.target.value)}
           placeholder={t('notePlaceholder')}
           className={`${inputClasses} resize-none`}
         />
+        <p className='mt-1 text-right text-xs text-stone-500' aria-live='off'>
+          {note.length}/{MAX_NOTE}
+        </p>
       </div>
     </>
   )

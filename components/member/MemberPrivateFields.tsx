@@ -9,9 +9,12 @@ import {
   inputClasses
 } from '@/components/member/memberFormStyles'
 import { useI18n } from '@/lib/i18n/useI18n'
+import { MAX_PRIVATE } from '@/utils/limits'
 
 interface MemberPrivateFieldsProps {
   isDeceased: boolean
+  /** The stored details could not be read: show them as unavailable. */
+  locked?: boolean
   phoneNumber: string
   onPhoneNumberChange: (value: string) => void
   occupation: string
@@ -22,6 +25,7 @@ interface MemberPrivateFieldsProps {
 
 export default function MemberPrivateFields({
   isDeceased,
+  locked = false,
   phoneNumber,
   onPhoneNumberChange,
   occupation,
@@ -49,6 +53,13 @@ export default function MemberPrivateFields({
           {t('adminOnly')}
         </span>
       </h3>
+      {locked && (
+        <p
+          role='alert'
+          className='relative z-10 mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700'>
+          {t('privateLoadFailed')}
+        </p>
+      )}
       <div className='relative z-10 grid grid-cols-1 gap-6 md:grid-cols-2'>
         <div>
           <label
@@ -59,13 +70,14 @@ export default function MemberPrivateFields({
           <input
             id='member-phone'
             type='tel'
+            maxLength={MAX_PRIVATE}
             value={phoneNumber}
             onChange={(e) => onPhoneNumberChange(e.target.value)}
-            disabled={isDeceased}
+            disabled={isDeceased || locked}
             placeholder={t('phonePlaceholder')}
             className={`${inputClasses} disabled:cursor-not-allowed disabled:bg-stone-100 disabled:text-stone-400`}
           />
-          {isDeceased && <DeceasedPhoneWarning />}
+          {isDeceased && !locked && <DeceasedPhoneWarning />}
         </div>
 
         <div>
@@ -77,10 +89,12 @@ export default function MemberPrivateFields({
           <input
             id='member-occupation'
             type='text'
+            maxLength={MAX_PRIVATE}
             value={occupation}
             onChange={(e) => onOccupationChange(e.target.value)}
+            disabled={locked}
             placeholder={t('occupationPlaceholder')}
-            className={inputClasses}
+            className={`${inputClasses} disabled:cursor-not-allowed disabled:bg-stone-100 disabled:text-stone-400`}
           />
         </div>
 
@@ -93,10 +107,12 @@ export default function MemberPrivateFields({
           <input
             id='member-residence'
             type='text'
+            maxLength={MAX_PRIVATE}
             value={currentResidence}
             onChange={(e) => onCurrentResidenceChange(e.target.value)}
+            disabled={locked}
             placeholder={t('residencePlaceholder')}
-            className={inputClasses}
+            className={`${inputClasses} disabled:cursor-not-allowed disabled:bg-stone-100 disabled:text-stone-400`}
           />
         </div>
       </div>

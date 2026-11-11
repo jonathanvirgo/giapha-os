@@ -1,18 +1,32 @@
 'use client'
 
 import { AnimatePresence, m, Variants } from 'framer-motion'
-import { Calendar as CalendarIcon, Loader2, Moon, Sun } from 'lucide-react'
-import { Lunar } from 'lunar-javascript'
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 
+import DiscardChangesDialog from '@/components/member/DiscardChangesDialog'
 import EventDateFields from '@/components/modal/EventDateFields'
 import EventErrorBanner from '@/components/modal/EventErrorBanner'
 import EventHeaderActions from '@/components/modal/EventHeaderActions'
 import EventModalFooter from '@/components/modal/EventModalFooter'
 import EventNameField from '@/components/modal/EventNameField'
+import EventRecurrenceField from '@/components/modal/EventRecurrenceField'
 import EventTextFields from '@/components/modal/EventTextFields'
+import { useModalA11y } from '@/hooks/useModalA11y'
 import { useI18n } from '@/lib/i18n/useI18n'
-import { CustomEventRecord } from '@/utils/eventHelpers'
+import { resolveLunarEventDate } from '@/utils/customEventLunar'
+import {
+  CustomEventNotAllowedError,
+  deleteCustomEvent,
+  saveCustomEvent
+} from '@/utils/customEventMutations'
+import {
+  CustomEventRecord,
+  CustomEventRecurrence,
+  defaultEventDate,
+  toRecurrence
+} from '@/utils/eventHelpers'
+import { isCustomEventFormDirty } from '@/utils/formDirty'
+import { TextTooLongError } from '@/utils/limits'
 import { createClient } from '@/utils/supabase/client'
 
 interface CustomEventModalProps {
@@ -29,22 +43,66 @@ export default function CustomEventModal({
   eventToEdit
 }: CustomEventModalProps) {
   const { t } = useI18n()
+  const titleId = useId()
   const [loading, setLoading] = useState(false)
+  const [askDiscard, setAskDiscard] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const [name, setName] = useState(eventToEdit?.name || '')
   const [eventDate, setEventDate] = useState(eventToEdit?.event_date || '')
   const [location, setLocation] = useState(eventToEdit?.location || '')
   const [content, setContent] = useState(eventToEdit?.content || '')
+  const [recurrence, setRecurrence] = useState<CustomEventRecurrence>(
+    toRecurrence(eventToEdit?.recurrence)
+  )
 
   // Lunar date mode
   const [dateMode, setDateMode] = useState<'solar' | 'lunar'>('solar')
   const [lunarDay, setLunarDay] = useState<number | ''>('')
   const [lunarMonth, setLunarMonth] = useState<number | ''>('')
   const [lunarYear, setLunarYear] = useState<number | ''>('')
-  const [lunarConvertError, setLunarConvertError] = useState<string | null>(
-    null
+  const [lunarLeap, setLunarLeap] = useState(false)
+  // An incomplete lunar date is only flagged after a save attempt.
+  const [lunarSubmitted, setLunarSubmitted] = useState(false)
+
+  const lunarResult = useMemo(
+    () =>
+      resolveLunarEventDate({
+        day: lunarDay,
+        month: lunarMonth,
+        year: lunarYear,
+        leap: lunarLeap
+      }),
+    [lunarDay, lunarMonth, lunarYear, lunarLeap]
   )
+  const lunarConvertError =
+    dateMode === 'lunar' &&
+    (lunarResult.status === 'invalid' ||
+      (lunarSubmitted && lunarResult.status === 'incomplete'))
+      ? t('lunarDateInvalid')
+      : null
+
+  const isDirty = isCustomEventFormDirty(
+    {
+      name,
+      eventDate,
+      location,
+      content,
+      recurrence,
+      dateMode,
+      lunarDay,
+      lunarMonth,
+      lunarYear
+    },
+    eventToEdit
+  )
+  // Esc, the backdrop and the close buttons ask first when there are changes.
+  const requestClose = () => {
+    if (loading) return
+    if (isDirty) setAskDiscard(true)
+    else onClose()
+  }
+  const dialogRef = useModalA11y(requestClose, isOpen)
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
@@ -54,72 +112,38 @@ export default function CustomEventModal({
         setEventDate(eventToEdit.event_date)
         setLocation(eventToEdit.location || '')
         setContent(eventToEdit.content || '')
+        setRecurrence(toRecurrence(eventToEdit.recurrence))
       } else {
         setName('')
-        // Default to today
-        const now = new Date()
-        const y = now.getFullYear()
-        const m = String(now.getMonth() + 1).padStart(2, '0')
-        const d = String(now.getDate()).padStart(2, '0')
-        setEventDate(`${y}-${m}-${d}`)
+        setEventDate(defaultEventDate())
         setLocation('')
         setContent('')
+        setRecurrence('none')
       }
       setError(null)
+      setAskDiscard(false)
       setDateMode('solar')
       setLunarDay('')
       setLunarMonth('')
       setLunarYear('')
-      setLunarConvertError(null)
+      setLunarLeap(false)
+      setLunarSubmitted(false)
     })
 
     return () => cancelAnimationFrame(frame)
   }, [isOpen, eventToEdit])
 
-  // Auto-convert lunar → solar when all 3 fields are filled
-  useEffect(() => {
-    if (
-      dateMode === 'lunar' &&
-      lunarDay !== '' &&
-      lunarMonth !== '' &&
-      lunarYear !== '' &&
-      lunarYear > 100
-    ) {
-      const frame = requestAnimationFrame(() => {
-        try {
-          const lunar = Lunar.fromYmd(
-            lunarYear as number,
-            lunarMonth as number,
-            lunarDay as number
-          )
-          const solar = lunar.getSolar()
-          const y = solar.getYear()
-          const m = String(solar.getMonth()).padStart(2, '0')
-          const d = String(solar.getDay()).padStart(2, '0')
-          setEventDate(`${y}-${m}-${d}`)
-          setLunarConvertError(null)
-        } catch {
-          setLunarConvertError(t('lunarDateInvalid'))
-        }
-      })
-      return () => cancelAnimationFrame(frame)
-    }
-  }, [dateMode, lunarDay, lunarMonth, lunarYear, t])
-
-  // Prevent background scrolling when modal is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = 'unset'
-    }
-    return () => {
-      document.body.style.overflow = 'unset'
-    }
-  }, [isOpen])
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    let date = eventDate
+    if (dateMode === 'lunar') {
+      // Never save today's default date for a missing or impossible lunar date.
+      if (lunarResult.status !== 'ok') {
+        setLunarSubmitted(true)
+        return
+      }
+      date = lunarResult.date
+    }
     setLoading(true)
     setError(null)
 
@@ -127,32 +151,27 @@ export default function CustomEventModal({
       const supabase = createClient()
       const payload = {
         name,
-        event_date: eventDate,
+        event_date: date,
         location: location || null,
-        content: content || null
+        content: content || null,
+        // Sent only when needed, so a database without the recurrence
+        // column (migration not run yet) still saves one-off events.
+        ...(recurrence !== 'none' || eventToEdit?.recurrence != null
+          ? { recurrence }
+          : {})
       }
 
-      let resultError
-      if (eventToEdit) {
-        const { error: err } = await supabase
-          .from('custom_events')
-          .update(payload)
-          .eq('id', eventToEdit.id)
-        resultError = err
-      } else {
-        const { error: err } = await supabase
-          .from('custom_events')
-          .insert([payload])
-        resultError = err
-      }
-
-      if (resultError) throw resultError
+      await saveCustomEvent(supabase, payload, eventToEdit?.id)
 
       onSuccess()
       onClose()
     } catch (err) {
       console.error(err)
-      if (err instanceof Error) {
+      if (err instanceof CustomEventNotAllowedError) {
+        setError(t('eventNotAllowed'))
+      } else if (err instanceof TextTooLongError) {
+        setError(t('textTooLong', { field: t(err.label), max: err.max }))
+      } else if (err instanceof Error) {
         setError(err.message || t('saveEventError'))
       } else {
         setError(t('saveEventError'))
@@ -170,18 +189,15 @@ export default function CustomEventModal({
     setError(null)
     try {
       const supabase = createClient()
-      const { error: err } = await supabase
-        .from('custom_events')
-        .delete()
-        .eq('id', eventToEdit.id)
-
-      if (err) throw err
+      await deleteCustomEvent(supabase, eventToEdit.id)
 
       onSuccess()
       onClose()
     } catch (err) {
       console.error(err)
-      if (err instanceof Error) {
+      if (err instanceof CustomEventNotAllowedError) {
+        setError(t('eventNotAllowed'))
+      } else if (err instanceof Error) {
         setError(err.message || t('deleteEventError'))
       } else {
         setError(t('deleteEventError'))
@@ -208,13 +224,18 @@ export default function CustomEventModal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className='fixed inset-0 z-100 flex items-center justify-center bg-stone-900/40 p-4 backdrop-blur-sm sm:p-6'>
+          ref={dialogRef}
+          role='dialog'
+          aria-modal='true'
+          aria-labelledby={titleId}
+          tabIndex={-1}
+          className='fixed inset-0 z-100 flex items-center justify-center bg-stone-900/40 p-4 backdrop-blur-sm outline-none sm:p-6'>
           {/* Click-away backdrop */}
           <button
             type='button'
             aria-label={t('close')}
             className='absolute inset-0 cursor-pointer'
-            onClick={onClose}
+            onClick={requestClose}
           />
 
           {/* Modal Content */}
@@ -224,10 +245,12 @@ export default function CustomEventModal({
             exit={{ scale: 0.95, opacity: 0, y: 20 }}
             transition={{ type: 'spring', stiffness: 350, damping: 25 }}
             className='relative flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-stone-200 bg-white/95 backdrop-blur-2xl'>
-            <EventHeaderActions onClose={onClose} />
+            <EventHeaderActions onClose={requestClose} />
 
             <div className='custom-scrollbar flex-1 overflow-y-auto px-4 pt-16 pb-8 sm:px-8'>
-              <h2 className='mb-6 font-serif text-xl font-semibold text-stone-800'>
+              <h2
+                id={titleId}
+                className='mb-6 font-serif text-xl font-semibold text-stone-800'>
                 {eventToEdit ? t('editEvent') : t('addCustomEvent')}
               </h2>
 
@@ -244,18 +267,37 @@ export default function CustomEventModal({
                   <EventDateFields
                     dateMode={dateMode}
                     onToggleMode={() => {
+                      if (dateMode === 'lunar' && lunarResult.status === 'ok') {
+                        setEventDate(lunarResult.date)
+                      }
                       setDateMode(dateMode === 'solar' ? 'lunar' : 'solar')
-                      setLunarConvertError(null)
+                      setLunarSubmitted(false)
                     }}
                     eventDate={eventDate}
                     onEventDateChange={setEventDate}
                     lunarDay={lunarDay}
                     lunarMonth={lunarMonth}
                     lunarYear={lunarYear}
+                    lunarLeap={lunarLeap}
                     onLunarDayChange={setLunarDay}
-                    onLunarMonthChange={setLunarMonth}
-                    onLunarYearChange={setLunarYear}
+                    onLunarMonthChange={(value) => {
+                      setLunarMonth(value)
+                      setLunarLeap(false)
+                    }}
+                    onLunarYearChange={(value) => {
+                      setLunarYear(value)
+                      setLunarLeap(false)
+                    }}
+                    onLunarLeapChange={setLunarLeap}
+                    lunarSolarDate={
+                      lunarResult.status === 'ok' ? lunarResult.date : null
+                    }
                     lunarConvertError={lunarConvertError}
+                  />
+
+                  <EventRecurrenceField
+                    recurrence={recurrence}
+                    onRecurrenceChange={setRecurrence}
                   />
 
                   <EventTextFields
@@ -270,11 +312,20 @@ export default function CustomEventModal({
                   isEdit={Boolean(eventToEdit)}
                   loading={loading}
                   onDelete={handleDelete}
-                  onClose={onClose}
+                  onClose={requestClose}
                 />
               </form>
             </div>
           </m.div>
+          {askDiscard && (
+            <DiscardChangesDialog
+              onKeepEditing={() => setAskDiscard(false)}
+              onDiscard={() => {
+                setAskDiscard(false)
+                onClose()
+              }}
+            />
+          )}
         </m.div>
       )}
     </AnimatePresence>
