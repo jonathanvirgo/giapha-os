@@ -67,13 +67,10 @@ export default function ImportConfirmModal({
   })
   return (
     <AnimatePresence>
-      <div
+      <dialog
         ref={dialogRef}
-        role='dialog'
-        aria-modal='true'
         aria-labelledby={titleId}
-        tabIndex={-1}
-        className='fixed inset-0 z-50 flex items-center justify-center p-4 outline-none'>
+        className='items-center justify-center p-4 outline-none open:flex'>
         <m.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -213,7 +210,7 @@ export default function ImportConfirmModal({
                 </fieldset>
               ) : null}
               {exportedDate && (
-                <p className='mt-1 text-xs text-stone-500'>
+                <p className='mt-1 text-sm text-stone-500'>
                   {t('restoreFileExportedAt', { date: exportedDate })}
                 </p>
               )}
@@ -243,6 +240,7 @@ export default function ImportConfirmModal({
           <div className='mt-6 flex justify-end gap-3'>
             <button
               onClick={onCancel}
+              data-autofocus
               disabled={isImporting}
               className='rounded-xl bg-stone-100 px-4 py-2 text-sm font-medium text-stone-600 transition-colors hover:bg-stone-200 hover:text-stone-900'>
               {t('restoreCancel')}
@@ -261,7 +259,7 @@ export default function ImportConfirmModal({
             </button>
           </div>
         </m.div>
-      </div>
+      </dialog>
     </AnimatePresence>
   )
 }

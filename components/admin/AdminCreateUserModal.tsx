@@ -6,7 +6,7 @@ import { useModalA11y } from '@/hooks/useModalA11y'
 import { useI18n } from '@/lib/i18n/useI18n'
 
 const fieldClasses =
-  'w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-stone-900 placeholder-stone-400 transition-colors focus:border-amber-500 focus:ring-1 focus:ring-amber-500 focus:outline-none sm:py-2.5'
+  'w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-stone-900 placeholder-stone-500 transition-colors focus:border-amber-500 focus:ring-1 focus:ring-amber-500 focus:outline-none sm:py-2.5'
 
 interface AdminCreateUserModalProps {
   isCreating: boolean
@@ -23,13 +23,10 @@ export default function AdminCreateUserModal({
   const titleId = useId()
   const dialogRef = useModalA11y(onClose)
   return (
-    <div
+    <dialog
       ref={dialogRef}
-      role='dialog'
-      aria-modal='true'
       aria-labelledby={titleId}
-      tabIndex={-1}
-      className='fixed inset-0 z-60 flex items-center justify-center bg-stone-900/40 p-4 backdrop-blur-sm transition-opacity duration-300 outline-none'>
+      className='items-center justify-center bg-stone-900/40 p-4 backdrop-blur-sm transition-opacity duration-300 outline-none open:flex'>
       <div className='w-full max-w-md transform overflow-hidden rounded-2xl border border-stone-200/60 bg-white/95 backdrop-blur-xl transition-colors'>
         <div className='flex items-center justify-between border-b border-stone-100/80 bg-stone-50/50 px-6 py-5'>
           <h3
@@ -40,7 +37,7 @@ export default function AdminCreateUserModal({
           <button
             onClick={onClose}
             aria-label={t('close')}
-            className='flex size-8 items-center justify-center rounded-full text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-600'>
+            className='flex size-8 items-center justify-center rounded-full text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-600'>
             <svg
               className='size-5'
               fill='none'
@@ -66,6 +63,7 @@ export default function AdminCreateUserModal({
               </label>
               <input
                 id='admin-create-email'
+                data-autofocus
                 type='email'
                 name='email'
                 required
@@ -135,6 +133,6 @@ export default function AdminCreateUserModal({
           </div>
         </form>
       </div>
-    </div>
+    </dialog>
   )
 }

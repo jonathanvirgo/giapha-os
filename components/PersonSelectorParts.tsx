@@ -1,7 +1,13 @@
 'use client'
 
 import { m } from 'framer-motion'
-import { Check, ChevronDown, Database, Search } from 'lucide-react'
+import {
+  Check,
+  ChevronDown,
+  Database,
+  Search,
+  type LucideIcon
+} from 'lucide-react'
 import Image from 'next/image'
 import { useEffect, useId, useRef, useState } from 'react'
 
@@ -101,13 +107,13 @@ export function PersonOptionRow({
           className={`truncate ${isSelected ? 'font-medium' : 'font-medium group-hover/item:text-stone-900'}`}>
           {person.full_name}{' '}
           {person.birth_year ? (
-            <span className='font-normal text-stone-400'>
+            <span className='font-normal text-stone-500'>
               ({person.birth_year})
             </span>
           ) : null}
         </p>
         {person.generation != null && (
-          <p className='text-sm font-medium text-stone-400'>
+          <p className='text-sm font-medium text-stone-500'>
             {t('generationLabel', { generation: person.generation })}
           </p>
         )}
@@ -124,6 +130,7 @@ export function SelectorTrigger({
   showAllOption,
   resolvedLabel,
   resolvedAllOptionLabel,
+  allOptionIcon: AllIcon = Database,
   resolvedPlaceholder,
   label,
   isOpen,
@@ -136,6 +143,7 @@ export function SelectorTrigger({
   showAllOption: boolean
   resolvedLabel: string
   resolvedAllOptionLabel: string
+  allOptionIcon?: LucideIcon
   resolvedPlaceholder: string
   label?: string
   isOpen: boolean
@@ -165,16 +173,16 @@ export function SelectorTrigger({
             className={`flex size-8 items-center justify-center overflow-hidden rounded-full text-sm font-medium shadow-xs ring-2 ring-white ${
               isAllSelected
                 ? 'bg-stone-500 text-white'
-                : 'bg-stone-100 text-stone-400'
+                : 'bg-stone-100 text-stone-600'
             }`}>
-            {isAllSelected ? <Database className='size-4' /> : '?'}
+            {isAllSelected ? <AllIcon className='size-4' /> : '?'}
           </div>
         </div>
       )}
 
       <div className='min-w-0 flex-1 text-left'>
         {label && (
-          <p className='mb-0.5 text-sm leading-none font-medium text-stone-400'>
+          <p className='mb-0.5 text-sm leading-none font-medium text-stone-500'>
             {resolvedLabel}
           </p>
         )}
@@ -203,6 +211,7 @@ export function SelectorDropdown({
   searchTerm,
   onSearchTermChange,
   resolvedAllOptionLabel,
+  allOptionIcon: AllIcon = Database,
   selectedId,
   onSelect,
   onClose,
@@ -213,6 +222,7 @@ export function SelectorDropdown({
   searchTerm: string
   onSearchTermChange: (value: string) => void
   resolvedAllOptionLabel: string
+  allOptionIcon?: LucideIcon
   selectedId?: string | null
   onSelect: (personId: string | null) => void
   onClose: () => void
@@ -268,7 +278,7 @@ export function SelectorDropdown({
             }
             aria-label={t('searchMembers')}
             onKeyDown={onInputKeyDown}
-            className='w-full rounded-lg border border-stone-200/80 bg-white py-2 pr-3 pl-9 text-sm text-stone-900 placeholder-stone-400 transition outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20'
+            className='w-full rounded-lg border border-stone-200/80 bg-white py-2 pr-3 pl-9 text-sm text-stone-900 placeholder-stone-500 transition outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20'
             placeholder={t('searchMembers')}
             value={searchTerm}
             onChange={(e) => {
@@ -299,7 +309,7 @@ export function SelectorDropdown({
             }`}>
             <div className='relative shrink-0'>
               <div className='flex size-8 items-center justify-center rounded-full bg-stone-500 text-white shadow-xs ring-1 ring-white'>
-                <Database className='size-4' />
+                <AllIcon className='size-4' />
               </div>
             </div>
             <div className='min-w-0 flex-1 text-left'>
@@ -336,7 +346,7 @@ export function SelectorDropdown({
             <div className='text-sm font-medium text-stone-600'>
               {t('noSearchResults')}
             </div>
-            <div className='text-sm text-stone-400'>{t('tryOtherName')}</div>
+            <div className='text-sm text-stone-500'>{t('tryOtherName')}</div>
           </div>
         )}
       </div>

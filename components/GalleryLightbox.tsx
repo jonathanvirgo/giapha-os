@@ -2,6 +2,7 @@
 
 import dayjs from 'dayjs'
 import { CalendarDays, ChevronLeft, ChevronRight, X } from 'lucide-react'
+import Link from 'next/link'
 import { useId } from 'react'
 
 import GalleryImage from '@/components/GalleryImage'
@@ -13,6 +14,8 @@ interface GalleryLightboxProps {
   item: GalleryItem
   isAdmin?: boolean
   isDeleting: boolean
+  /** Members tagged in the photo, shown as links to their pages. */
+  people?: { id: string; name: string }[]
   onClose: () => void
   onEdit?: (item: GalleryItem) => void
   onDelete: (item: GalleryItem) => void
@@ -27,6 +30,7 @@ export default function GalleryLightbox({
   item,
   isAdmin,
   isDeleting,
+  people = [],
   onClose,
   onEdit,
   onDelete,
@@ -43,12 +47,9 @@ export default function GalleryLightbox({
   const navButton =
     'absolute top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/40 p-3 text-white/80 transition-colors hover:bg-black/60 hover:text-white disabled:cursor-not-allowed disabled:opacity-30'
   return (
-    <div
+    <dialog
       ref={dialogRef}
-      role='dialog'
-      aria-modal='true'
       aria-labelledby={titleId}
-      tabIndex={-1}
       onKeyDown={(e) => {
         if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return
         if (e.key === 'ArrowLeft' && hasPrev) {
@@ -59,7 +60,7 @@ export default function GalleryLightbox({
           onNext?.()
         }
       }}
-      className='animate-in fade-in fixed inset-0 z-60 flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm duration-200 outline-none'>
+      className='animate-in fade-in items-center justify-center bg-black/90 p-4 backdrop-blur-sm duration-200 outline-none open:flex'>
       <button
         onClick={onClose}
         aria-label={t('close')}
@@ -119,6 +120,25 @@ export default function GalleryLightbox({
               </div>
             )}
 
+            {people.length > 0 && (
+              <div className='mb-6'>
+                <h3 className='mb-2 text-sm font-medium text-stone-500'>
+                  {t('galleryInPhoto')}
+                </h3>
+                <ul className='flex flex-wrap gap-2'>
+                  {people.map((person) => (
+                    <li key={person.id}>
+                      <Link
+                        href={`/dashboard/members/${person.id}`}
+                        className='inline-block rounded-full bg-amber-50 px-3 py-1 text-sm font-medium text-amber-900 transition-colors hover:bg-amber-100'>
+                        {person.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {item.description ? (
               <div className='prose prose-stone text-stone-600'>
                 <p className='leading-relaxed whitespace-pre-wrap'>
@@ -126,11 +146,11 @@ export default function GalleryLightbox({
                 </p>
               </div>
             ) : (
-              <p className='text-stone-400 italic'>{t('noDescription')}</p>
+              <p className='text-stone-500 italic'>{t('noDescription')}</p>
             )}
           </div>
 
-          <div className='flex items-center justify-between border-t border-stone-100 bg-stone-50 p-6 text-sm font-medium text-stone-400'>
+          <div className='flex items-center justify-between border-t border-stone-100 bg-stone-50 p-6 text-sm font-medium text-stone-500'>
             <span>
               {t('addedOn')} {dayjs(item.created_at).format('DD/MM/YYYY')}
             </span>
@@ -156,6 +176,6 @@ export default function GalleryLightbox({
           </div>
         </div>
       </div>
-    </div>
+    </dialog>
   )
 }

@@ -3,16 +3,33 @@
 import 'd3-transition'
 
 import { select } from 'd3-selection'
-import { zoomIdentity, type ZoomBehavior } from 'd3-zoom'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type ZoomBehavior } from 'd3-zoom'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore
+} from 'react'
+import { createPortal } from 'react-dom'
 
+import ExportButton from '@/components/ExportButton'
 import BubbleTreeToolbar from '@/components/tree/BubbleTreeToolbar'
 import { useAvatarUrl } from '@/context/AvatarUrlContext'
 import { useBubbleTreeRender } from '@/hooks/useBubbleTreeRender'
 import { useI18n } from '@/lib/i18n/useI18n'
 import { Person, Relationship } from '@/types'
+import { prepareBubbleExport } from '@/utils/bubbleExport'
 import { buildBubbleGraph, GraphLink, GraphNode } from '@/utils/bubbleGraph'
 import { bubbleNodeLabel } from '@/utils/bubbleLayout'
+import { fitBubbleView } from '@/utils/bubbleTreeRenderer'
+
+// The toolbar row above the canvas (MembersViews), shared with the tree and
+// mind map views. Read after hydration; null on the server.
+const noSubscribe = () => () => {}
+const toolbarSlot = () => document.getElementById('tree-toolbar-portal')
+const noSlot = () => null
 
 export interface BubbleMapTreeProps {
   personsMap: Map<string, Person>
@@ -24,7 +41,8 @@ export interface BubbleMapTreeProps {
 export default function BubbleMapTree({
   personsMap,
   relationships,
-  roots
+  roots,
+  canEdit = false
 }: BubbleMapTreeProps) {
   const { t } = useI18n()
   const avatarUrl = useAvatarUrl()
@@ -220,14 +238,13 @@ export default function BubbleMapTree({
       .call(zoomRef.current.scaleTo, nextLevel)
   }
 
+  // Back to the whole family in view
   const resetZoom = () => {
     if (!svgRef.current || !zoomRef.current) return
-
-    select(svgRef.current)
-      .transition()
-      .duration(220)
-      .call(zoomRef.current.transform, zoomIdentity)
+    fitBubbleView(svgRef.current, zoomRef.current, 220)
   }
+
+  const slot = useSyncExternalStore(noSubscribe, toolbarSlot, noSlot)
 
   const toggleFullscreen = async () => {
     if (!fullscreenRef.current) return
@@ -242,6 +259,26 @@ export default function BubbleMapTree({
       console.error('Fullscreen error:', fullscreenError)
     }
   }
+
+  const toolbar = (
+    <div className='flex flex-wrap items-center justify-center gap-2'>
+      <BubbleTreeToolbar
+        containerRef={containerRef}
+        zoomRef={zoomRef}
+        zoomLevel={zoomLevel}
+        isFullscreen={isFullscreen}
+        onZoomChange={changeZoom}
+        onResetZoom={resetZoom}
+        onToggleFullscreen={toggleFullscreen}
+      />
+      {canEdit && (
+        <ExportButton
+          targetId='bubble-export-container'
+          prepare={prepareBubbleExport}
+        />
+      )}
+    </div>
+  )
 
   if (error) {
     return (
@@ -261,21 +298,18 @@ export default function BubbleMapTree({
           ? 'rounded-none border-0'
           : 'rounded-2xl border border-stone-200/60'
       }`}>
+      {/* In the toolbar row like the other views; inside the canvas in
+          full screen, where that row is hidden. */}
+      {slot && !isFullscreen ? (
+        createPortal(toolbar, slot)
+      ) : (
+        <div className='absolute top-4 right-4 z-50'>{toolbar}</div>
+      )}
+
       <div
-        id='tree-toolbar-portal'
-        className='absolute top-4 left-4 z-50'></div>
-
-      <BubbleTreeToolbar
-        containerRef={containerRef}
-        zoomRef={zoomRef}
-        zoomLevel={zoomLevel}
-        isFullscreen={isFullscreen}
-        onZoomChange={changeZoom}
-        onResetZoom={resetZoom}
-        onToggleFullscreen={toggleFullscreen}
-      />
-
-      <div ref={containerRef} className='h-full w-full'>
+        ref={containerRef}
+        id='bubble-export-container'
+        className='h-full w-full'>
         <svg ref={svgRef} className='block h-full w-full' />
       </div>
     </div>

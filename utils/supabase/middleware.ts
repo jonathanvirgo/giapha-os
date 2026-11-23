@@ -3,6 +3,8 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 import { nextParamFor, safeNextPath } from '@/utils/safeNextPath'
 
+import { supabaseUrl as readSupabaseUrl, supabasePublishableKey } from './env'
+
 // A redirect is a new response: carry over the session cookies that
 // supabase.auth.getUser() may have just refreshed on supabaseResponse,
 // otherwise the browser keeps the old (already rotated) refresh token.
@@ -26,8 +28,8 @@ export function resetSchemaCheck() {
 }
 
 export async function updateSession(request: NextRequest) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY
+  const supabaseUrl = readSupabaseUrl()
+  const supabaseKey = supabasePublishableKey()
 
   // If env vars are missing, we cannot create a supabase client
   if (!supabaseUrl || !supabaseKey) {
@@ -111,8 +113,11 @@ export async function updateSession(request: NextRequest) {
   }
 
   // Redirect users who are already logged in away from the login page, to
-  // the page in ?next= when it is a safe dashboard page
-  if (isLoginPage && user) {
+  // the page in ?next= when it is a safe dashboard page. A server action
+  // posted from /login right after sign-in (notifyAdminIfAccountPending) is
+  // not a page visit: a redirect would hand it HTML and the action fails.
+  const isServerAction = request.headers.has('next-action')
+  if (isLoginPage && user && !isServerAction) {
     const url = new URL(
       safeNextPath(request.nextUrl.searchParams.get('next')),
       request.nextUrl.origin

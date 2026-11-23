@@ -8,6 +8,7 @@ import {
   itemVariants,
   RelationshipStats
 } from '@/context/memberDetail/memberDetailShared'
+import { DescendantsSkeleton } from '@/context/memberDetail/MemberDetailSkeleton'
 import { useI18n } from '@/lib/i18n/useI18n'
 import { Person } from '@/types'
 import {
@@ -30,7 +31,7 @@ function BirthCard({ person }: { person: Person }) {
   return (
     <m.div
       variants={itemVariants}
-      className='rounded-2xl border border-stone-200/60 bg-white/80 p-4 backdrop-blur-sm transition-colors hover:border-amber-200/60'>
+      className='rounded-2xl border border-stone-200/60 bg-white p-4 transition-colors hover:border-amber-200/60'>
       <div className='mb-2 flex items-center justify-between'>
         <div className='flex items-center gap-2'>
           <span className='size-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]'></span>
@@ -98,7 +99,7 @@ function DeathCard({ person }: { person: Person }) {
   return (
     <m.div
       variants={itemVariants}
-      className='rounded-2xl border border-stone-200/60 bg-white/80 p-4 backdrop-blur-sm transition-colors hover:border-amber-200/60'>
+      className='rounded-2xl border border-stone-200/60 bg-white p-4 transition-colors hover:border-amber-200/60'>
       <div className='mb-2 flex items-center gap-2'>
         <span className='size-2 rounded-full bg-stone-400 shadow-[0_0_8px_rgba(156,163,175,0.5)]'></span>
         <h3 className='text-base font-semibold text-stone-400'>{t('death')}</h3>
@@ -225,6 +226,9 @@ export default function MemberInfoCards({
       <BirthCard person={person} />
       {isDeceased && <DeathCard person={person} />}
       <AgeCard person={person} isDeceased={isDeceased} />
+      {/* Placeholder while the family loads; it goes away for a member
+          without descendants. */}
+      {!relStats && <DescendantsSkeleton />}
       {relStats &&
         (relStats.biologicalChildren > 0 ||
           relStats.sonInLaw > 0 ||

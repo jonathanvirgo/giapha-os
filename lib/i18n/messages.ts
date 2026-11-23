@@ -120,6 +120,9 @@ export const messages = {
     duplicatePrivateDetail:
       'Thông tin riêng tư của thành viên {id} xuất hiện nhiều lần.',
     eventsLimit: 'Số lượng sự kiện vượt quá giới hạn cho phép.',
+    galleryTagsLimit:
+      'Số lượng thẻ thành viên trong ảnh vượt quá giới hạn cho phép ({count}).',
+    invalidGalleryTag: 'Thẻ thành viên trong ảnh không hợp lệ.',
     invalidEvent: 'Sự kiện không hợp lệ.',
     invalidEventId: 'ID sự kiện không hợp lệ.',
     duplicateEventId: 'File chứa ID sự kiện bị trùng: {id}.',
@@ -465,7 +468,7 @@ export const messages = {
     unsupportedBrowserNoDetails:
       'Tính năng này không được hỗ trợ trên trình duyệt của bạn. Vui lòng cập nhật hoặc sử dụng trình duyệt khác.',
     zoomLevel: 'Mức phóng to sơ đồ',
-    resetZoomLevel: 'Đặt lại mức zoom',
+    resetZoomLevel: 'Xem toàn bộ',
     fullscreen: 'Toàn màn hình',
     exitFullscreen: 'Thoát toàn màn hình',
     clickButton: 'Bấm nút',
@@ -528,7 +531,7 @@ export const messages = {
       'SSO chưa được cấu hình đầy đủ. Vui lòng liên hệ quản trị viên hoặc xem hướng dẫn.',
     ssoGuide: 'Xem hướng dẫn cấu hình SSO',
     ssoGuideUrl:
-      'https://github.com/homielab/giapha-os#đăng-nhập-bằng-google-và-facebook',
+      'https://github.com/homielab/giapha-os/blob/main/docs/vi/tai-khoan.md#đăng-nhập-bằng-google-và-facebook',
     sourceCodeLabel: 'Mã nguồn',
     noAccount: 'Chưa có tài khoản? Đăng ký ngay',
     hasAccount: 'Đã có tài khoản? Đăng nhập',
@@ -712,6 +715,13 @@ export const messages = {
     returnAndReload: 'Quay lại đây và tải lại trang (hoặc bấm đăng nhập lại).',
     sqlBundle: 'SQL bundle (schema + migrations)',
     backToLogin: 'Quay lại đăng nhập',
+    setupInstallHint:
+      'Bấm nút bên dưới để tạo các bảng dữ liệu. Chỉ mất vài giây và chỉ cần làm một lần.',
+    setupInstallButton: 'Cài database',
+    setupInstalling: 'Đang cài database…',
+    setupInstallError:
+      'Không cài được database. Kiểm tra kết nối database (SUPABASE_DB_URL) và log server, hoặc cài bằng tay theo cách bên dưới.',
+    setupManualTitle: 'Hoặc cài bằng tay trong Supabase',
     copySuccess: 'Đã copy thành công!',
     copyError:
       'Không thể copy. Trình duyệt của bạn có thể không hỗ trợ tính năng này.',
@@ -723,6 +733,8 @@ export const messages = {
       'Tải file lịch có sinh nhật (lặp hằng năm), ngày giỗ của năm nay và 4 năm tới, và các sự kiện tuỳ chỉnh để nhập vào Google/Apple Calendar',
     icsCalendarName: 'Gia phả: sinh nhật và ngày giỗ',
     icsBirthdaySummary: 'Sinh nhật {name}',
+    eventBirthdayTitle: 'Sinh nhật {name}',
+    eventDeathTitle: 'Giỗ {name}',
     icsDeathSummary: 'Giỗ {name}',
     icsBirthYear: 'Sinh năm {year}',
     icsLunarDate: 'Ngày giỗ theo âm lịch: {date}',
@@ -1052,6 +1064,18 @@ export const messages = {
       'Không lưu được: bạn không còn quyền sửa ảnh này. Hãy tải lại trang.',
     deleteImageNotAllowed:
       'Bạn không có quyền xoá ảnh này nên ảnh vẫn còn nguyên.',
+    galleryTagMembers: 'Thành viên trong ảnh',
+    galleryTagAdd: 'Thêm thành viên',
+    galleryTagRemove: 'Bỏ {name} khỏi ảnh',
+    galleryTagsNotSaved:
+      'Ảnh đã được lưu nhưng chưa gắn được thành viên. Hãy mở ảnh, bấm Sửa và gắn lại.',
+    galleryFilterMember: 'Lọc theo thành viên',
+    galleryAllMembers: 'Tất cả ảnh',
+    galleryFilterEmpty: 'Chưa có ảnh nào gắn {name}.',
+    galleryInPhoto: 'Trong ảnh',
+    memberPhotos: 'Ảnh',
+    memberPhotosSeeAll: 'Xem tất cả ({total})',
+    memberPhotoOpen: 'Mở ảnh {title}',
     close: 'Đóng',
     filterLabel: 'Lọc',
     sortLabel: 'Sắp xếp',
@@ -1511,6 +1535,9 @@ export const messages = {
     duplicatePrivateDetail:
       'The private details of member {id} appear more than once.',
     eventsLimit: 'The number of events exceeds the allowed limit.',
+    galleryTagsLimit:
+      'The number of member tags in photos exceeds the allowed limit ({count}).',
+    invalidGalleryTag: 'Invalid member tag in a photo.',
     invalidEvent: 'Invalid event.',
     invalidEventId: 'Invalid event ID.',
     duplicateEventId: 'Duplicate event ID in the file: {id}.',
@@ -1863,7 +1890,7 @@ export const messages = {
     unsupportedBrowserNoDetails:
       'This feature is not supported by your browser. Please update or use another browser.',
     zoomLevel: 'Tree zoom level',
-    resetZoomLevel: 'Reset zoom level',
+    resetZoomLevel: 'Fit to screen',
     fullscreen: 'Fullscreen',
     exitFullscreen: 'Exit fullscreen',
     clickButton: 'Click',
@@ -1926,7 +1953,7 @@ export const messages = {
       'SSO is not fully configured. Please contact an administrator or view the setup guide.',
     ssoGuide: 'View the SSO setup guide',
     ssoGuideUrl:
-      'https://github.com/homielab/giapha-os/blob/main/README.en.md#sign-in-with-google-and-facebook',
+      'https://github.com/homielab/giapha-os/blob/main/docs/en/accounts.md#sign-in-with-google-and-facebook',
     sourceCodeLabel: 'Source code',
     noAccount: "Don't have an account? Sign up now",
     hasAccount: 'Already have an account? Log in',
@@ -2110,6 +2137,13 @@ export const messages = {
     returnAndReload: 'Return here and reload the page (or log in again).',
     sqlBundle: 'SQL bundle (schema + migrations)',
     backToLogin: 'Back to log in',
+    setupInstallHint:
+      'Press the button below to create the data tables. It takes a few seconds and is needed only once.',
+    setupInstallButton: 'Install the database',
+    setupInstalling: 'Installing the database…',
+    setupInstallError:
+      'Could not install the database. Check the database connection (SUPABASE_DB_URL) and the server log, or install it by hand as shown below.',
+    setupManualTitle: 'Or install it by hand in Supabase',
     copySuccess: 'Copied successfully!',
     copyError: 'Could not copy. Your browser may not support this feature.',
     eventsTitle: 'Family events',
@@ -2121,6 +2155,8 @@ export const messages = {
       'Download a calendar file with birthdays (repeating every year), death anniversaries for this year and the next four, and custom events, to import into Google/Apple Calendar',
     icsCalendarName: 'Family tree: birthdays and death anniversaries',
     icsBirthdaySummary: "{name}'s birthday",
+    eventBirthdayTitle: "{name}'s birthday",
+    eventDeathTitle: 'Death anniversary of {name}',
     icsDeathSummary: 'Death anniversary of {name}',
     icsBirthYear: 'Born in {year}',
     icsLunarDate: 'Lunar date of the anniversary: {date}',
@@ -2452,6 +2488,18 @@ export const messages = {
       'Not saved: you can no longer edit this photo. Reload the page.',
     deleteImageNotAllowed:
       'You are not allowed to delete this image, so it was kept.',
+    galleryTagMembers: 'Members in this photo',
+    galleryTagAdd: 'Add a member',
+    galleryTagRemove: 'Remove {name} from this photo',
+    galleryTagsNotSaved:
+      'The photo was saved but its members were not. Open the photo, choose Edit and tag them again.',
+    galleryFilterMember: 'Filter by member',
+    galleryAllMembers: 'All photos',
+    galleryFilterEmpty: 'No photos are tagged with {name} yet.',
+    galleryInPhoto: 'In this photo',
+    memberPhotos: 'Photos',
+    memberPhotosSeeAll: 'See all ({total})',
+    memberPhotoOpen: 'Open photo {title}',
     close: 'Close',
     filterLabel: 'Filter',
     sortLabel: 'Sort',

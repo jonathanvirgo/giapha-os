@@ -171,7 +171,7 @@ export default function MemberGeneralFields({
           }
           className={inputClasses}
         />
-        <p className='mt-1.5 flex items-center gap-1 text-sm text-stone-400'>
+        <p className='mt-1.5 flex items-center gap-1 text-sm text-stone-500'>
           <span>💡</span> {t('leaveBlank')}
         </p>
       </div>
@@ -194,7 +194,7 @@ export default function MemberGeneralFields({
           }
           className={inputClasses}
         />
-        <p className='mt-1.5 flex items-center gap-1 text-sm text-stone-400'>
+        <p className='mt-1.5 flex items-center gap-1 text-sm text-stone-500'>
           <span>💡</span> {t('leaveBlank')}
         </p>
 
@@ -302,7 +302,7 @@ export default function MemberGeneralFields({
           placeholder={t('notePlaceholder')}
           className={`${inputClasses} resize-none`}
         />
-        <p className='mt-1 text-right text-xs text-stone-500' aria-live='off'>
+        <p className='mt-1 text-right text-sm text-stone-500' aria-live='off'>
           {note.length}/{MAX_NOTE}
         </p>
       </div>

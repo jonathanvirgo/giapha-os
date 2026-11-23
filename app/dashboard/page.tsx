@@ -9,15 +9,18 @@ import {
   GitMerge,
   Image as ImageIcon,
   Info,
+  ListOrdered,
   Network,
   Star,
-  Users
+  Users,
+  type LucideIcon
 } from 'lucide-react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
 import { getServerTranslations } from '@/lib/i18n/server'
 import { getTodayLunar, vnToday } from '@/utils/dateHelpers'
+import { eventTitle } from '@/utils/eventCardLabels'
 import {
   computeEvents,
   eventHref,
@@ -88,104 +91,77 @@ export default async function DashboardLaunchpad() {
   const lunar = getTodayLunar(t)
 
   /* ── Feature lists ────────────────────────────────────────────── */
-  const publicFeatures = [
+  const publicFeatures: Feature[] = [
     {
       title: t('familyTree'),
       description: t('familyTreeDescription'),
-      icon: <Network className='size-8 text-amber-600' />,
-      href: '/dashboard/members',
-      bgColor: 'bg-amber-50',
-      borderColor: 'border-amber-200/60',
-      hoverColor: 'hover:border-amber-400 '
+      icon: Network,
+      href: '/dashboard/members'
     },
     {
       title: t('kinship'),
       description: t('kinshipDescription'),
-      icon: <GitMerge className='size-8 text-blue-600' />,
-      href: '/dashboard/kinship',
-      bgColor: 'bg-blue-50',
-      borderColor: 'border-blue-200/60',
-      hoverColor: 'hover:border-blue-400 '
+      icon: GitMerge,
+      href: '/dashboard/kinship'
     },
     {
       title: t('statsPageTitle'),
       description: t('statisticsDescription'),
-      icon: <BarChart2 className='size-8 text-purple-600' />,
-      href: '/dashboard/stats',
-      bgColor: 'bg-purple-50',
-      borderColor: 'border-purple-200/60',
-      hoverColor: 'hover:border-purple-400 '
+      icon: BarChart2,
+      href: '/dashboard/stats'
     },
     {
       title: t('galleryTitle'),
       description: t('galleryDescriptionShort'),
-      icon: <ImageIcon className='size-8 text-pink-600' />,
-      href: '/dashboard/gallery',
-      bgColor: 'bg-pink-50',
-      borderColor: 'border-pink-200/60',
-      hoverColor: 'hover:border-pink-400 '
+      icon: ImageIcon,
+      href: '/dashboard/gallery'
     },
     {
       title: t('about'),
       description: t('aboutDescriptionShort'),
-      icon: <Info className='size-8 text-stone-600' />,
-      href: '/about',
-      bgColor: 'bg-stone-50',
-      borderColor: 'border-stone-200/60',
-      hoverColor: 'hover:border-stone-400 '
+      icon: Info,
+      href: '/about'
     }
   ]
 
-  const adminFeatures = [
+  const adminFeatures: Feature[] = [
     {
       title: t('manageUsers'),
       description: t('manageUsersDescription'),
-      icon: <Users className='size-8 text-rose-600' />,
-      href: '/dashboard/users',
-      bgColor: 'bg-rose-50',
-      borderColor: 'border-rose-200/60',
-      hoverColor: 'hover:border-rose-400 '
+      icon: Users,
+      href: '/dashboard/users'
     },
     {
       title: t('lineageOrder'),
       description: t('lineageDescription'),
-      icon: <Network className='size-8 text-indigo-600' />,
-      href: '/dashboard/lineage',
-      bgColor: 'bg-indigo-50',
-      borderColor: 'border-indigo-200/60',
-      hoverColor: 'hover:border-indigo-400 '
+      icon: ListOrdered,
+      href: '/dashboard/lineage'
     },
     {
       title: t('backupRestore'),
       description: t('backupDescriptionShort'),
-      icon: <Database className='size-8 text-teal-600' />,
-      href: '/dashboard/data',
-      bgColor: 'bg-teal-50',
-      borderColor: 'border-teal-200/60',
-      hoverColor: 'hover:border-teal-400 '
+      icon: Database,
+      href: '/dashboard/data'
     },
     {
       title: t('upgrade'),
       description: t('upgradeDescriptionShort'),
-      icon: <ArrowUpCircle className='size-8 text-amber-600' />,
-      href: '/dashboard/upgrade',
-      bgColor: 'bg-amber-50',
-      borderColor: 'border-amber-200/60',
-      hoverColor: 'hover:border-amber-400 '
+      icon: ArrowUpCircle,
+      href: '/dashboard/upgrade'
     }
   ]
 
   return (
     <main className='mx-auto flex w-full max-w-7xl flex-1 flex-col p-4 sm:p-8'>
       {/* ── Today's Date & Upcoming Events ─────────────────── */}
-      <section className='group relative mb-10 block overflow-hidden rounded-3xl border border-stone-200/60 bg-white transition-colors duration-300 focus-within:border-stone-400 hover:-translate-y-1 hover:border-stone-400'>
+      <section className='group relative mb-10 block overflow-hidden rounded-3xl border border-stone-200/60 bg-white transition-colors duration-300 focus-within:border-stone-400 hover:border-stone-400'>
         {/* Subtle background flair */}
         <div className='pointer-events-none absolute top-0 right-0 h-64 w-64 translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-50/50 opacity-50 blur-3xl'></div>
 
         <div className='relative flex flex-col items-center gap-6 p-6 sm:gap-8 sm:p-8 md:flex-row'>
           {/* Date section */}
           <div className='flex w-full flex-col items-center gap-4 border-stone-100 text-center md:w-[35%] md:items-start md:border-r md:pr-8 md:text-left'>
-            <div className='flex size-16 shrink-0 items-center justify-center rounded-2xl border border-stone-100 bg-stone-50 text-stone-600 transition-transform duration-500 group-hover:scale-105 group-hover:border-stone-200'>
+            <div className='flex size-16 shrink-0 items-center justify-center rounded-2xl border border-stone-100 bg-stone-50 text-stone-600 transition-colors duration-300 group-hover:border-stone-200'>
               <CalendarDays className='size-7' />
             </div>
             <div className='mt-1'>
@@ -222,7 +198,7 @@ export default async function DashboardLaunchpad() {
                   </span>
                   <ArrowRight
                     aria-hidden='true'
-                    className='size-5 text-stone-300 transition duration-300 group-hover:translate-x-1 group-hover:text-stone-500'
+                    className='size-5 text-stone-300 transition duration-300 group-hover:text-stone-500'
                   />
                 </Link>
                 <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
@@ -240,7 +216,7 @@ export default async function DashboardLaunchpad() {
                         </div>
                         <div className='min-w-0 flex-1'>
                           <span className='block truncate text-sm font-medium text-stone-700'>
-                            {evt.personName}
+                            {eventTitle(evt, t)}
                           </span>
                           <span className='block pt-0.5 text-sm font-medium text-stone-500'>
                             {evt.daysUntil === 0
@@ -258,7 +234,7 @@ export default async function DashboardLaunchpad() {
                   })}
                 </div>
                 {upcomingEvents.length > 4 && (
-                  <p className='mt-2 text-center text-sm font-medium text-stone-400 sm:text-left'>
+                  <p className='mt-2 text-center text-sm font-medium text-stone-500 sm:text-left'>
                     {t('moreEvents', {
                       count: upcomingEvents.length - 4
                     })}
@@ -267,7 +243,7 @@ export default async function DashboardLaunchpad() {
               </div>
             ) : (
               <div className='flex h-full flex-col items-center justify-center gap-3 py-6 opacity-80'>
-                <div className='rounded-2xl border border-stone-100 bg-stone-50 p-4 text-stone-400 transition-transform duration-500 group-hover:scale-105 group-hover:text-stone-500'>
+                <div className='rounded-2xl border border-stone-100 bg-stone-50 p-4 text-stone-400 transition-colors duration-300 group-hover:text-stone-500'>
                   <CalendarDays className='size-6' />
                 </div>
                 <Link
@@ -275,9 +251,9 @@ export default async function DashboardLaunchpad() {
                   className='px-4 text-center font-medium text-stone-500 after:absolute after:inset-0 after:rounded-3xl focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-amber-500'>
                   {t('noUpcomingEvents')}
                 </Link>
-                <div className='mt-1 flex items-center gap-2 text-sm font-medium text-stone-400 transition-colors group-hover:text-stone-600'>
+                <div className='mt-1 flex items-center gap-2 text-sm font-medium text-stone-500 transition-colors group-hover:text-stone-600'>
                   <span>{t('viewYearEvents')}</span>
-                  <ArrowRight className='size-4 transition-transform group-hover:translate-x-1' />
+                  <ArrowRight className='size-4' />
                 </div>
               </div>
             )}
@@ -286,57 +262,60 @@ export default async function DashboardLaunchpad() {
       </section>
 
       {/* ── Feature Grid ──────────────────────────────────── */}
-      <div className='space-y-12'>
+      <div className='space-y-10'>
         <section>
-          <div className='grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3'>
+          <div className={FEATURE_GRID}>
             {publicFeatures.map((feat) => (
-              <Link
-                key={feat.href}
-                href={feat.href}
-                className={`group flex flex-col rounded-2xl border bg-white p-6 ${feat.borderColor} ${feat.hoverColor} transition duration-300 hover:-translate-y-1`}>
-                <div
-                  className={`mb-5 flex size-14 items-center justify-center rounded-xl ${feat.bgColor} border border-transparent transition-colors duration-300 group-hover:bg-white group-hover:${feat.borderColor}`}>
-                  {feat.icon}
-                </div>
-                <h4 className='mb-2 text-lg font-semibold text-stone-800 transition-colors group-hover:text-amber-700'>
-                  {feat.title}
-                </h4>
-                <p className='line-clamp-2 text-sm text-stone-500'>
-                  {feat.description}
-                </p>
-              </Link>
+              <FeatureCard key={feat.href} feature={feat} />
             ))}
           </div>
         </section>
 
         {isAdmin && (
           <section>
-            <h3 className='mb-6 flex items-center gap-2 font-serif text-xl font-semibold text-rose-800'>
-              <span className='h-px w-8 rounded-full bg-rose-200'></span>
+            <h3 className='mb-4 font-serif text-xl font-semibold text-stone-800'>
               {t('adminSection')}
             </h3>
-            <div className='grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3'>
+            <div className={FEATURE_GRID}>
               {adminFeatures.map((feat) => (
-                <Link
-                  key={feat.href}
-                  href={feat.href}
-                  className={`group flex flex-col rounded-2xl border bg-white p-6 ${feat.borderColor} ${feat.hoverColor} transition duration-300 hover:-translate-y-1`}>
-                  <div
-                    className={`mb-5 flex size-14 items-center justify-center rounded-xl ${feat.bgColor} border border-transparent transition-colors duration-300 group-hover:bg-white group-hover:${feat.borderColor}`}>
-                    {feat.icon}
-                  </div>
-                  <h4 className='mb-2 text-lg font-semibold text-stone-800 transition-colors group-hover:text-rose-700'>
-                    {feat.title}
-                  </h4>
-                  <p className='line-clamp-2 text-sm text-stone-500'>
-                    {feat.description}
-                  </p>
-                </Link>
+                <FeatureCard key={feat.href} feature={feat} />
               ))}
             </div>
           </section>
         )}
       </div>
     </main>
+  )
+}
+
+interface Feature {
+  title: string
+  description: string
+  icon: LucideIcon
+  href: string
+}
+
+const FEATURE_GRID = 'grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3'
+
+// One accent (amber) for every feature: the title and the icon tell them
+// apart, not a colour each.
+function FeatureCard({ feature }: { feature: Feature }) {
+  const Icon = feature.icon
+  return (
+    <Link
+      href={feature.href}
+      className='group flex items-center gap-4 rounded-2xl border border-border bg-white p-4 transition-colors duration-200 hover:border-amber-300'>
+      <span className='flex size-11 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700'>
+        <Icon className='size-5' aria-hidden='true' />
+      </span>
+      <span className='min-w-0'>
+        <span className='block font-semibold text-stone-800 transition-colors group-hover:text-amber-700'>
+          {feature.title}
+        </span>
+        <span className='mt-0.5 line-clamp-2 block text-sm text-stone-500'>
+          {feature.description}
+        </span>
+      </span>
+    </Link>
   )
 }
