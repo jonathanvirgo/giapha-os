@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 :root {
   --background: #ffffff;
@@ -40,7 +40,6 @@ body {
 
 /* Fix iOS auto-zoom when focusing on inputs */
 @media screen and (max-width: 768px) {
-
   input,
   textarea,
   select {

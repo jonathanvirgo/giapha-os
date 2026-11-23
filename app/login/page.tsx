@@ -99,7 +99,7 @@ export default function LoginPage() {
       })
 
       if (error) {
-        setError(error.message)
+        setError(t(authErrorKey(error)))
       } else {
         setSuccessMessage(t('recoveryEmailSent'))
       }
@@ -358,7 +358,7 @@ export default function LoginPage() {
                           setError(null)
                           setSuccessMessage(null)
                         }}
-                        className='text-xs font-semibold text-amber-600 transition-colors hover:text-amber-800'>
+                        className='text-sm font-medium text-amber-600 transition-colors hover:text-amber-800'>
                         {t('forgotPasswordQuestion')}
                       </button>
                     ) : undefined

@@ -176,6 +176,9 @@ CREATE INDEX IF NOT EXISTS idx_user_approval_requests_expires_at
 CREATE INDEX IF NOT EXISTS idx_custom_events_date ON public.custom_events(event_date);
 CREATE INDEX IF NOT EXISTS idx_custom_events_created_by ON public.custom_events(created_by);
 
+-- Family settings lookups
+CREATE INDEX IF NOT EXISTS idx_family_settings_default_root ON public.family_settings(default_root_id);
+
 -- ==========================================
 -- RLS POLICIES
 -- ==========================================
@@ -308,10 +311,11 @@ CREATE POLICY "Active users can delete own custom events" ON public.custom_event
 ALTER TABLE public.family_settings ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Authenticated users can read settings" ON public.family_settings;
-CREATE POLICY "Authenticated users can read settings" ON public.family_settings FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Active users can read settings" ON public.family_settings;
+CREATE POLICY "Active users can read settings" ON public.family_settings FOR SELECT TO authenticated USING (public.is_active_user());
 
 DROP POLICY IF EXISTS "Admins and Editors can manage settings" ON public.family_settings;
-CREATE POLICY "Admins and Editors can manage settings" ON public.family_settings FOR ALL TO authenticated USING (public.is_admin() OR public.is_editor());
+CREATE POLICY "Admins and Editors can manage settings" ON public.family_settings FOR ALL TO authenticated USING (public.is_admin() OR public.is_editor()) WITH CHECK (public.is_admin() OR public.is_editor());
 
 -- ==========================================
 -- TRIGGERS
@@ -332,6 +336,9 @@ CREATE TRIGGER tr_relationships_updated_at BEFORE UPDATE ON public.relationships
 
 DROP TRIGGER IF EXISTS tr_custom_events_updated_at ON public.custom_events;
 CREATE TRIGGER tr_custom_events_updated_at BEFORE UPDATE ON public.custom_events FOR EACH ROW EXECUTE PROCEDURE public.handle_updated_at();
+
+DROP TRIGGER IF EXISTS tr_family_settings_updated_at ON public.family_settings;
+CREATE TRIGGER tr_family_settings_updated_at BEFORE UPDATE ON public.family_settings FOR EACH ROW EXECUTE PROCEDURE public.handle_updated_at();
 
 -- 2. Handle new user signup (Profile creation)
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -750,6 +757,10 @@ GRANT ALL ON public.gallery_items TO service_role;
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.gallery_item_persons TO authenticated;
 GRANT ALL ON public.gallery_item_persons TO service_role;
+
+REVOKE ALL ON public.family_settings FROM anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.family_settings TO authenticated;
+GRANT ALL ON public.family_settings TO service_role;
 
 -- Server-only table: the deny-by-default RLS policy keeps clients out, but
 -- the one-time approval links read and claim rows through service_role.

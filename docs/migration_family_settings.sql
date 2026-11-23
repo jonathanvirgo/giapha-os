@@ -17,16 +17,23 @@ CREATE INDEX IF NOT EXISTS idx_family_settings_default_root ON public.family_set
 ALTER TABLE public.family_settings ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Authenticated users can read settings" ON public.family_settings;
-CREATE POLICY "Authenticated users can read settings" ON public.family_settings FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Active users can read settings" ON public.family_settings;
+CREATE POLICY "Active users can read settings" ON public.family_settings FOR SELECT TO authenticated USING (public.is_active_user());
 
 DROP POLICY IF EXISTS "Admins can manage settings" ON public.family_settings;
 DROP POLICY IF EXISTS "Admins and Editors can manage settings" ON public.family_settings;
-CREATE POLICY "Admins and Editors can manage settings" ON public.family_settings FOR ALL TO authenticated USING (public.is_admin() OR public.is_editor());
+CREATE POLICY "Admins and Editors can manage settings" ON public.family_settings FOR ALL TO authenticated USING (public.is_admin() OR public.is_editor()) WITH CHECK (public.is_admin() OR public.is_editor());
+
+-- Grants
+REVOKE ALL ON public.family_settings FROM anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.family_settings TO authenticated;
+GRANT ALL ON public.family_settings TO service_role;
 
 -- Trigger
 DROP TRIGGER IF EXISTS tr_family_settings_updated_at ON public.family_settings;
 CREATE TRIGGER tr_family_settings_updated_at BEFORE UPDATE ON public.family_settings FOR EACH ROW EXECUTE PROCEDURE public.handle_updated_at();
 
--- Seed initial row (single-row table pattern)
-INSERT INTO public.family_settings (id) VALUES (gen_random_uuid())
-ON CONFLICT DO NOTHING;
+-- Seed initial row (single-row table pattern, idempotent)
+INSERT INTO public.family_settings (id)
+SELECT gen_random_uuid()
+WHERE NOT EXISTS (SELECT 1 FROM public.family_settings);

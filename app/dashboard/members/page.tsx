@@ -45,7 +45,7 @@ export default async function FamilyTreePage({ searchParams }: PageProps) {
   // we will fetch data here and pass it down as props.
   const supabase = await getSupabase()
 
-  const [personsRes, relsRes] = await Promise.all([
+  const [personsRes, relsRes, initialDefaultRootId] = await Promise.all([
     fetchAllRowsOrThrow((from, to) =>
       supabase
         .from('persons')
@@ -61,7 +61,8 @@ export default async function FamilyTreePage({ searchParams }: PageProps) {
         .order('created_at')
         .order('id')
         .range(from, to)
-    )
+    ),
+    rootId ? Promise.resolve(null) : getDefaultRootId()
   ])
 
   // PERSON_LIST_COLUMNS leaves out note/created_at; no view reads them.
@@ -85,7 +86,9 @@ export default async function FamilyTreePage({ searchParams }: PageProps) {
 
   // Respect the configured family root before selecting a fallback root.
   if (!finalRootId || !personsMap.has(finalRootId)) {
-    const defaultRootId = await getDefaultRootId()
+    const defaultRootId = rootId
+      ? await getDefaultRootId()
+      : initialDefaultRootId
     if (defaultRootId && personsMap.has(defaultRootId)) {
       finalRootId = defaultRootId
     } else {
